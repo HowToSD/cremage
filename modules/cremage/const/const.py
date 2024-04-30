@@ -1,0 +1,13 @@
+"""
+Defines constants
+"""
+MODE_TEXT_TO_IMAGE = 1
+MODE_IMAGE_TO_IMAGE = 2
+MODE_INPAINTING = 3
+
+THUMBNAIL_IMAGE_EDGE_LENGTH = 256
+MAIN_IMAGE_CANVAS_SIZE = 768
+
+TRUE_FALSE_LIST = ["True", "False"]
+
+FACE_MODEL_NAME = "ip-adapter-faceid-plusv2_sd15.bin"
