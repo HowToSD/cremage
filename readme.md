@@ -1,1 +1,2 @@
-Initial commit. This is a placeholder readme.
+Updated to test commit from remote.
+This is a placeholder readme.
