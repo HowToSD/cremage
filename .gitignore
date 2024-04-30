@@ -1,0 +1,11 @@
+models/control_net/
+models/ldm/
+models/loras/
+outputs/
+**/__pycache__/
+save.sh
+config.yaml
+deploy.sh
+cremage.sh
+tmp*
+modules/annotator/ckpts/
