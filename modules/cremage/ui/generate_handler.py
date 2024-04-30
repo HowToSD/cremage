@@ -14,9 +14,9 @@ from gi.repository import Gtk, GLib
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path = [PROJECT_ROOT, MODULE_ROOT] + sys.path
-from txt2img import parse_options_and_generate
-from img2img import img2img_parse_options_and_generate
-from inpaint import inpaint_parse_options_and_generate
+from sd.txt2img import parse_options_and_generate
+from sd.img2img import img2img_parse_options_and_generate
+from sd.inpaint import inpaint_parse_options_and_generate
 from cremage.const.const import *
 from cremage.utils.gtk_utils import text_view_get_text
 from cremage.utils.misc_utils import override_args_list, generate_lora_params

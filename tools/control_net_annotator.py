@@ -24,6 +24,7 @@ from cremage.control_net.annotator_wrapper import generate_hed
 from cremage.control_net.annotator_wrapper import generate_mlsd
 from cremage.control_net.annotator_wrapper import generate_normal_map
 from cremage.control_net.annotator_wrapper import generate_seg
+from cremage.utils.gtk_utils import open_file_chooser_dialog
 from cremage.utils.gtk_utils import create_combo_box
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 BLANK_IMAGE_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "resources", "images", "blank_image.png")
+    os.path.dirname(__file__), "..", "resources", "images", "blank_image_control_net_open.png")
 OUTPUT_PLACEHOLDER_IMAGE_PATH = os.path.join(
     os.path.dirname(__file__), "..", "resources", "images", "output_placeholder.png")
 ANNOTATOR_LIST = [
@@ -123,6 +124,9 @@ class ControlNetImageAnnotator(Gtk.Window):
         self.normal_background_threshold_label = Gtk.Label(label="Normal background threshold")
         self.normal_background_threshold_entry = Gtk.Entry(text=str(0.4))  # [0.0, 1.0]
 
+        # Wrap the input image in an event box to handle click events
+        self.input_image_wrapper = Gtk.EventBox()
+
         self.image1 = Gtk.Image.new_from_pixbuf(
             pil_image_to_pixbuf(
                 resize_with_padding(self.pil_image, target_width=256,
@@ -131,7 +135,12 @@ class ControlNetImageAnnotator(Gtk.Window):
         self.image1.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
         self.image1.drag_dest_add_text_targets()
         self.image1.connect('drag-data-received', self.on_drag_data_received)
-        
+
+        # Input image click support
+        self.input_image_wrapper.add(self.image1)
+        self.input_image_wrapper.set_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+        self.input_image_wrapper.connect("button-press-event", self.input_image_view_click_handler)
+
         # Output image
         self.image2 = resized_gtk_image_from_file(
             file_path=OUTPUT_PLACEHOLDER_IMAGE_PATH,
@@ -159,7 +168,7 @@ class ControlNetImageAnnotator(Gtk.Window):
         grid.attach(self.normal_background_threshold_label, 0, 3, 1, 1)
         grid.attach(self.normal_background_threshold_entry, 1, 3, 1, 1)
 
-        grid.attach(self.image1, 0, 4, 2, 5)
+        grid.attach(self.input_image_wrapper, 0, 4, 2, 5)
         grid.attach(self.image2, 2, 4, 2, 5)
 
         grid.attach(self.generate_button, 4, 22, 1, 1)
@@ -179,6 +188,15 @@ class ControlNetImageAnnotator(Gtk.Window):
             self.input_image_selected = True
         dialog.destroy()
 
+    def _input_file_selected(self, file_path):
+        self.pil_image = Image.open(file_path)
+        resized_image = resize_with_padding(
+            self.pil_image,
+            target_width=256,
+            target_height=256)
+        self.image1.set_from_pixbuf(pil_image_to_pixbuf(resized_image))
+        self.input_image_selected = True
+
     def on_drag_data_received(self, widget, drag_context, x, y, data, info, time):
         """
         Drag and Drop handler.
@@ -190,13 +208,15 @@ class ControlNetImageAnnotator(Gtk.Window):
         if file_path.startswith('file://'):
             file_path = file_path[7:]
         logger.info(f"on_drag_data_received: {file_path}")
-        self.pil_image = Image.open(file_path)
-        resized_image = resize_with_padding(
-            self.pil_image,
-            target_width=256,
-            target_height=256)
-        self.image1.set_from_pixbuf(pil_image_to_pixbuf(resized_image))
-        self.input_image_selected = True
+        self._input_file_selected(file_path)
+
+    def input_image_view_click_handler(self, widget, event):
+        """
+        Opens a file chooser that lets the user to choose the ControlNet input image.
+        """
+        file_path = open_file_chooser_dialog(app, title="Select an image file")
+        self._input_file_selected(file_path)
+
 
     def on_save_clicked(self, action):
         if self.output_pil_image:

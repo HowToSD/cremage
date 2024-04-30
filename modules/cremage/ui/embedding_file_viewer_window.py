@@ -1,11 +1,13 @@
 
 import os
-
+import sys
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
 
-import set_up_path
+PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
+MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
+sys.path = [MODULE_ROOT] + sys.path
 from cremage.utils.gtk_utils import text_view_set_text, create_combo_box
 from cremage.utils.ml_utils import load_torch_model_paths, load_embedding
 

@@ -1,8 +1,8 @@
 """
 Text to image generator main script.
 """
-import image_generator
-from options import parse_options
+from sd import image_generator
+from sd.options import parse_options
 
 def generate(opt,
              ui_thread_instance=None,

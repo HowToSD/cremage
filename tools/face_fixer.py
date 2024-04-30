@@ -50,8 +50,8 @@ PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
 MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODELS_ROOT = os.path.join(PROJECT_ROOT, "models")
-sys.path = [PROJECT_ROOT, MODULE_ROOT, TOOLS_ROOT] + sys.path
-from img2img import img2img_parse_options_and_generate
+sys.path = [MODULE_ROOT, TOOLS_ROOT] + sys.path
+from sd.img2img import img2img_parse_options_and_generate
 
 from cremage.utils.image_utils import pil_image_to_pixbuf
 from cremage.utils.gtk_utils import text_view_get_text, create_combo_box_typeahead

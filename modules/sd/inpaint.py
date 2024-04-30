@@ -19,17 +19,16 @@ from einops import repeat
 import torch
 from pytorch_lightning import seed_everything
 
-import set_up_path
-from set_up_path import PROJECT_ROOT
+from .set_up_path import PROJECT_ROOT
 LDM_MODEL_DIR = os.path.join(PROJECT_ROOT, "models/ldm")
 LDM_CONFIG_DIR = os.path.join(PROJECT_ROOT, "configs/ldm/configs")
 
 from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
-from options import parse_options
-from image_generator import chunk
-from image_generator import load_model_from_config
+from sd.options import parse_options
+from sd.image_generator import chunk
+from sd.image_generator import load_model_from_config
 from cremage.ui.update_image_handler import update_image
 from cremage.utils.generation_status_updater import StatusUpdater
 from cremage.utils.image_utils import bbox_for_multiple_of_64

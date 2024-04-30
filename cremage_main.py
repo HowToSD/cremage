@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import platform
 
@@ -11,10 +12,9 @@ if os_name == 'Darwin':  # macOS
     gpu_device = "mps"
 else:
     gpu_device = "cuda"
-
 os.environ["GPU_DEVICE"] = gpu_device
 
-import set_up_path
+sys.path = ["modules"] + sys.path
 from cremage.configs.preferences import load_user_config
 user_config = load_user_config()
 if user_config["enable_hf_internet_connection"] == True:

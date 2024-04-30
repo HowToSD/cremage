@@ -29,8 +29,7 @@ from safetensors.torch import save_file, load_file
 from transformers import AutoFeatureExtractor
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
 
-import set_up_path
-from set_up_path import PROJECT_ROOT
+from .set_up_path import PROJECT_ROOT
 LDM_CONFIG_DIR = os.path.join(PROJECT_ROOT, "configs/ldm/configs")
 LDM_MODEL_DIR = os.path.join(PROJECT_ROOT, "models/ldm")
 TOOLS_DIR = os.path.join(PROJECT_ROOT, "tools")
@@ -44,7 +43,7 @@ from cldm.model import create_model, load_state_dict
 from cldm.ddim_hacked import DDIMSampler as DDIMControlNetSampler
 from ldm.models.diffusion.k_diffusion_samplers import EulerAncestralSampler
 from ip_adapter.ip_adapter_faceid import generate_face_embedding_from_image
-from options import parse_options
+from .options import parse_options
 from cremage.utils.ml_utils import model_memory_usage_in_bytes
 from cremage.utils.ml_utils import load_model, load_lora
 from cremage.utils.ml_utils import face_id_model_weight_to_sd_15_model_weight
