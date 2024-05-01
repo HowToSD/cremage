@@ -1,7 +1,3 @@
-# Creamage License
-
-TODO: Update
-
 # Third party licenses
 ## Transformers license
 Downloaded from https://github.com/huggingface/transformers

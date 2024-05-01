@@ -22,9 +22,8 @@ Refer to [Installation Guide](docs/installation_guide.md "View the Installation 
 # User's guide
 Cremage is designed to make it intuitive to use, but there are still things that are not obvious.  I recommend you have a quick look at [User's Guide](docs/users_guide.md "View the User's Guide")
 
-# License
-Cremage is bound by license for Cremage as well as the third-party software that Cremage depends on.  For the third-party software license, please refer to the LICENSE document.
-Cremage is initially released for non-commertial research purpose only, but this is subject to change.  If you are interested in using it commertially, please contact me at support@candee.ai.
+# Non-commercial use
+Cremage is initially released for non-commercial research purpose only, but this is subject to change.  If you are interested in using it commercially, please contact me at support@candee.ai.
 
 # Reporting bugs
 The best way to report a bug is to create an issue on github.
