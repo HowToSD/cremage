@@ -19,6 +19,7 @@ Currently, only systems with NVIDIA GPU and CUDA are supported.
 
     ```
     conda create -n cremage python=3.10
+    conda activate cremage
     ```
 
 2. Install Pytorch
@@ -37,6 +38,14 @@ Currently, only systems with NVIDIA GPU and CUDA are supported.
 4. Install GTK
 
     Cremage uses PyGObject/GTK3 for UI. Follow the installation instructions at https://gnome.pages.gitlab.gnome.org/pygobject/getting_started.html to set up on your platform.
+
+    For example, for Ubuntu, as described in the above doc, I used below commands to install GTK on my machine:
+
+    ```
+    sudo apt install libgirepository1.0-dev gcc libcairo2-dev pkg-config python3-dev gir1.2-gtk-4.0
+
+    pip3 install pycairo
+    ```
 
 5. Install other python packages
     ```
@@ -62,6 +71,7 @@ Currently, only systems with NVIDIA GPU and CUDA are supported.
 
     ```
     conda create -n cremage python=3.10
+    conda activate cremage
     ```
 
 2. Install PyTorch

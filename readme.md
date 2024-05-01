@@ -14,6 +14,8 @@ Cremage offers face fix capability which was pioneered by Adetailer for Automati
 
 In addition, with fully integrated IP-Adapter-FaceID, you can generate consistent face across multiple images.
 
+![Example of consistent faces generated](docs/images/consistent_faces_on_ui.jpg "Consistent faces")
+
 # Installation
 Refer to [Installation Guide](docs/installation_guide.md "View the Installation Guide")
 
