@@ -22,18 +22,22 @@ Refer to [Installation Guide](docs/installation_guide.md "View the Installation 
 # User's guide
 Cremage is designed to make it intuitive to use, but there are still things that are not obvious.  I recommend you have a quick look at [User's Guide](docs/users_guide.md "View the User's Guide")
 
-
 # Usage Restrictions
-## Non-commercial use
-Cremage is initially released for non-commercial research purpose only, but this is subject to change.  If you are interested in using it commercially, please contact me at support@candee.ai.
+
+## Non-commercial Use
+**Cremage** is initially released for non-commercial research purposes only; however, this status is subject to change. If you are interested in using it commercially, please contact us at support@candee.ai.
 
 ## Not Suitable for Minors or Those Sensitive to Potentially Offensive Content
 
-While Stable Diffusion is a powerful and versatile tool for image creation, it possesses the capability to generate content that may be inappropriate for minors. Additionally, there is the potential for Stable Diffusion to produce images that some users might find offensive.
+While **Stable Diffusion** is a powerful and versatile tool for image creation, it has the potential to generate content that may be inappropriate for minors. Additionally, **Stable Diffusion** can occasionally produce images that some users might find offensive.
 
-The Cremage software includes a feature designed to filter out sensitive content; however, this filter is not infallible and may not effectively screen all such content. As a result, Cremage is not suitable for use by minors.
+The **Cremage** software includes a feature designed to filter out sensitive content; however, this filter is not foolproof and may not effectively screen all such content. As a result, **Cremage** is not suitable for use by minors.
 
-By choosing to use Cremage, users acknowledge and accept the risks associated with potential exposure to inappropriate or offensive content. Users assume full responsibility for the use of the software under these conditions.
+By choosing to use **Cremage**, users acknowledge and accept the risks associated with potential exposure to inappropriate or offensive content.
+
+## Lawful and Ethical Purposes Only
+
+Users are reminded that **Cremage** must be used only for lawful and ethical purposes. This includes refraining from using the software to generate images of any real person without the explicit consent of the individuals whose likenesses are to be used. Users assume full responsibility for ensuring their use of the software complies with all applicable laws and ethical standards.
 
 # Reporting bugs
 The best way to report a bug is to create an issue on github.

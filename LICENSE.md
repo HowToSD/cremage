@@ -18,11 +18,15 @@ In no event will Licensor be liable for any damages, including, without limitati
 
 The Software is available for non-commercial, research purposes only. The Licensee shall not use the Software in any manner that is primarily intended for or directed toward commercial advantage or monetary compensation. The use of the Software for commercial purposes is expressly prohibited without the prior written permission of the Licensor.
 
-## 4. Modification of the Agreement
+## 4. Legal and Ethical Use
+
+The Licensee agrees to use the Software only for lawful and ethical purposes. The Licensee shall not use the Software for any illegal activities, nor for generating images of any real person without the explicit consent of the person whose likeness is to be used. The Licensee is solely responsible for ensuring that all use of the Software complies with applicable laws and ethical guidelines.
+
+## 5. Modification of the Agreement
 
 Licensor reserves the right to modify this Agreement at any time. Any modifications will be effective immediately upon posting the updated Agreement on a location accessible to Licensees. It is Licensee's responsibility to review the Agreement periodically to be aware of such modifications. Continued use of the Software after any such modifications shall constitute Licensee's consent to such changes.
 
-## 5. Governing Law
+## 6. Governing Law
 
 This Agreement shall be governed by and construed under the laws of the State of California in the United States of America. Any legal action related to this Agreement shall be brought in the appropriate court located within Santa Clara County, California, United States of America.
 
