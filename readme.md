@@ -19,6 +19,15 @@ In addition, with fully integrated IP-Adapter-FaceID, you can generate consisten
 # Installation
 Refer to [Installation Guide](docs/installation_guide.md "View the Installation Guide")
 
+# System requirements
+* Linux with NVIDIA GPU with at least 8GB of memory
+* Silicon Mac
+
+Windows with NVIDIA GPU should work, but it is not tested yet.
+
+# Getting Started
+If you have not used any Stable Diffusion software, check out [Getting Started](docs/getting_started.md "View Getting Started") first.
+
 # User's guide
 Cremage is designed to make it intuitive to use, but there are still things that are not obvious.  I recommend you have a quick look at [User's Guide](docs/users_guide.md "View the User's Guide")
 
