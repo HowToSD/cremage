@@ -17,6 +17,7 @@ from omegaconf import OmegaConf
 import PIL
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
+from PIL import ImageDraw, ImageFont
 from tqdm import tqdm, trange
 from imwatermark import WatermarkEncoder
 from itertools import islice
@@ -502,7 +503,27 @@ def put_watermark(img, wm_encoder=None):
 def load_replacement(x):
     try:
         hwc = x.shape
-        y = Image.open("assets/rick.jpeg").convert("RGB").resize((hwc[1], hwc[0]))
+        # image_file_path = os.path.join(PROJECT_ROOT, "resources", "images", "safety_replacement_background.png")
+        # y = Image.open(image_file_path).convert("RGB").resize((hwc[1], hwc[0]))
+        y = Image.new('RGB', (hwc[1], hwc[0]), "black")
+
+        # Create a draw object
+        draw = ImageDraw.Draw(y)
+
+        # Set the text to be added
+        text = "Safety check filtered potentially sensitive image.\nTo change settings, go to File | Preferenses."
+        try:
+            font = ImageFont.truetype("arial.ttf", 14)
+        except IOError:
+            logger.info("arial.ttf not found. Using default font.")
+            font = ImageFont.load_default()
+
+        bbox = draw.multiline_textbbox((0, 0), text, font=font, align="left")
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        text_x = (hwc[1] - text_width) / 2
+        text_y = (hwc[0] - text_height) / 2
+        draw.multiline_text((text_x, text_y), text, font=font, fill="white", align="center")
         y = (np.array(y)/255.0).astype(x.dtype)
         assert y.shape == x.shape
         return y
@@ -1040,7 +1061,9 @@ def generate(opt,
                                     "image_height": height,
                                     "image_width": width,
                                     "clip_skip": opt.clip_skip,
-                                    "seed": seed + i
+                                    "seed": seed + i,
+                                    "watermark": opt.watermark,
+                                    "safety_check": opt.safety_check
                                 }
 
                                 if use_control_net:

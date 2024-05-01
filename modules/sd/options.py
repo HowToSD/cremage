@@ -77,11 +77,6 @@ def parse_options(arguments=None):
         default="outputs"
     )
     parser.add_argument(
-        "--skip_grid",
-        action='store_true',
-        help="do not save a grid, only individual samples. Helpful when evaluating lots of samples",
-    )
-    parser.add_argument(
         "--skip_save",
         action='store_true',
         help="do not save individual samples. For speed measurements.",
@@ -250,21 +245,19 @@ def parse_options(arguments=None):
     )
     parser.add_argument(
         "--safety_check",
-        type=bool,
-        help="enable safety check for generated image",
-        default=True
+        action="store_true",
+        help="enable safety check for generated image"
     )   
     parser.add_argument(
         "--watermark",
-        type=bool,
-        help="enable safety check for generated image",
-        default=False
+        action="store_true",
+        help="enable safety check for generated image"
     )   
     parser.add_argument(
         "--save_memory",
-        type=bool,
+        action="store_true",
         help="move CLIP and VAE models to CPU during diffusing to save GPU memory",
-        default=True
+        default=True  # TODO. Provide a way to disable this
     )    
     parser.add_argument(
         "--hires_fix_upscaler",
@@ -276,7 +269,6 @@ def parse_options(arguments=None):
         "--auto_face_fix",
         action="store_true",
         help="Apply face fix automatically for each generated image",
-        default=False
     )
  
     opt = parser.parse_args(arguments)

@@ -47,6 +47,7 @@ class Config:
     seed: int
     hires_fix_upscaler: str
     auto_face_fix: bool
+    hide_k_diffusion_samplers: bool
 
 def load_user_config():
 
@@ -66,30 +67,32 @@ def load_user_config():
             "ldm_inpaint_model": "sd-v1-5-inpainting.ckpt",
             "vae_model_path": "models/vae",
             "control_model_path": "models/control_net",
+            "control_model": "None",
             "embedding_path": "models/embeddings",
             "vae_model": "vae-ft-mse-840000-ema-pruned.ckpt",
             "sampler": "DDIM",
             "sampling_steps": 50,
             "cfg": 7.5,
-            "hires_fix_upscaler": None,
+            "hires_fix_upscaler": "None",
             "lora_model_path": "models/loras",
-            "lora_model_1": None,
-            "lora_model_2": None,
-            "lora_model_3": None,
-            "lora_model_4": None,
-            "lora_model_5": None,
+            "lora_model_1": "None",
+            "lora_model_2": "None",
+            "lora_model_3": "None",
+            "lora_model_4": "None",
+            "lora_model_5": "None",
             "lora_weight_1": 1.0,
             "lora_weight_2": 1.0,
             "lora_weight_3": 1.0,
             "lora_weight_4": 1.0,
             "lora_weight_5": 1.0,
-            "positive_prompt_expansion": "",
-            "negative_prompt_expansion": "",
+            "positive_prompt_expansion": ", highly detailed, photorealistic, 4k, 8k, uhd, highres, raw photo, best quality, masterpiece",
+            "negative_prompt_expansion": ", worst quality, low quality, lowres",
             "enable_positive_prompt_expansion": True,
             "enable_negative_prompt_expansion": True,
             "enable_hf_internet_connection": True,
             "seed": -1,
-            "auto_face_fix": True
+            "auto_face_fix": True,
+            "hide_k_diffusion_samplers": True
         }
         OmegaConf.save(config, CONFIG_FILE_PATH)
 

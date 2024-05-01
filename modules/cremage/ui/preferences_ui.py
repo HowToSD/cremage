@@ -38,6 +38,7 @@ class PreferencesWindow(Gtk.Window):
             "embedding_path": Gtk.Entry(text=preferences["embedding_path"]),
             "safety_check": create_combo_box(TRUE_FALSE_LIST, int(not preferences["safety_check"])),
             "watermark": create_combo_box(TRUE_FALSE_LIST, int(not preferences["watermark"])),
+            "enable_hf_internet_connection": create_combo_box(TRUE_FALSE_LIST, int(not preferences["enable_hf_internet_connection"])),
         }
 
         # Add fields to the grid

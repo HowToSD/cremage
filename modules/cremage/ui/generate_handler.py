@@ -90,7 +90,6 @@ def generate_handler(app, widget, event) -> None:
 
     args_list = ["--prompt", positive_prompt,
                     "--negative_prompt", negative_prompt,
-                    "--safety_check", app.preferences["safety_check"],
                     "--H", image_height,
                     "--W", image_width,
                     "--sampler", sampler,
@@ -111,6 +110,10 @@ def generate_handler(app, widget, event) -> None:
                     "--lora_weights", lora_weights,
                     "--outdir", app.output_dir,
                     "--strength", denoising_strength]
+    if app.preferences["safety_check"]:
+        args_list.append("--safety_check")
+    if app.preferences["watermark"]:
+        args_list.append("--watermark")
     if auto_face_fix:
         args_list.append("--auto_face_fix")
         

@@ -421,7 +421,7 @@ def main_ui_definition(app) -> None:
     css_provider = Gtk.CssProvider()
     css_provider.load_from_data(css)
 
-    sampler_list = sampler_name_list  # If you need to filter out any sampler, do here.
+    sampler_list = list(filter(lambda e: e.find("DDIM") >= 0, sampler_name_list)) if app.preferences["hide_k_diffusion_samplers"] else sampler_name_list  # If you need to filter out any sampler, do here.
     hires_fix_upscaler_list = hires_fix_upscaler_name_list
 
     fields1 = {
