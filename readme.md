@@ -21,7 +21,7 @@ Even using a high-quality fine-tuned model, Stable Diffusion can still generate 
   <img src="docs/images/bad_faces_fixed.png" alt="Example of bad faces fixed">
   <figcaption>Example of face fix applied to the image</figcaption>
 </figure>
-
+<br>
 
 In addition, with fully integrated IP-Adapter-FaceID, you can generate consistent face across multiple images.
 
