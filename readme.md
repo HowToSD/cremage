@@ -25,7 +25,7 @@ Cremage is designed to make it intuitive to use, but there are still things that
 # Usage Restrictions
 
 ## Non-commercial Use
-**Cremage** is initially released for non-commercial research purposes only; however, this status is subject to change. If you are interested in using it commercially, please contact us at support@candee.ai.
+**Cremage** is initially released for non-commercial research purposes only; however, this status is subject to change. If you are interested in using it commercially, please contact me at support@candee.ai.
 
 ## Not Suitable for Minors or Those Sensitive to Potentially Offensive Content
 
