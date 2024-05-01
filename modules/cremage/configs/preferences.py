@@ -59,9 +59,9 @@ def load_user_config():
             "image_width": 512,
             "image_height": 512,
             "clip_skip": 1,
-            "batch_size": 2,
-            "number_of_batches": 2,
-            "denoising_strength": 0.75,
+            "batch_size": 1,
+            "number_of_batches": 1,
+            "denoising_strength": 0.7,
             "ldm_model_path": "models/ldm",
             "ldm_model": "v1-5-pruned.ckpt",
             "ldm_inpaint_model": "sd-v1-5-inpainting.ckpt",
@@ -91,7 +91,7 @@ def load_user_config():
             "enable_negative_prompt_expansion": True,
             "enable_hf_internet_connection": True,
             "seed": -1,
-            "auto_face_fix": True,
+            "auto_face_fix": False,
             "hide_k_diffusion_samplers": True
         }
         OmegaConf.save(config, CONFIG_FILE_PATH)
