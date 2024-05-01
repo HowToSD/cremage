@@ -759,7 +759,6 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
 
         args_list = ["--prompt", positive_prompt,
                      "--negative_prompt", negative_prompt,
-                     "--safety_check", False,
                      "--H", str(TARGET_EDGE_LEN),
                      "--W", str(TARGET_EDGE_LEN),
                      "--clip_skip", clip_skip,

@@ -762,7 +762,6 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
 
         args_list = ["--prompt", positive_prompt,
                      "--negative_prompt", negative_prompt,
-                     "--safety_check", False,
                      "--H", str(TARGET_EDGE_LEN),
                      "--W", str(TARGET_EDGE_LEN),
                      "--clip_skip", clip_skip,
@@ -775,6 +774,8 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
                      "--lora_models", lora_models,
                      "--lora_weights", lora_weights,                                            
                      "--outdir", output_dir]
+        if self.preferences["safety_check"]:
+            args_list.append("--safety_check")
         input_image_path = os.path.join(get_tmp_dir(), "input_image.png")
         input_image.save(input_image_path)
 
