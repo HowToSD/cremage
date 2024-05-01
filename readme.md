@@ -10,7 +10,17 @@ For example, if you are starting out with AI image generation, you can just ente
 You can also go back to any of the previously generated image and tweak as Cremage provides the same image editing capability irrespective of whether it's newly generated or images generated months ago.
 
 # High quality face generation
-Cremage offers face fix capability which was pioneered by Adetailer for Automatic1111. Cremage allows you to improve face during and after image generation, resulting in high quality face images.
+Cremage offers face fix capability which is inpired by a feature pioneered by Adetailer for Automatic1111. Cremage allows you to improve face during and after image generation, resulting in high quality face images.
+
+<figure>
+  <img src="docs/images/bad_faces.png" alt="Example of bad faces">
+  <figcaption>Example of bad faces</figcaption>
+</figure>
+
+<figure>
+  <img src="docs/images/bad_faces_fixed.png" alt="Example of bad faces fixed">
+  <figcaption>Example of face fix applied to the image</figcaption>
+</figure>
 
 In addition, with fully integrated IP-Adapter-FaceID, you can generate consistent face across multiple images.
 
