@@ -24,7 +24,7 @@ Even using a high-quality fine-tuned model, Stable Diffusion can still generate 
 </figure>
 
 ## Consistent face generation
-In addition, with fully integrated IP-Adapter-FaceID, you can effortlessly generate the face of a same person consistently across multiple images. This feature is designed to be easy to use and all you have to do is specify the a source face image and press Generation with the desired prompt.
+In addition, with fully integrated IP-Adapter-FaceID, you can effortlessly generate the face of a same person consistently across multiple images. This feature is designed to be easy to use and all you have to do is specifying the a source face image and the desired prompt.
 
 ![Example of consistent faces generated](docs/images/consistent_faces_on_ui.jpg "Consistent faces")
 
