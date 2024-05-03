@@ -15,13 +15,13 @@ import logging
 import sys
 import shutil
 import json
-
+import time
 from PIL import Image
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path = [MODULE_ROOT] + sys.path
 
@@ -207,7 +207,9 @@ def update_main_image(app:Gtk.Window, listbox_index:int) -> None:
     image_path = app.image_paths[current_image_index]
 
     # Original size
-    app.current_image = Image.open(image_path)
+    tmp_image = Image.open(image_path)
+    app.current_image = tmp_image.copy()
+    tmp_image.close()
 
     # Resized image
     pil_image = load_resized_pil_image(image_path, target_size=target_size)
@@ -284,7 +286,11 @@ def delete_image(app:Gtk.Window, listbox_index:int):
     base_name = os.path.basename(image_path)
     target_file_path = os.path.join(app.trash_dir, base_name)
     if os.path.exists(target_file_path):
-        target_file_path = os.path.splitext(target_file_path)[0] + time.time().now() + os.path.splitext(target_file_path)[1]
+        # If target path already exists in a trash directory,
+        # create a new file name by appending the time to the base name of the file.
+        target_file_path = os.path.splitext(target_file_path)[0] + str(time.time()) + os.path.splitext(target_file_path)[1]
+
+    # Move the file to trash dir
     shutil.move(image_path, target_file_path)
 
     # Update the list of image files

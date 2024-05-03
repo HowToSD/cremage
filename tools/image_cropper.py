@@ -48,7 +48,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GdkPixbuf
 import cairo
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 sys.path = [TOOLS_ROOT, MODULE_ROOT] + sys.path

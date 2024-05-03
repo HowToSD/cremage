@@ -38,7 +38,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GdkPixbuf
 import cairo
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODELS_ROOT = os.path.join(PROJECT_ROOT, "models")
@@ -388,12 +388,11 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         """
         cr_save = cr
         original_surface = cr_save.get_target()
-        width, height = original_surface.get_width(), original_surface.get_height()
 
         # Create additional context
         surface2 = cairo.ImageSurface(cairo.FORMAT_ARGB32,
-                                      width,
-                                      height)
+                                      self.width,
+                                      self.height)
         cr = cairo.Context(surface2)
         cr.set_line_join(cairo.LINE_JOIN_ROUND)  # Or cairo.LINE_JOIN_BEVEL
 

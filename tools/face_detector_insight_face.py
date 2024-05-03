@@ -26,7 +26,7 @@ import cv2
 import numpy as np 
 from skimage import transform as trans
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODELS_ROOT = os.path.join(PROJECT_ROOT, "models")

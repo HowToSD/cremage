@@ -18,13 +18,14 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GdkPixbuf
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 
 sys.path = [MODULE_ROOT, TOOLS_ROOT] + sys.path
 from tool_base import ToolBase
 from cremage.utils.image_utils import pil_image_to_pixbuf
+from cremage.utils.misc_utils import get_tmp_file
 from cremage.utils.gtk_utils import show_alert_dialog, set_pil_image_to_gtk_image
 from gfpgan_wrapper import gfp_wrapper
 
@@ -209,13 +210,20 @@ class ImageScaler(ToolBase):  # Subclass Window object
         parser.add_argument('-w', '--weight', type=float, default=0.5, help='Adjustable weights.')
         parser.add_argument('-o', '--output', type=str, default="tmpgfp.png", help='Output image path')
 
-        # Use tempfile to create a temporary file to save pil image
-        with tempfile.NamedTemporaryFile(delete=True, suffix=".png") as tmp:
-            self.pil_image.save(tmp.name)
-            logger.info(f"Image temporarily saved to a temporary path: {tmp.name}")
-            args = parser.parse_args(["--input", tmp.name,
-                                    "--output", output_file_path])  
-            gfp_wrapper(args)
+        # Use a temporary file to save pil image
+        tmp_name = get_tmp_file(".png")
+        self.pil_image.save(tmp_name)
+        logger.info(f"Image temporarily saved to a temporary path: {tmp_name}")
+        args = parser.parse_args(["--input", tmp_name,
+                                "--output", output_file_path])  
+        gfp_wrapper(args)
+
+        if os.path.exists(tmp_name) is False:
+            ValueError("Failed in creating a temp file.")
+        os.remove(tmp_name)
+        logger.info(f"Deleted tmp file {tmp_name}")
+        if os.path.exists(tmp_name):
+            ValueError("Failed in removing a temp file.")
 
     # drag & drop handlers
     def on_drag_data_received(self, widget, drag_context, x, y, data, info, time):

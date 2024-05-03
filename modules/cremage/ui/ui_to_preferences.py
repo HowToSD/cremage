@@ -11,7 +11,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path = [MODULE_ROOT] + sys.path
 from cremage.configs.preferences import save_user_config

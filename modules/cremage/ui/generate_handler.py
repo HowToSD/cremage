@@ -11,7 +11,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path = [PROJECT_ROOT, MODULE_ROOT] + sys.path
 from sd.txt2img import parse_options_and_generate

@@ -10,7 +10,7 @@ import PIL
 from PIL import Image
 import cv2
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..") 
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", "..")) 
 MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 RESOURCE_IMAGES_DIR = os.path.join(PROJECT_ROOT, "resources", "images")
 

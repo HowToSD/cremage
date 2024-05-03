@@ -4,7 +4,7 @@ import unittest
 
 import torch
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..") 
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..")) 
 MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 LDM_CONFIG_DIR = os.path.join(PROJECT_ROOT, "configs/ldm/configs")
 sys.path = [MODULE_ROOT] + sys.path

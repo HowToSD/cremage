@@ -13,6 +13,7 @@ https://github.com/CompVis/taming-transformers
 ```
 """
 import os
+import sys
 import logging
 
 import torch
@@ -27,6 +28,9 @@ from tqdm import tqdm
 from torchvision.utils import make_grid
 from pytorch_lightning.utilities.distributed import rank_zero_only
 from omegaconf import ListConfig
+
+MODULE_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+sys.path = [MODULE_ROOT] + sys.path
 
 from ldm.util import log_txt_as_img, exists, default, ismap, isimage, mean_flat, count_params, instantiate_from_config
 from ldm.modules.ema import LitEma

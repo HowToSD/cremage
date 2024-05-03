@@ -9,7 +9,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import GLib
 from PIL import Image
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path = [PROJECT_ROOT, MODULE_ROOT] + sys.path
 from cremage.utils.image_utils import pil_image_to_pixbuf

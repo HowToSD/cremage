@@ -3,6 +3,7 @@ Miscellaneous utility functions
 """
 import os
 import sys
+import time
 import platform
 import subprocess
 import time
@@ -45,6 +46,19 @@ def get_tmp_dir():
     if os.path.exists(TMP_DIR) is False:
         os.makedirs(TMP_DIR)
     return TMP_DIR
+
+
+def get_tmp_file(extension:str="") -> str:
+    """
+    Returns a temporary file name.
+
+    Args:
+        extention(str): The optional file extension.
+    Returns:
+        A temporary file name in a temporary directory.
+    """
+    file_name = str(time.time()) + extension
+    return os.path.join(get_tmp_dir(), file_name)
 
 
 def clean_tmp_dir():

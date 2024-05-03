@@ -46,11 +46,13 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODELS_ROOT = os.path.join(PROJECT_ROOT, "models")
 sys.path = [MODULE_ROOT, TOOLS_ROOT] + sys.path
+OPENCV_FACE_DETECTION_MODEL_PATH = os.path.join(MODELS_ROOT, "opencv", "face_detection_yunet_2023mar.onnx")
+
 from sd.img2img import img2img_parse_options_and_generate
 
 from cremage.utils.image_utils import pil_image_to_pixbuf
@@ -58,8 +60,6 @@ from cremage.utils.gtk_utils import text_view_get_text, create_combo_box_typeahe
 from cremage.utils.misc_utils import generate_lora_params
 from cremage.utils.misc_utils import get_tmp_dir
 from cremage.ui.model_path_update_handler import update_ldm_model_name_value_from_ldm_model_dir
-
-OPENCV_FACE_DETECTION_MODEL_PATH = os.path.join(MODELS_ROOT, "opencv", "face_detection_yunet_2023mar.onnx")
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -806,7 +806,10 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
         file_name = os.path.join(output_dir, files[0])
         if os.path.exists(file_name):
             image = Image.open(file_name)
-            os.remove(file_name)  # Remove 
+            image2 = image.copy()
+            image.close()
+            os.remove(file_name)  # Remove the temporary image
+            image = image2
             return image
         else:
             raise ValueError(f"Invalid output file from img2img {file_name}")

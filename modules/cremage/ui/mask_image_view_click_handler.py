@@ -11,7 +11,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "..")
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path = [TOOLS_ROOT, MODULE_ROOT] + sys.path
