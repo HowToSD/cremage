@@ -33,6 +33,7 @@ Refer to [Installation Guide](docs/installation_guide.md "View the Installation 
 
 # System requirements
 * Linux with NVIDIA GPU with at least 8GB of memory
+* Microsoft Windows with NVIDIA GPU with at least 8GB of memory
 * Silicon Mac
 
 Windows with NVIDIA GPU should work, but it is not tested yet.
