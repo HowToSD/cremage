@@ -36,8 +36,6 @@ Refer to [Installation Guide](docs/installation_guide.md "View the Installation 
 * Microsoft Windows with NVIDIA GPU with at least 8GB of memory
 * Silicon Mac
 
-Windows with NVIDIA GPU should work, but it is not tested yet.
-
 # Getting Started
 If you have not used any Stable Diffusion software, check out [Getting Started](docs/getting_started.md "View Getting Started") first.
 
