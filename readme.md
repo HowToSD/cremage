@@ -32,8 +32,8 @@ In addition, with fully integrated IP-Adapter-FaceID, you can effortlessly gener
 Refer to [Installation Guide](docs/installation_guide.md "View the Installation Guide")
 
 # System requirements
-* Linux with NVIDIA GPU with at least 8GB of memory
-* Microsoft Windows with NVIDIA GPU with at least 8GB of memory
+* Linux with NVIDIA GPU with at least 8GB of GPU memory
+* Microsoft Windows with NVIDIA GPU with at least 8GB of GPU memory
 * Silicon Mac
 
 # Getting Started
