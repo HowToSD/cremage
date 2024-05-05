@@ -3,15 +3,15 @@ Welcome to Cremage.
 Cremage is designed with the following goals in mind:
 
 1. Make it easy to generate images even if you are not familiar with AI.
-2. Make it easy for a power user for tweak new images as well as previously generated images.
+2. Make it easy for a power user for tweaking new images as well as previously generated images.
 
-For example, if you are starting out with AI image generation, you can just enter positive prompt and press the Generate button to create images without tweaking any options.
+For example, if you are starting out with AI image generation, you can just enter a positive prompt and press the Generate button to create images without tweaking any options.
 
 You can also go back to any of the previously generated image and tweak as Cremage provides the same image editing capability irrespective of whether it's newly generated or images generated months ago.
 
 # High quality face generation
 ## Bad face fix
-Even using a high-quality fine-tuned model, Stable Diffusion can still generate bad face when the size of the face is relatively small. Cremage offers face fix capability which is inpired by a feature pioneered by Adetailer for Automatic1111. Cremage allows you to improve face during and after image generation, resulting in high quality face images.
+Even using a high-quality fine-tuned model, Stable Diffusion can still generate a bad face when the size of the face is relatively small. Cremage offers face fix capability which is inpired by a feature pioneered by Adetailer for Automatic1111. Cremage allows you to improve face during and after image generation, resulting in high quality face images.
 
 <figure>
   <img src="docs/images/bad_faces.png" alt="Example of bad faces">
@@ -58,6 +58,11 @@ By choosing to use **Cremage**, users acknowledge and accept the risks associate
 ## Lawful and Ethical Purposes Only
 
 Users are reminded that **Cremage** must be used only for lawful and ethical purposes. This includes refraining from using the software to generate images of any real person without the explicit consent of the individuals whose likenesses are to be used. Users assume full responsibility for ensuring their use of the software complies with all applicable laws and ethical standards.
+
+# Updates
+May 4, 2024: Experimental segmentation inpainting was added.
+[Watch the demo video](docs/videos/segmentation_inpainting_4x_speed.mp4)
+(Note the video is 4x speed of the actual).
 
 # Reporting bugs
 The best way to report a bug is to create an issue on github.
