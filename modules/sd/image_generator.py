@@ -56,7 +56,6 @@ from cremage.utils.generation_status_updater import StatusUpdater
 from cremage.utils.sampler_utils import instantiate_sampler
 from cremage.utils.hires_fix_upscaler_utils import hires_fix_upscaler_name_list
 from cremage.utils.ml_utils import scale_pytorch_images
-from face_fixer import FaceFixer
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -1092,6 +1091,7 @@ def generate(opt,
 
                                 # Extra processing start
                                 if opt.auto_face_fix:
+                                    from face_fixer import FaceFixer
                                     logger.info("Applying face fix")
                                     app = load_user_config()
                                     face_fixer = FaceFixer(preferences=app)

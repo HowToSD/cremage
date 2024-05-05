@@ -604,7 +604,6 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
             bottom = y + h
             crop_rectangle = (x, y, right, bottom)
             cropped_image = pil_image.crop(crop_rectangle)
-            print(cropped_image.size)
 
             # TODO: Detect race and age
             inputs = processor(images=cropped_image, return_tensors="pt")
@@ -640,7 +639,7 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
             updated_face_pil_image = self.face_image_to_image(
                 input_image=base_image,
                 meta_prompt=predicted_gender)
-            updated_face_pil_image.save("tmpface.jpg")
+            updated_face_pil_image.save(os.path.join(get_tmp_dir(), "tmpface.jpg"))
 
             # Crop to remove padding
             updated_face_pil_image = updated_face_pil_image.crop(
@@ -888,10 +887,10 @@ def main():
         "seed": "0"
     }
 
-    pil_image = Image.open("human_couple.png")   # FIXME
+    pil_image = Image.open("../cremage_resources/human_couple.png")   # FIXME
     app = FaceFixer(
         pil_image=pil_image,
-        output_file_path="tmp_face_fix.png",
+        output_file_path=os.path.join(get_tmp_dir(), "tmp_face_fix.png"),
         positive_prompt=None,
         negative_prompt=None,
         preferences=preferences)

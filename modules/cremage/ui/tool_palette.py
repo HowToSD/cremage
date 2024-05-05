@@ -21,6 +21,7 @@ from tools.image_scaler import ImageScaler
 from tools.spot_inpainter import SpotInpainter
 from tools.face_fixer import FaceFixer
 from tools.graffiti_editor import GraffitiEditor
+from tools.image_segmenter import ImageSegmenter
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -58,8 +59,9 @@ class ToolPaletteArea():
                             self.on_scale_clicked,
                             self.on_spot_inpaint_clicked,
                             self.on_face_fix_clicked,
-                            self.on_graffiti_editor_clicked]
-        tool_names = ["Crop", "Scale", "Spot inpainting", "Face fix", "Graffiti editor"]
+                            self.on_graffiti_editor_clicked,
+                            self.on_image_segmenter_clicked]
+        tool_names = ["Crop", "Scale", "Spot inpainting", "Face fix", "Graffiti editor", "Segmentation inpainting"]
 
         grid = Gtk.Grid()
         # Set margins for the grid
@@ -81,6 +83,7 @@ class ToolPaletteArea():
         self.spot_inpainter = None
         self.face_fixer = None
         self.graffiti_editor = None
+        self.image_segmenter = None
 
         parent_box.pack_start(grid, True, True, 0)
 
@@ -187,6 +190,33 @@ class ToolPaletteArea():
             self.graffiti_editor.connect("delete-event", self.on_graffiti_editor_delete)
         self.graffiti_editor.show_all()   
 
+
+    def on_image_segmenter_clicked(self, widget, event):
+        """
+        Event handler for the face detect button click
+        """
+        logger.info("Spot inpainter clicked")
+
+        if self.image_segmenter is None:
+            if self.get_current_image_call_back is not None and \
+                self.get_tool_processed_file_path_call_back is not None:
+                self.image_segmenter = ImageSegmenter(
+                    pil_image=self.get_current_image_call_back(),
+                    output_file_path=self.get_tool_processed_file_path_call_back(),
+                    save_call_back=self.save_call_back,
+                    preferences=self.preferences,
+                    generation_information_call_back=self.generation_information_call_back)
+            else:
+                self.image_segmenter = ImageSegmenter()
+            self.image_segmenter.connect("delete-event", self.on_image_segmenter_delete)
+        self.image_segmenter.show_all()        
+
+
+
+
+
+
+
     def on_image_cropper_delete(self, widget, event):
         logger.info("Image cropper is destroyed")
         self.image_cropper = None 
@@ -207,3 +237,6 @@ class ToolPaletteArea():
         logger.info("Graffiti editor is destroyed")
         self.graffiti_editor = None 
 
+    def on_image_segmenter_delete(self, widget, event):
+        logger.info("Image segmenter is destroyed")
+        self.image_segmenter = None 

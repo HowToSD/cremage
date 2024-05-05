@@ -98,6 +98,35 @@ def resize_with_padding(image: Image,
     else:
         return base_image
 
+
+def get_single_bounding_box_from_grayscale_image(cv_img: np.ndarray):
+    """
+    Detects a single bounding box that surrounds all connected regions in the input grayscale image.
+
+    Args:
+        cv_img (numpy.ndarray): Rank 2 OpenCV image. Each pixel can contain 0-255 in uint8.
+    Returns:
+        Tuple (left, top, width, height) of the bounding box. If no region is found,
+        returns None.
+    """
+    bounding_boxes = get_bounding_boxes_from_grayscale_image(cv_img)
+    
+    if not bounding_boxes:
+        return None
+    
+    # Get the coordinates of the top-left and bottom-right corners of the union of all bounding boxes
+    x_min = min(box[0] for box in bounding_boxes)
+    y_min = min(box[1] for box in bounding_boxes)
+    x_max = max(box[0] + box[2] for box in bounding_boxes)
+    y_max = max(box[1] + box[3] for box in bounding_boxes)
+    
+    # Calculate the width and height of the combined bounding box
+    width = x_max - x_min
+    height = y_max - y_min
+    
+    return x_min, y_min, width, height
+
+
 def get_bounding_boxes_from_grayscale_image(cv_img: np.ndarray):
     """
     Detects the list of bounding boxes that surround connected regions in the input grayscale image.
