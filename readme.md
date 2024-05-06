@@ -28,6 +28,12 @@ In addition, with fully integrated IP-Adapter-FaceID, you can effortlessly gener
 
 ![Example of consistent faces generated](docs/images/consistent_faces_on_ui.jpg "Consistent faces")
 
+## Easy to use as a digital makeup tool
+It's easy to use Cremage as a digital makeup tool with integrated ControlNet and img2img.
+Below is an example where the original image was processed in Cremage to reduce wrinkles and skin spots:
+
+![Example of digital makeup](docs/images/digital_makeup.jpg "Digital makeup")
+
 # Installation
 Refer to [Installation Guide](docs/installation_guide.md "View the Installation Guide")
 
