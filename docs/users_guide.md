@@ -1,6 +1,7 @@
 # User's guide
 
 * [Navigating generated images](users_guide/ug_navigation.md "Nagivation")
+* [Output directory for images](users_guide/ug_output_path.md "Output directory for images")
 * [Fixing a face](users_guide/ug_fixing_face.md "Fixing a face")
 * [Generate a consistent face](users_guide/ug_generate_consistent_face.md "Generate a consistent face")
 * [Inpainting](users_guide/ug_inpainting.md "Inpainting")
