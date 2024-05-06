@@ -4,5 +4,7 @@
 * [Fixing a face](users_guide/ug_fixing_face.md "Fixing a face")
 * [Generate a consistent face](users_guide/ug_generate_consistent_face.md "Generate a consistent face")
 * [Inpainting](users_guide/ug_inpainting.md "Inpainting")
+* [LoRA](users_guide/ug_lora.md "LoRA")
+* [ControlNet](users_guide/control_ne.md "ControlNet")
 * [Textual inversion embedding](users_guide/ug_embedding.md "Textual inversion embedding")
 * [Prompt weight](users_guide/ug_prompt_weight.md "Prompt weight")
