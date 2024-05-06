@@ -1,5 +1,5 @@
 # Inpainting
-Inpainting is an effective to fix an undesired object or an artifact (e.g. seams in the image or some parts of the image not matching the rest after face fix).
+Inpainting is an effective way to fix an undesired object or an artifact (e.g. seams in the image or some parts of the image not matching the rest after face fix).
 
 Follow below steps to apply inpainting to your image:
 
