@@ -13,3 +13,5 @@ To navigate, first click an image on the list, then press any key in the table b
 | Shift+Ctrl+g | Go to the marked image |
 | Del | Erase current image |
 | Backspace | Erase current image |
+
+There is also a scrollbar to the right of the image list box that you can drag to scroll fast.

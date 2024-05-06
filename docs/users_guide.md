@@ -6,5 +6,6 @@
 * [Inpainting](users_guide/ug_inpainting.md "Inpainting")
 * [LoRA](users_guide/ug_lora.md "LoRA")
 * [ControlNet](users_guide/ug_control_net.md "ControlNet")
+* [Hires fix](users_guide/ug_hires_fix.md "Hires fix")
 * [Textual inversion embedding](users_guide/ug_embedding.md "Textual inversion embedding")
 * [Prompt weight](users_guide/ug_prompt_weight.md "Prompt weight")
