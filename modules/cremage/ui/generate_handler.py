@@ -124,7 +124,8 @@ def generate_handler(app, widget, event) -> None:
         args_list += [
             "--face_input_img", face_input_image_path,
             "--face_model", join_directory_and_file_name(
-                app.preferences["control_model_path"], FACE_MODEL_NAME)
+                app.preferences["control_model_path"], FACE_MODEL_NAME),
+            "--face_strength", str(app.preferences["face_strength"])
         ]
 
     if app.generation_mode in (MODE_IMAGE_TO_IMAGE, MODE_INPAINTING):

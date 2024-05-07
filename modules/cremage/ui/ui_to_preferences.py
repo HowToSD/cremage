@@ -46,7 +46,8 @@ INT_FIELDS = [
 
 FLOAT_FIELDS = [
     "denoising_strength",
-    "cfg"
+    "cfg",
+    "face_strength"
 ]
 
 TEXT_VIEW_FIELDS = [

@@ -305,7 +305,7 @@ def load_model_from_config(config, opt, verbose=False, inpainting=False):
         lora_ranks = [128] + lora_ranks
         lora_weights = [1.0] + lora_weights
         loras = [None] + loras
-        current_config["params"]["unet_config"]["params"]["ipa_scale"] = 1.0
+        current_config["params"]["unet_config"]["params"]["ipa_scale"] = opt.face_strength
         current_config["params"]["unet_config"]["params"]["ipa_num_tokens"] = 4
         
     current_config["params"]["unet_config"]["params"]["lora_ranks"] = lora_ranks
@@ -1069,6 +1069,7 @@ def generate(opt,
                                     generation_parameters["control_net"] = os.path.basename(opt.control_models)
                                 if load_face_id:
                                     generation_parameters["face_image"] = os.path.basename(opt.face_input_img)
+                                    generation_parameters["face_strength"] = opt.face_strength
                                 if use_hires_fix:
                                     generation_parameters["hires_fix"] = opt.hires_fix_upscaler
                                     generation_parameters["upscale width"] = opt.W * hires_fix_upscale_factor

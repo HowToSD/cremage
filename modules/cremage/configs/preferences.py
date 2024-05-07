@@ -48,6 +48,7 @@ class Config:
     hires_fix_upscaler: str
     auto_face_fix: bool
     hide_k_diffusion_samplers: bool
+    face_strength: float
 
 def load_user_config():
 
@@ -92,7 +93,8 @@ def load_user_config():
             "enable_hf_internet_connection": True,
             "seed": -1,
             "auto_face_fix": False,
-            "hide_k_diffusion_samplers": True
+            "hide_k_diffusion_samplers": True,
+            "face_strength": 1.0
         }
         OmegaConf.save(config, CONFIG_FILE_PATH)
 

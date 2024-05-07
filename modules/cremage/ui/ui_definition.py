@@ -677,6 +677,7 @@ def main_ui_definition(app) -> None:
     grid.set_margin_end(10)    # Margin on the right side
     grid.set_margin_top(10)    # Margin on the top
     grid.set_margin_bottom(10) # Margin on the bottom
+    row = 6
 
     vbox.pack_start(grid, True, True, 0)
 
@@ -722,21 +723,37 @@ def main_ui_definition(app) -> None:
 
     close_button.connect("clicked", lambda widget, app=app: face_input_image_view_close_handler(app, widget))
     app.face_input_image_closable_container.pack_start(close_button, False, False, 0)
-    grid.attach(app.face_input_image_closable_container, 1, 6, 2, 1)
+    grid.attach(app.face_input_image_closable_container, 1, row, 2, 1)
+    row += 1
 
     # Checkbox to disable face id
     app.disable_face_input_checkbox = Gtk.CheckButton(label="Disable face input")
-    grid.attach(app.disable_face_input_checkbox, 1, 7, 1, 1)
+    grid.attach(app.disable_face_input_checkbox, 1, row, 1, 1)
+    row += 1
+
+    # Strength
+    box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+    box.set_halign(Gtk.Align.CENTER)
+    box.set_valign(Gtk.Align.CENTER)
+    
+    label = Gtk.Label(label="Strength")
+    box.pack_start(label, True, False, 0)
+    app.fields["face_strength"] = Gtk.Entry(text="1.0")
+    box.pack_start(app.fields["face_strength"], True, False, 0)
+    grid.attach(box, 1, row, 1, 1)
+    row += 1
 
     # Button to open face data directory
     app.open_face_dir_button = Gtk.Button(label="Open face image directory")
     app.open_face_dir_button.connect('button-press-event', lambda widget, event, app=app: open_face_dir_button_handler(app, widget, event))
-    grid.attach(app.open_face_dir_button, 1, 8, 1, 1)
+    grid.attach(app.open_face_dir_button, 1, row, 1, 1)
+    row += 1
 
     # Button to copy current image
     app.copy_current_image_to_face_button = Gtk.Button(label="Copy from current image")
     app.copy_current_image_to_face_button.connect('button-press-event', lambda widget, event, app=app: copy_current_image_to_face_button_handler(app, widget, event))
-    grid.attach(app.copy_current_image_to_face_button, 1, 9, 1, 1)
+    grid.attach(app.copy_current_image_to_face_button, 1, row, 1, 1)
+    row += 1
 
     # Save preferences button
     add_save_preferences_button()

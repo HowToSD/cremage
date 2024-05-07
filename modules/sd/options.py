@@ -56,7 +56,13 @@ def parse_options(arguments=None):
         default="None",
         nargs="?",
         help="path to the face model"
-    )   
+    )
+    parser.add_argument(
+        "--face_strength",
+        type=float,
+        default=1.0,
+        help="strength of Face ID image in [0.0, 1.0]"
+    )
     parser.add_argument(
         "--embedding_path",
         type=str,

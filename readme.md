@@ -24,9 +24,9 @@ Even using a high-quality fine-tuned model, Stable Diffusion can still generate 
 </figure>
 
 ## Consistent face generation
-In addition, with fully integrated IP-Adapter-FaceID, you can effortlessly generate the face of a same person consistently across multiple images. This feature is designed to be easy to use and all you have to do is specifying the a source face image and the desired prompt.
+In addition, with fully integrated IP-Adapter-FaceID, you can effortlessly generate the face of a same person consistently across multiple images. This feature is designed to be easy to use and all you have to do is specifying the a source face image and the desired prompt.  Check out a demo video on X by clicking the image below:
 
-![Example of consistent faces generated](docs/images/consistent_faces_on_ui.jpg "Consistent faces")
+[![Watch the demo on X video](docs/images/face_generation_demo.jpg)](https://twitter.com/i/status/1787696937124475046)
 
 ## Easy to use as a digital makeup tool
 It's easy to use Cremage as a digital makeup tool with integrated ControlNet and img2img.
@@ -69,6 +69,14 @@ Users are reminded that **Cremage** must be used only for lawful and ethical pur
 May 4, 2024: Experimental segmentation inpainting was added.
 [Watch the demo video](docs/videos/segmentation_inpainting_4x_speed.mp4)
 (Note the video is 4x speed of the actual).
+
+May 6, 2024: *BREAKING CHANGE*  Made face strength of FaceID configurable. Using a text editor, add the following line at the bottom of config.yaml in the Cremage installation directory.
+
+```
+face_strength: 0.7
+```
+
+Existing Cremage installation will fail to start without making this change.
 
 # Reporting bugs
 The best way to report a bug is to create an issue on github.
