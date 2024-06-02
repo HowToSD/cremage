@@ -3,6 +3,7 @@ Miscellaneous utility functions
 """
 import os
 import sys
+import re
 import time
 import platform
 import subprocess
@@ -16,6 +17,29 @@ TMP_DIR = os.path.join(os.path.expanduser("~"), ".cremage", "tmp")
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
+
+
+def extract_embedding_filenames(prompt:str) -> List[str]:
+    """
+    Extracts one or more embedding file names from a prompt.
+
+    Args:
+        prompt(str): A positive or negative prompt.
+    Returns:
+        A list of embedding file names. If no embedding file name is detected,
+        an empty list is returned.
+    """
+    if prompt is None:
+        return []
+    
+    # Define the regex pattern for the special token <embedding:embedding_file_name>
+    # The file name is a sequence of any characters except ">"
+    pattern = r'<embedding:([^>]+)>'
+
+    # Find all matches of the pattern in the prompt
+    matches = re.findall(pattern, prompt)
+    
+    return matches
 
 
 def open_os_directory(directory_path:str) -> None:
@@ -130,7 +154,8 @@ def str_to_detected_data_type(s: str):
 
 def override_args_list(args_list: List[str],
                        generation_string: str,
-                       preferences_dict: Dict[str, Any]):
+                       preferences_dict: Dict[str, Any],
+                       sdxl=False):
     """
 
     Example dict reconstructed from generation_string:
@@ -171,9 +196,25 @@ def override_args_list(args_list: List[str],
             retval[j+1] = override_dict["negative_prompt"]
         if args_list[j] == "--clip_skip" and "clip_skip" in override_dict:
             retval[j+1] = str(override_dict["clip_skip"])
+        if args_list[j] == "--scale" and "cfg" in override_dict:
+            retval[j+1] = str(override_dict["cfg"])
+        if args_list[j] == "--sampler" and "sampler" in override_dict:
+            sampler = str(override_dict["sampler"])
+            if sdxl:
+                sampler += "Sampler"
+            retval[j+1] = sampler
+        if args_list[j] == "--sampling_steps" and "sampling_iterations" in override_dict:
+            retval[j+1] = str(override_dict["sampling_iterations"])
+        if args_list[j] == "--H" and "image_height" in override_dict:
+            retval[j+1] = str(override_dict["image_height"])
+        if args_list[j] == "--W" and "image_width" in override_dict:
+            retval[j+1] = str(override_dict["image_width"])
         if args_list[j] == "--ckpt" and "ldm_model" in override_dict:
             retval[j+1] = os.path.join(
                 preferences_dict["ldm_model_path"], override_dict["ldm_model"])
+        if args_list[j] == "--vae_ckpt" and "vae_model" in override_dict:
+            retval[j+1] = os.path.join(
+                preferences_dict["vae_model_path"], override_dict["vae_model"])
         if args_list[j] == "--lora_models" and "lora_models" in override_dict:
             # Convert each relative path to full path
             if override_dict["lora_models"]:
@@ -187,13 +228,49 @@ def override_args_list(args_list: List[str],
         if args_list[j] == "--lora_weights" and "lora_weights" in override_dict:
             retval[j+1] = override_dict["lora_weights"]
 
+        # sdxl refiner
+        if args_list[j] == "--refiner_sdxl_ckpt" and "refiner_ldm_model" in override_dict:
+            retval[j+1] = os.path.join(
+                preferences_dict["sdxl_ldm_model_path"], override_dict["refiner_ldm_model"])
+
+        if args_list[j] == "--refiner_sdxl_vae_ckpt" and "refiner_vae_model" in override_dict:
+            retval[j+1] = os.path.join(
+                preferences_dict["sdxl_vae_model_path"], override_dict["refiner_vae_model"])
+
+        if args_list[j] == "--refiner_sdxl_lora_models" and "refiner_lora_models" in override_dict:
+            # Convert each relative path to full path
+            if override_dict["refiner_lora_models"]:
+                l = override_dict["refiner_lora_models"].split(",")
+                l = [os.path.join(
+                    preferences_dict["sdxl_lora_model_path"], e.strip()) for e in l if len(e.strip()) > 0]
+                l = ",".join(l)
+            else:
+                l = ""
+            retval[j+1] = l
+
+        if args_list[j] == "--refiner_sdxl_lora_weights" and "refiner_lora_weights" in override_dict:
+            retval[j+1] = override_dict["refiner_lora_weights"]
+
+        if args_list[j] == "--refiner_strength" and "refiner_strength" in override_dict:
+            retval[j+1] = str(override_dict["refiner_strength"])
+
+        if args_list[j] == "--hires_fix_upscaler" and "hires_fix_upscaler" in override_dict:
+            retval[j+1] = str(override_dict["hires_fix_upscaler"])
+
+        if args_list[j] == "--hires_fix_scale_factor" and "hires_fix_scale_factor" in override_dict:
+            retval[j+1] = str(override_dict["hires_fix_scale_factor"])
+
     return retval
 
 
-def generate_lora_params(preferences: Dict[str, Any]) -> Tuple[str, str]:
+def generate_lora_params(preferences: Dict[str, Any],
+                         sdxl=False,
+                         refiner=False) -> Tuple[str, str]:
     """
     Generate lora_models and lora_weights string parameters from preferences dictionary.
     """
+    lora_model_path_key = "lora_model_path"
+
     # Comma-separated LoRA paths and weight list
     lora_model_params = [
         "lora_model_1",
@@ -202,6 +279,17 @@ def generate_lora_params(preferences: Dict[str, Any]) -> Tuple[str, str]:
         "lora_model_4",
         "lora_model_5",
     ]
+    prefix = ""
+    if sdxl:
+        prefix = "sdxl_"
+        lora_model_path_key = "sdxl_" + lora_model_path_key
+    if refiner:
+        prefix = "refiner_sdxl_"
+        lora_model_path_key = "sdxl_" + lora_model_path_key
+
+    if prefix:
+        lora_model_params = [prefix + e for e in lora_model_params]
+
     lora_weight_params = [
         "lora_weight_1",
         "lora_weight_2",
@@ -209,12 +297,15 @@ def generate_lora_params(preferences: Dict[str, Any]) -> Tuple[str, str]:
         "lora_weight_4",
         "lora_weight_5",
     ]
+
+    lora_weight_params = [prefix + e for e in lora_weight_params]
+
     lora_models = []        
     lora_weights = []        
     for e in lora_model_params:
         if preferences[e] is not None and preferences[e] != "None":
             model_path = os.path.join(
-                preferences["lora_model_path"],
+                preferences[lora_model_path_key],
                 preferences[e])
             print(model_path)
         else:

@@ -30,8 +30,18 @@ def update_mask_image_from_editor(app: Gtk.Window, image: Image):
             resize_pil_image(image, target_size=THUMBNAIL_IMAGE_EDGE_LENGTH))
         app.mask_image.set_from_pixbuf(source_pixbuf)
         app.mask_image_original_size = image
-        app.mask_image_container_box.show_all()
+        app.mask_image_wrapper.show_all()
 
+
+def compute_canvas_width_height(canvas_edge_length, image_width, image_height):
+    
+    if image_width > image_height:  # landscape
+        new_width = canvas_edge_length
+        new_height = int(canvas_edge_length * image_height / image_width)
+    else: # portrait
+        new_height = canvas_edge_length
+        new_width = int(canvas_edge_length * image_width / image_height)
+    return new_width, new_height
 
 def mask_image_view_click_handler(app, widget, event):
         if app.input_image_original_size:
@@ -45,11 +55,14 @@ def mask_image_view_click_handler(app, widget, event):
                 update_mask_image_from_editor, app
         )
 
+        canvas_edge_length = 768  # FIXME
+        canvas_width, canvas_height = compute_canvas_width_height(canvas_edge_length, width, height)
+
         mask_editor = MaskImageEditor(
                         base_image=app.input_image_original_size,
                         mask_image=app.mask_image_original_size,
                         output_file_path=app.mask_image_path,
-                        width=width,
-                        height=height,
+                        width=canvas_width,
+                        height=canvas_height,
                         parent_window_update_func=update_mask_image_from_editor_wrapper)
         mask_editor.show_all()

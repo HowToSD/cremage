@@ -22,6 +22,7 @@ from cremage.ui.preferences_ui import PreferencesWindow
 from cremage.ui.token_viewer_window import TokenViewerWindow
 from cremage.ui.embedding_file_viewer_window import EmbeddingFileViewerWindow
 from cremage.utils.misc_utils import open_os_directory
+from cremage.ui.ui_to_preferences import copy_ui_field_values_to_preferences
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ def main_menu_definition(app) -> None:
     tools_menu.append(token_viewer_item)
 
     # Embedding file viewer menu item
-    embedding_file_viewer_item = Gtk.MenuItem(label="Embedding file viewer")
+    embedding_file_viewer_item = Gtk.MenuItem(label="TI Embedding")
     embedding_file_viewer_item.connect("activate", lambda widget, app=app:open_embedding_file_viewer(app, widget))   
     tools_menu.append(embedding_file_viewer_item)
     
@@ -112,7 +113,17 @@ def on_tool_palette_window_delete(app, widget, event):
 # Embedding file viewer
 def open_embedding_file_viewer(app, widget):
     if not hasattr(app, "embedding_file_viewer_window") or not app.embedding_file_viewer_window:
-        app.embedding_file_viewer_window = EmbeddingFileViewerWindow(embedding_path=app.preferences["embedding_path"])
+
+        copy_ui_field_values_to_preferences(app)
+
+        if app.preferences["generator_model_type"] == "SD 1.5":
+            embedding_path = app.preferences["embedding_path"]
+        else:  # if sdxl
+            embedding_path = app.preferences["sdxl_embedding_path"]
+
+        app.embedding_file_viewer_window = EmbeddingFileViewerWindow(app=app,
+                                                                     embedding_path=embedding_path,
+                                                                     embedding_images_dir=app.embedding_images_dir)
         app.embedding_file_viewer_window.connect("delete-event", lambda widget, event, app=app: on_embedding_file_viewer_delete(app, widget, event))
     app.embedding_file_viewer_window.show_all()
 

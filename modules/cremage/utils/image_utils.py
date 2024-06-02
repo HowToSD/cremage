@@ -3,15 +3,174 @@ Utility functions related to handling images
 """
 import io
 import os
-from typing import List
+import time
+from typing import List, Dict
+import json
 
+from einops import rearrange
+import torch
 import numpy as np
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GdkPixbuf
 import PIL
 from PIL import Image
+from PIL.PngImagePlugin import PngInfo
 import cv2 as cv
+
+from .misc_utils import extract_embedding_filenames
+
+def tensor_to_pil_image(tzo_image: torch.tensor):
+    """
+
+    Args:
+        tzo_image: Torch tensor in (c, h, w) with values in [0, 1].
+            tzo stands for tensor, zero, one
+    Returns:
+        Tuple of Image in PIL RGB format and torch device name that the tensor is on.
+    """
+    image = rearrange(tzo_image, "c h w -> h w c")
+    pil_image = Image.fromarray(
+        (image.detach().cpu().numpy() * 255.0).astype(np.uint8))
+    return pil_image, str(tzo_image.device)
+
+
+def pil_image_to_tensor(pil_image: torch.tensor, device=None, half=True):
+    """
+
+    Args:
+        pil_image: Image in PIL RGB format
+        half: Returns a float16 tensor if True. Else returns a float32 tensor.
+    Returns:
+        Torch tensor in (c, h, w) with values in [0, 1].
+    """
+    image = torch.tensor(np.asarray(pil_image).astype(np.float32))
+    t = rearrange(image, "h w c -> c h w") / 255.0
+    if half:
+        t = t.half()
+    if device is None:
+        if torch.cuda.is_available():
+            t = t.to("cuda")
+    else:
+        t = t.to(device)
+    return t
+
+
+def put_watermark(img, wm_encoder=None):
+    """
+    Add a watermark to the image.
+
+    TODO: Consolidate this with SD1.5
+
+    Args:
+        img (Image): PIL-format image
+        wm_encoder (WaterMarkEncoder)
+    """
+    if wm_encoder is not None:
+        img = cv.cvtColor(np.array(img), cv.COLOR_RGB2BGR)
+        img = wm_encoder.encode(img, 'dwtDct')
+        img = Image.fromarray(img[:, :, ::-1])
+    return img
+
+
+def save_torch_tensor_as_image_with_watermark(
+        opt,
+        save_dir: str,
+        tzo_img: torch.tensor,
+        meta:Dict=None,
+        meta_attribute_name:str="generation_data",
+        file_number:int=None,
+        wm_encoder=None) -> Image:
+    """
+    Saves a PyTorch tensor as a file with meta data.
+
+    Args:
+        save_dir (str): Directory name of the file. If the directory does not exist, it will be created automatically.
+        tzo_img (torch.Tensor): Torch tensor on GPU memory (e.g. CUDA) in the C, H, W format that needs to be saved.
+                            It can be on the regular RAM as well.
+                            The image has to be in float in [0, 1].
+                            tzo stands for tensor, zero, one.
+        meta (Dict): Meta data contained in a Python dictionary.
+        meta_attribute_name (str): Name of the meta field to be stored in the file.
+        file_number (int): A number used as a part of the file name.
+        wm_encoder (WatermarkEncoder): Watermark encoder instance. If None, do not put watermark.
+   
+    Returns:
+        The image in the PIL format.
+    """
+    # Check if directory exists
+    if os.path.exists(save_dir) is False:
+        os.makedirs(save_dir)
+
+    str_generation_params = json.dumps(meta)
+    metadata = PngInfo()
+    metadata.add_text(meta_attribute_name, str_generation_params)
+
+    img = 255. * rearrange(tzo_img.cpu().numpy(), 'c h w -> h w c')
+    img = Image.fromarray(img.astype(np.uint8))
+
+    if wm_encoder:
+        img = put_watermark(img, wm_encoder)
+
+    time_str = time.time()
+    file_name =  os.path.join(save_dir, f"{file_number:05}_{time_str}.png")
+
+    img.save(file_name, pnginfo=metadata)
+    img.info[meta_attribute_name] = str_generation_params
+
+
+    # Save image as a sample image for the embeddings used
+    # Extract embedding file name if any
+    embedding_images_dir = opt.embedding_images_dir
+    if embedding_images_dir:
+        if os.path.exists(embedding_images_dir) is False:
+            os.makedirs(embedding_images_dir)
+    for prompt in [opt.prompt, opt.negative_prompt]:
+        embedding_file_names = extract_embedding_filenames(prompt)
+        for file_name in embedding_file_names:
+            img.save(
+                os.path.join(embedding_images_dir,
+                        f"{file_name}.png"),
+                pnginfo=metadata)
+
+    return img
+
+
+def save_torch_tensor_as_image(
+        save_path: str,
+        img: torch.tensor,
+        meta:Dict=None,
+        meta_attribute_name="generation_data") -> Image:
+    """
+    Saves a PyTorch tensor as a file with meta data.
+
+    Args:
+        save_path (str): Full path of the file. If the directory does not exist, it will be created automatically.
+        img (torch.Tensor): Torch tensor on GPU memory (e.g. CUDA) in the C, H, W format that needs to be saved.
+                            It can be on the regular RAM as well.
+                            The image has to be in float in [0, 1].
+        meta (Dict): Meta data contained in a Python dictionary.
+        meta_attribute_name (str): Name of the meta field to be stored in the file.
+
+    Returns:
+        The image in the PIL format.
+    """
+    # Check if directory exists
+    dir_name = os.path.dirname(save_path)
+    if os.path.exists(dir_name) is False:
+        os.makedirs(dir_name)
+
+    str_generation_params = json.dumps(meta)
+    metadata = PngInfo()
+    metadata.add_text(meta_attribute_name, str_generation_params)
+
+    img = 255. * rearrange(img.cpu().numpy(), 'c h w -> h w c')
+    img = Image.fromarray(img.astype(np.uint8))
+
+    img.save(save_path, pnginfo=metadata)
+    img.info[meta_attribute_name] = str_generation_params
+    return img
+
 
 def bbox_for_multiple_of_64(width, height):
     def compute(edge_len):

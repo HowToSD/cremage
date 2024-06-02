@@ -21,12 +21,10 @@ The goal is to identify the bounding box for each mask which is a connected regi
 import os
 import sys
 import logging
-import argparse
-from io import BytesIO
 import tempfile
 import threading
 import shutil
-from typing import Dict, Any, Tuple
+from typing import Tuple
 from dataclasses import dataclass
 
 import numpy as np
@@ -35,7 +33,7 @@ import PIL
 from PIL import Image
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GdkPixbuf
+from gi.repository import Gtk, Gdk
 import cairo
 
 PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
@@ -44,13 +42,12 @@ TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODELS_ROOT = os.path.join(PROJECT_ROOT, "models")
 sys.path = [MODULE_ROOT, TOOLS_ROOT] + sys.path
 from sd.img2img import img2img_parse_options_and_generate
-
 from cremage.utils.image_utils import pil_image_to_pixbuf, get_bounding_boxes_from_grayscale_image
 from cremage.utils.gtk_utils import show_alert_dialog
-from cremage.utils.gtk_utils import text_view_get_text
+from cremage.utils.gtk_utils import text_view_get_text, create_combo_box_typeahead
 from cremage.utils.misc_utils import generate_lora_params
 from cremage.utils.misc_utils import get_tmp_dir
-
+from cremage.ui.model_path_update_handler import update_ldm_model_name_value_from_ldm_model_dir
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -62,7 +59,6 @@ else:
 
 TARGET_EDGE_LEN = 512  # FIXME
 SPOT_FIX_TMP_DIR = os.path.join(get_tmp_dir(), "spot_fix.tmp")
-
 SELECTED_COLOR =  (0, 0x7B/255.0, 0xFF/255.0, 0.5) # "#007BFF"
 UNSELECTED_COLOR = (0xD3/255.0, 0xD3/255.0, 0xD3/255.0, 0.5)
 
@@ -97,7 +93,13 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
                  positive_prompt=None,
                  negative_prompt=None,
                  generation_information_call_back=None,
-                 preferences=None):
+                 preferences=None,
+                 status_queue=None):
+        """
+        Args:
+            pil_image: An image to inpaint.
+            procedural (bool): True if called from img2img. False if invoked on the UI
+        """
         super().__init__(title="Spot inpainting")
 
         self.show_mask = True  # To display mask (area to be inpainted) on canvas
@@ -114,11 +116,31 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         self.generation_information_call_back = generation_information_call_back
         self.pen_width = 10
         self.is_eraser = False
-        self.base_image = pil_image  # PIL format image
+        self.pil_image = pil_image  # PIL format image
+        self.status_queue = status_queue
+        self.ldm_model_names = None # This is populated in update_ldm_model_name_value_from_ldm_model_dir
+        self.enable_lora = False
+        update_ldm_model_name_value_from_ldm_model_dir(self)
 
-        # UI definition
-        self.width, self.height = pil_image.size
-        self.set_default_size(600, 800)  # width, height
+        self.generation_information = dict()
+        if self.generation_information_call_back is not None:
+            d = self.generation_information_call_back()
+            if d:  # The original image may not have generation info
+                self.generation_information = d
+
+        # Create an Image widget
+        if pil_image is None:
+            pil_image = Image.new('RGBA', (512, 768), "gray")
+        self.pil_image = pil_image
+        self.pil_image_original = self.pil_image  # Make a copy to restore
+
+        # Put placeholder values - These are re-computed at the end of this method
+        self.image_width, self.image_height = self.pil_image.size
+        canvas_edge_length = 768
+        self.canvas_width = canvas_edge_length
+        self.canvas_height = canvas_edge_length
+        self.set_default_size(self.canvas_width + 200, self.canvas_height)  # This will be re-computed too.
+
         self.set_border_width(10)
 
         # Create a vertical Gtk.Box
@@ -159,37 +181,56 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         container_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         root_box.pack_start(container_box, True, True, 0)  # Add container_box to root_box under the menu
 
-        # Create a ScrolledWindow
-        scrolled_window = Gtk.ScrolledWindow()
-        scrolled_window.set_hexpand(True)
-        scrolled_window.set_vexpand(True)
-        scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        # Create a horizontal Box layout for the drawing area and vertical slider
+        drawing_area_wrapper_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        container_box.pack_start(drawing_area_wrapper_box, True, True, 0)
 
-        # Drawing area
-        width = self.base_image.size[0]
-        height = self.base_image.size[1]
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        drawing_area_wrapper_box.pack_start(hbox, True, True, 0)
+
+        # Create a Gtk.Image and set the Pixbuf
         self.drawing_area = Gtk.DrawingArea()
-        self.drawing_area.set_size_request(width, height)
-        scrolled_window.add(self.drawing_area)
-        
-        # Event handling for drawing
+
+        # Setup drag and drop for the image area
+        # Click support
         self.drawing_area.add_events(
             Gdk.EventMask.BUTTON_PRESS_MASK |
-            Gdk.EventMask.POINTER_MOTION_MASK |
-            Gdk.EventMask.BUTTON_RELEASE_MASK)
-        
+            Gdk.EventMask.BUTTON_RELEASE_MASK |
+            Gdk.EventMask.POINTER_MOTION_MASK)
+
         self.drawing_area.connect("button-press-event", self.on_button_press)  # LMB click
         self.drawing_area.connect("motion-notify-event", self.on_motion_notify)  # LMB drag
         self.drawing_area.connect("button-release-event", self.on_button_release)  # LMB release
         self.drawing_area.connect("draw", self.on_draw)
 
-        self.lines_list = []  # Store drawing points
+        # Drag & drop support
+        self.drawing_area.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
+        self.drawing_area.drag_dest_add_text_targets()
+        self.drawing_area.connect('drag-data-received', self.on_drag_data_received)
 
-        # Add the ScrolledWindow to the root_box
-        container_box.pack_start(scrolled_window,
-                        True,  # expand this field as the parent container expand
-                        True,  # take up the initially assigned space
-                        0)
+        self.drawing_area.set_size_request(self.canvas_width, self.canvas_height)
+        hbox.pack_start(self.drawing_area, False, False, 0)
+
+        # Create the vertical slider for Y translation
+        self.v_slider = Gtk.Scale(orientation=Gtk.Orientation.VERTICAL)
+        # self.v_slider.set_range(0, 1000)  # Set initial range
+        self.v_slider.set_range(0, 0)  # Set initial range
+        self.v_slider.set_value(0)
+        # self.v_slider.set_inverted(True)
+        self.v_slider.set_draw_value(False)  # Remove the number inside the slider
+        self.v_slider.connect("value-changed", self.on_vscroll)
+        hbox.pack_start(self.v_slider, False, False, 0)
+
+        # Create the horizontal slider for X translation
+        self.h_slider = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL)
+        # self.h_slider.set_range(0, 1000)  # Set initial range
+        self.h_slider.set_range(0, 0)  # Set initial range
+        self.h_slider.set_value(0)
+        self.h_slider.set_draw_value(False)  # Remove the number inside the slider
+        self.h_slider.connect("value-changed", self.on_hscroll)
+        drawing_area_wrapper_box.pack_start(self.h_slider, False, False, 0)
+
+        self.lines_list = []  # Store drawing points
 
         # Vertical Box for controls next to the ScrolledWindow
         controls_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -225,22 +266,50 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         controls_box.pack_start(self.show_mask_checkbox, False, False, 0)
         self.show_mask_checkbox.set_active(True)
 
+        # LDM model
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        root_box.pack_start(box, False, False, 0)
+        model_name = self.preferences["ldm_model"]
+        # Check to see if we have generation info to override
+        if "ldm_model" in self.generation_information:
+            model_name = self.generation_information["ldm_model"]
+        ldm_label = Gtk.Label()
+        ldm_label.set_text("Model")
+        ldm_label.set_halign(Gtk.Align.START)  # Align label to the left
+        box.pack_start(ldm_label, False, False, 0)
+        
+        if model_name in self.ldm_model_names:
+            ind = self.ldm_model_names.index(model_name)
+            self.enable_lora = True
+        else:
+            model_name = self.preferences["ldm_model"]
+            ind = self.ldm_model_names.index(model_name)
+            # ind = 0
+
+        self.ldm_model_cb = create_combo_box_typeahead(
+            self.ldm_model_names,
+            ind)
+        box.pack_start(self.ldm_model_cb, False, False, 0)
+
+
         #
         # Denoise entry
         #
+        # box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         denoise_label = Gtk.Label()
         denoise_label.set_text("Denoising strength")
         denoise_label.set_halign(Gtk.Align.START)  # Align label to the left
-        controls_box.pack_start(denoise_label, False, False, 0)
+        box.pack_start(denoise_label, False, False, 0)
     
         self.denoise_text = Gtk.Entry(text=self.preferences["denoising_strength"])
-        controls_box.pack_start(self.denoise_text, False, True, 0)
+        box.pack_start(self.denoise_text, False, True, 0)
 
         # Slider for pen width
         pen_width_label = Gtk.Label()
         pen_width_label.set_text("Pen width")
         pen_width_label.set_halign(Gtk.Align.START)  # Align label to the left
         root_box.pack_start(pen_width_label, False, False, 0)
+        # root_box.pack_start(box, False, False, 0)
 
         self.slider = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 1, 256, 1)
         self.slider.set_value(self.pen_width)
@@ -268,7 +337,76 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         # Add the text view to the positive_frame, and then add the positive_frame to the vbox
         positive_frame.add(self.positive_prompt_field)
         root_box.pack_start(positive_frame, False, False, 0)
- 
+
+        # Button box
+        button_box = Gtk.Box(spacing=6)
+        root_box.pack_start(button_box, False, True, 0)
+
+        # Add the zoom in button
+        self.zoom_in_button = Gtk.Button(label="+")
+        self.zoom_in_button.connect("clicked", self.on_zoom_in)
+        button_box.pack_start(self.zoom_in_button, False, False, 0)
+
+        # Add the zoom out button
+        self.zoom_out_button = Gtk.Button(label="-")
+        self.zoom_out_button.connect("clicked", self.on_zoom_out)
+        button_box.pack_start(self.zoom_out_button, False, False, 0)
+
+        # Add the reset button
+        self.reset_button = Gtk.Button(label="Reset")
+        self.reset_button.connect("clicked", self.on_reset)
+        button_box.pack_start(self.reset_button, False, False, 0)
+
+        # Translation support
+        self.translation = [0, 0]
+        self.scale_factor = 1.0
+
+        # Set up matrix with scale and translate elements. This is to convert screen to 
+        # cairo (logical coordinates)
+        # Below internally calls self.update_transform_matrix(), so no need to call it
+        # before.
+        # result is stored in self.transform_matrix
+        self._process_new_image()
+
+        # Variables required to show highlighting the mouse drag
+        self.drag_start_pos = None
+        self.drag_end_pos = None
+        self.in_motion = False
+
+    def update_transform_matrix(self, cr):
+        """
+        Update the transformation matrix with translation and scaling.
+        """
+        # This is to convert mouse click pos to Cairo conversion
+        self.transform_matrix_1 = cairo.Matrix()  # Create an identity matrix
+        self.transform_matrix_1.translate(self.translation[0], self.translation[1])
+        self.transform_matrix_1.scale(self.scale_factor, self.scale_factor)
+        
+        # this is used by Cairo to draw
+        # This incorporates menu and other offsets
+        self.transform_matrix = cr.get_matrix()
+        self.transform_matrix.translate(self.translation[0], self.translation[1])
+        self.transform_matrix.scale(self.scale_factor, self.scale_factor)
+
+
+    def screen_to_cairo_coord(self, x, y) -> Tuple[int, int]:
+        """
+        Converts screen coordinates to Cairo coordinates.
+
+        Screen coordinates are physical coordinates used in mouse events.
+        Cairo coordinates are logical coordinate used for Cairo drawing.
+
+        Args:
+            x (int): x in screen coordinates
+            y (int): y in screen coordinates
+        Returns:
+            Tuple of x, y in Cairo coordinates
+        """
+        inv_transform = cairo.Matrix(*self.transform_matrix_1)
+        inv_transform.invert()  # screen coordinates to cairo logical coordinates
+        x_logical, y_logical = inv_transform.transform_point(x, y)
+        return x_logical, y_logical
+
     def on_clear_clicked(self, widget):
         self.mask_image=None
         self.lines_list.clear()
@@ -283,13 +421,14 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         # Generate an image from drawing area
         # Create a new transparent surface
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 
-                                     self.drawing_area.get_allocated_width(),
-                                     self.drawing_area.get_allocated_height())       
+                                     self.image_width,
+                                     self.image_height)
+
         # Create a new canvas
         cr = cairo.Context(surface)
 
         # Fill background with black
-        black_background_image = Image.new('RGBA', (self.width, self.height), "black")
+        black_background_image = Image.new('RGBA', (self.image_width, self.image_height), "black")
         pixbuf = pil_image_to_pixbuf(black_background_image)   
         Gdk.cairo_set_source_pixbuf(cr, pixbuf, 0, 0)
         cr.paint()       
@@ -308,7 +447,7 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         cv_img = cv.cvtColor(cv_img, cv.COLOR_RGBA2GRAY)
         
         # Clip by the image size
-        cv_img = cv_img[0:self.base_image.size[1], 0:self.base_image.size[0]]
+        cv_img = cv_img[0:self.pil_image.size[1], 0:self.pil_image.size[0]]
         return cv_img
 
     def on_show_mask_toggled(self, checkbox):
@@ -329,12 +468,14 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
     def detect_bounding_boxes(self):
         # Create a new off-screen canvas to mirror drawing area
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32,
-                                     self.drawing_area.get_allocated_width(),
-                                     self.drawing_area.get_allocated_height())
+                                     self.image_width,
+                                     self.image_height)
         cr = cairo.Context(surface)
 
         # Fill background with black
-        black_background_image = Image.new('RGBA', (self.width, self.height), "black")
+        black_background_image = Image.new('RGBA',
+                                           (self.image_width, self.image_height),
+                                           "black")
         pixbuf = pil_image_to_pixbuf(black_background_image)   
         Gdk.cairo_set_source_pixbuf(cr, pixbuf, 0, 0)
         cr.paint()       
@@ -391,8 +532,8 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
 
         # Create additional context
         surface2 = cairo.ImageSurface(cairo.FORMAT_ARGB32,
-                                      self.width,
-                                      self.height)
+                                      self.image_width,
+                                      self.image_height)
         cr = cairo.Context(surface2)
         cr.set_line_join(cairo.LINE_JOIN_ROUND)  # Or cairo.LINE_JOIN_BEVEL
 
@@ -425,13 +566,12 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         This method is triggered when a method calls self.drawing_area.queue_draw().
         The client does not directly call this method.
         """
-        if self.base_image:
-            base_image = self.base_image
-        else:
-            base_image = Image.new('RGBA', (self.width, self.height), "black")
+        # Compute the transform matrix
+        self.update_transform_matrix(cr)  # update transform_matrix
+        cr.set_matrix(self.transform_matrix)
 
-        pixbuf = pil_image_to_pixbuf(base_image)   
-        Gdk.cairo_set_source_pixbuf(cr, pixbuf, 0, 0)
+        # Paint base image
+        Gdk.cairo_set_source_pixbuf(cr, self.pixbuf_with_base_image, 0, 0)
         cr.paint()  # render the content of pixbuf in the source buffer on the canvas
 
         if self.show_mask:
@@ -454,31 +594,75 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         """
         Handles the LMB press event.
         """
+        logger.debug(f"DEBUG physical: click pos (screen coord): x:{event.x}, y:{event.y}")
+        x, y = self.screen_to_cairo_coord(event.x, event.y)
+
         # Create new lines data
         ld = LinesData(pen_width=self.pen_width,
                        is_eraser=self.is_eraser,
-                       points=[(event.x, event.y)])
+                       points=[(x, y)])
         self.lines_list.append(ld)
         self.show_mask_checkbox.set_active(True)
+        self.drawing_area.queue_draw()  # refresh image canvas
 
     def on_motion_notify(self, widget, event):
         """
         Handles the LMB drag event.
         """
+        x, y = self.screen_to_cairo_coord(event.x, event.y)
+
         if event.state & Gdk.ModifierType.BUTTON1_MASK:
             current_lines_data_index = len(self.lines_list) - 1
             current_lines_data = self.lines_list[current_lines_data_index]
-            current_lines_data.points.append((event.x, event.y))
+            current_lines_data.points.append((x, y))
             self.drawing_area.queue_draw()
 
     def on_button_release(self, widget, event):
         """
         Handles the LMB release event
         """
+        x, y = self.screen_to_cairo_coord(event.x, event.y)
         current_lines_data_index = len(self.lines_list) - 1
         current_lines_data = self.lines_list[current_lines_data_index]
-        current_lines_data.points.append((event.x, event.y))
+        current_lines_data.points.append((x, y))
         self.drawing_area.queue_draw()
+
+    def _process_new_image(self):
+        """
+        Computes various image-related values.
+
+        The only input needed is self.pil_image
+
+        Sets 
+          pixbuf for the input image
+          image width & height
+          canvas width & height (drawing area)
+          adjust the canvas size based on above
+        
+        """
+        # Creates pixbuf from the original input image to be used in on_draw
+        self.pixbuf_with_base_image = pil_image_to_pixbuf(self.pil_image)
+        self.image_width, self.image_height = self.pil_image.size
+
+        # Compute canvas size (DrawingArea for Cairo)
+        canvas_edge_length = 768  # FIXME
+        if self.image_width > self.image_height:  # landscape
+            new_width = canvas_edge_length
+            new_height = int(canvas_edge_length * self.image_height / self.image_width)
+        else: # portrait
+            new_height = canvas_edge_length
+            new_width = int(canvas_edge_length * self.image_width / self.image_height)
+        self.canvas_width = new_width
+        self.canvas_height = new_height
+
+        # Update the canvas size to match the new base image
+        self.drawing_area.set_size_request(new_width, new_height)
+        
+        # Adjust the main window size here if necessary
+        self.set_default_size(new_width + 200, new_height)
+        self.resize(new_width + 200, new_height)
+
+        self._adjust_matrix_redraw_canvas()
 
     def create_dialog(self, title):
         dialog = Gtk.FileChooserDialog(title=title, parent=self,
@@ -501,7 +685,7 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         self.detect_bounding_boxes()
         boxes = self.bounding_boxes
 
-        pil_image = self.base_image
+        pil_image = self.pil_image
         cv_mask_image = self.get_current_mask()
 
         if boxes is not None:
@@ -512,17 +696,18 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
                        face_rect.bottom - face_rect.top)
                 pil_image = self.process_box(pil_image, cv_mask_image, box)
 
-        self.base_image = pil_image
+        self.pil_image = pil_image
         if self.output_file_path:
-            self.base_image.save(self.output_file_path)
+            self.pil_image.save(self.output_file_path)
 
         self.show_bounding_box_checkbox.set_active(False)
         self.show_mask_checkbox.set_active(False)
         
+        self.pixbuf_with_base_image = pil_image_to_pixbuf(self.pil_image)
         self.drawing_area.queue_draw()  # refresh image canvas
 
         if self.save_call_back:
-            self.save_call_back(self.base_image, self.generation_information_call_back())
+            self.save_call_back(self.pil_image, self.generation_information_call_back())
 
     def on_clear_marks_clicked(self, widget):
         self.bounding_boxes.clear()
@@ -544,7 +729,7 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         response = chooser.run()
         if response == Gtk.ResponseType.OK:
             filename = chooser.get_filename()
-            self.base_image.save(filename)
+            self.pil_image.save(filename)
         chooser.destroy()
 
     def on_drag_data_received(self, widget, drag_context, x, y, data, info, time):
@@ -556,9 +741,8 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         if file_path.startswith('file://'):
             file_path = file_path[7:]
         logger.info("on_drag_data_received: {file_path}")
-        self.base_image = Image.open(file_path)
-        pixbuf = pil_image_to_pixbuf(self.base_image)
-        self.image.set_from_pixbuf(pixbuf)
+        self.pil_image = Image.open(file_path)
+        self._process_new_image()
 
     def process_box(self, pil_image, cv_mask_image, face) -> Image:
         """
@@ -571,8 +755,8 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         """
         input_image = pil_image
 
-        input_image.save("tmp_input_image.png")  # FIXME
-        cv.imwrite("tmp_mask_image.png", cv_mask_image)  # FIXME
+        # input_image.save("tmp_input_image.png")  # FIXME
+        # cv.imwrite("tmp_mask_image.png", cv_mask_image)  # FIXME
 
         # Create a temporary directory using the tempfile module
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -734,14 +918,15 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
                     self.preferences["vae_model_path"], 
                     self.preferences["vae_model"])
         
-        model_name = self.preferences["ldm_model"]
+        model_name = self.ldm_model_cb.get_child().get_text() # Use the model on UI
+        # model_name = self.preferences["ldm_model"]
         clip_skip = str(self.preferences["clip_skip"])
         lora_models, lora_weights = generate_lora_params(self.preferences)
 
-        # Check to see if we have generation info to override
-        if "ldm_model" in generation_info:
-            model_name = generation_info["ldm_model"]
-            logger.info(f"Overriding preference model name with generation model: {model_name}")
+        # # Check to see if we have generation info to override
+        # if "ldm_model" in generation_info:
+        #     model_name = generation_info["ldm_model"]
+        #     logger.info(f"Overriding preference model name with generation model: {model_name}")
         if "clip_skip" in generation_info:
             clip_skip = str(generation_info["clip_skip"])
         
@@ -751,9 +936,15 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         if "lora_models" in generation_info:
             if generation_info["lora_models"] and len(generation_info["lora_models"]) > 0:
                 l = generation_info["lora_models"].split(",")
-                l = [os.path.join(
-                    self.preferences["lora_model_path"], e.strip()) for e in l if len(e.strip()) > 0]
-                l = ",".join(l)
+
+                # if image was generated in SD1.5, enable LoRA
+                if self.enable_lora:
+                    model_name = self.generation_information["ldm_model"]
+                    l = [os.path.join(
+                        self.preferences["lora_model_path"], e.strip()) for e in l if len(e.strip()) > 0]
+                    l = ",".join(l)
+                else:  # if SDXL, disable LoRA for now
+                    l = ""
             else:
                 l = ""
             lora_models = l
@@ -826,6 +1017,49 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
 
             self.image.queue_draw()  # invalidate
 
+    def _adjust_matrix_redraw_canvas(self):
+        self.drawing_area.queue_draw()
+        self.update_slider_ranges()        
+
+    def on_zoom_in(self, button):
+        """
+        Scale up
+        """
+        self.scale_factor *= 1.1
+        self._adjust_matrix_redraw_canvas()
+
+    def on_zoom_out(self, button):
+        """
+        Scale down
+        """
+        self.scale_factor /= 1.1
+        self._adjust_matrix_redraw_canvas()
+
+    def on_reset(self, button):
+        self.scale_factor = 1.0
+        self.translation = [0, 0]
+        self._adjust_matrix_redraw_canvas()
+
+    def update_slider_ranges(self):
+        """
+        Called when the image is scaled.
+        """
+        image_width_scaled = self.image_width * self.scale_factor
+        image_height_scaled = self.image_height * self.scale_factor
+
+        self.h_slider.set_range(0, max(image_width_scaled - self.canvas_width, 0))
+        self.h_slider.set_value(0)
+        self.v_slider.set_range(0, max(image_height_scaled - self.canvas_height, 0))
+        self.v_slider.set_value(0)
+
+    def on_hscroll(self, adjustment):
+        self.translation[0] = -adjustment.get_value()
+        self.drawing_area.queue_draw()
+
+    def on_vscroll(self, adjustment):
+        self.translation[1] = -adjustment.get_value()
+        self.drawing_area.queue_draw()
+
 
 def main():
     preferences = {
@@ -861,7 +1095,7 @@ def main():
         "seed": "0"
     }
 
-    pil_image = Image.open("human_couple.png")   # FIXME
+    pil_image = Image.open("../cremage_resources/512x512_human_couple.png")   # FIXME
     app = SpotInpainter(
         pil_image=pil_image, 
         output_file_path="tmp_face_fix.png",
@@ -871,6 +1105,7 @@ def main():
     app.connect('destroy', Gtk.main_quit)
     app.show_all()
     Gtk.main()
+
 
 if __name__ == '__main__':
     main()

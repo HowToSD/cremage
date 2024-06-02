@@ -26,13 +26,42 @@ EOS = 49407
 PAD = 49407
 
 def token_to_embedding(model, token_ids):
-    retval = model.text_model.embeddings.token_embedding(token_ids.to(os.environ.get("GPU_DEVICE", "cpu")))
+    if model.device != token_ids.device:
+        token_ids = token_ids.to(model.device)
+    retval = model.text_model.embeddings.token_embedding(token_ids)
     return retval
+
+
+def convert_word_to_tokens(tokenizer, word:str):
+    """
+    Converts a single word to one or more tokens and return the token length.
+
+    Args:
+        tokenizer: CLIPTokenizer instance.
+        word (str): The input word.
+
+    Returns:
+        tokens: List of tokens.
+        converted_length: The length of the converted word. This does not include
+          BOS or EOS.
+    """
+    token_data = tokenizer(
+        word,
+        truncation=True,
+        max_length=77,
+        return_length=True,
+        return_overflowing_tokens=False,
+        return_tensors="pt")
+    converted_length = token_data["length"][0].item()
+    tokens = token_data["input_ids"][0][1:converted_length-1]
+    converted_length -= 2  # BOS & EOS
+    return tokens, converted_length
+
 
 def generate_clip_embeddings(tokenizer: CLIPTokenizer, 
                              model: ModCLIPTextModel, 
                              embedding_dir: str, 
-                             inputs: List[Tuple[str, float]]) -> torch.Tensor:
+                             inputs: List[Tuple[str, float]]) -> Tuple[List[torch.Tensor], List[int]]:
     """
     Generates CLIP embeddings from the given inputs.
 
@@ -43,7 +72,9 @@ def generate_clip_embeddings(tokenizer: CLIPTokenizer,
         inputs (List[Tuple[str, float]]): A list of tuples, where each tuple contains a word (str) and its corresponding score (float).
 
     Returns:
-        torch.Tensor: A tensor of shape `[n, 768]`, where `n` is a multiple of 77, representing the CLIP embeddings.
+        Tuple of lists:
+            List of torch.Tensor: A tensor of shape `[n, 768]`, where `n` is a multiple of 77, representing the CLIP embeddings.
+            List of last EOS index
     """    
     EMBEDDING_MARKER = "<embedding:"
     # List of max 75 768-D embeddings. Not padded and does not have BOS or EOS yet.
@@ -66,21 +97,17 @@ def generate_clip_embeddings(tokenizer: CLIPTokenizer,
                 embedding_name = word[len(EMBEDDING_MARKER):-1]
                 embedding_path = os.path.join(embedding_dir, embedding_name)
                 if os.path.exists(embedding_path) is False:
-                    logger.warn(f"Ignoring missing {embedding_path}")
+                    logger.warning(f"Ignoring missing {embedding_path}")
                     continue   # ignore
-                embedding = load_embedding(embedding_path).to(os.environ.get("GPU_DEVICE", "cpu"))
-                converted_length = embedding.shape[0]            
+                embedding = load_embedding(embedding_path)
+                if isinstance(embedding, dict):
+                    logger.info("Loading sdxl embedding")
+                    embedding = embedding["clip_l"]
+                embedding = embedding.to(os.environ.get("GPU_DEVICE", "cpu"))
+                converted_length = embedding.shape[0]
             else:
                 # Convert to tokens
-                token_data = tokenizer(
-                    word,
-                    truncation=True,
-                    max_length=77,
-                    return_length=True,
-                    return_overflowing_tokens=False,
-                    return_tensors="pt")
-                converted_length = token_data["length"][0].item()
-                tokens = token_data["input_ids"][0][1:converted_length-1]
+                tokens, converted_length = convert_word_to_tokens(tokenizer, word)
                 logger.debug(f"Mapping: {word} => {tokens}")
                 embedding = None
 
@@ -95,11 +122,10 @@ def generate_clip_embeddings(tokenizer: CLIPTokenizer,
                 current_seq_len += converted_length 
 
             if embedding is None:
+                tokens = tokens.to(model.device)
                 embedding = token_to_embedding(model, tokens)
             embedding = embedding * score  
-
             logger.debug(f"Multiplied embedding by {score}")
-
             embedding_list[i].append(embedding)
                
     # Now we have a list of lists, add BOS, EOS and pad
@@ -128,6 +154,7 @@ def generate_clip_embeddings(tokenizer: CLIPTokenizer,
         seq_len_list.append(i)
 
     retval = list()
+    eos_index_list = list()
     for i, e in enumerate(embedding_list):  # list of list of tensors
         seq_len = seq_len_list[i]
         pad_len = 75 - seq_len
@@ -152,13 +179,13 @@ def generate_clip_embeddings(tokenizer: CLIPTokenizer,
                 pad_embeddings, # (pad_len, 768)
                 eos_embedding   # shape = (1, 768)
                 ], dim=0)            
- 
+        last_eos_index = 1 + seq_len
         assert(seq.shape == (77, 768))
         retval.append(seq)
-
+        eos_index_list.append(last_eos_index)
     # retval = torch.concat(retval, axis=0)
     # assert retval[0].shape[0] == 77
-    return retval
+    return retval, eos_index_list
 
 if __name__ == "__main__":
 

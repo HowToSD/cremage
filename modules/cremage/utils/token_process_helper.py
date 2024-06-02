@@ -70,12 +70,3 @@ def split_token_with_embedding_tags(s: str)-> Tuple[List[str], List[bool]]:
                 i += 1
             
     return retval_str, retval_bool
-
-if __name__ == "__main__":
-   print(split_token_with_embedding_tags("helloworld"))
-   print(split_token_with_embedding_tags("hello<embedding:foo.bin>world"))
-   print(split_token_with_embedding_tags("hello<embedding:foo.binworld"))  # missing >
-   print(split_token_with_embedding_tags("hello<embedding:foo.bin>world<embedding:bar.pt>")) # Two embeddings
-
-
-

@@ -22,7 +22,7 @@ if user_config["enable_hf_internet_connection"] == True:
 else:
     os.environ["ENABLE_HF_INTERNET_CONNECTION"] = "0"
 from cremage.ui.initializer import initializer
-
+from cremage.ui.initializer import setup_field_visibility
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -38,6 +38,7 @@ def main():
     win = MainWindow()
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
+    setup_field_visibility(win)
     Gtk.main()
 
 

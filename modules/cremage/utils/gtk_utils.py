@@ -8,13 +8,43 @@ from typing import List, Any, Dict
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GdkPixbuf
+from gi.repository import Gtk, GdkPixbuf, Gdk
+import cairo
+
 from PIL import Image
 
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path = [MODULE_ROOT] + sys.path
 from cremage.utils.image_utils import resize_with_padding, pil_image_to_gtk_image, pil_image_to_pixbuf
 from cremage.utils.image_utils import resize_pil_image
+
+def create_surface_from_pil(pil_image: Image):
+    # Convert PIL image to GdkPixbuf
+    width, height = pil_image.size
+    mode = pil_image.mode
+
+    has_alpha = mode == "RGBA"
+
+    data = pil_image.tobytes()
+    
+    pixbuf = GdkPixbuf.Pixbuf.new_from_data(
+        data,
+        GdkPixbuf.Colorspace.RGB,
+        has_alpha,
+        8,  # bits per sample
+        width,
+        height,
+        width * (4 if has_alpha else 3)  # row stride
+    )
+    
+    # Create Cairo surface from GdkPixbuf
+    image_surface = cairo.ImageSurface(cairo.FORMAT_ARGB32 if has_alpha else cairo.FORMAT_RGB24, width, height)
+    cairo_context = cairo.Context(image_surface)
+    Gdk.cairo_set_source_pixbuf(cairo_context, pixbuf, 0, 0)
+    cairo_context.paint()
+    
+    return image_surface
+
 
 def show_error_dialog(win: Gtk.Window, message: str) -> None:
     """

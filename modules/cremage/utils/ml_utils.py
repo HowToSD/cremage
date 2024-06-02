@@ -12,6 +12,10 @@ import numpy as np
 import cv2
 
 from .lora_utils import LORA_WEIGHTS
+from .safetensors_utils import sd_model_type_from_safetensors
+from .safetensors_utils import MODEL_TYPE_UNKNOWN
+from .safetensors_utils import MODEL_TYPE_SD_1_5
+from .safetensors_utils import MODEL_TYPE_SDXL
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -210,15 +214,24 @@ def load_ldm_model_paths(model_dir: str):
                 model_dir,
                 supported_extensions=[".ckpt", ".safetensors"])
 
-    # Drop SDXL models  TODO: Make this more robust
-    files = [f for f in files if f.upper().find("XL") < 0]
+    # Drop SDXL models
+    files = [
+        f for f in files 
+            if (
+                f.endswith("safetensors") and \
+                    sd_model_type_from_safetensors(
+                        os.path.join(model_dir, f)) != MODEL_TYPE_SDXL
+                )
+    ]
+    # Drop refiner
+    files = [f for f in files if f.upper().find("REFINER") < 0]
 
     # Drop inpaint models  TODO: Make this more robust
     files = [f for f in files if f.upper().find("INPAINT") < 0]
     return files
 
-
 def load_ldm_inpaint_model_paths(model_dir: str):
+    # FIX for SDXL
     files = _files_in_model_dir(
                 model_dir,
                 supported_extensions=[".ckpt", ".safetensors"])    
@@ -251,6 +264,56 @@ def load_control_net_model_paths(model_dir: str):
     """
     return _files_in_model_dir(model_dir,
                                supported_extensions=[".bin", ".pth", ".ckpt", ".safetensors"])
+
+
+def load_sdxl_ldm_model_paths(model_dir: str):
+    files = _files_in_model_dir(
+                model_dir,
+                supported_extensions=[".safetensors"])
+
+    # Filter out non-SDXL models
+    files = [
+        f for f in files 
+            if (
+                f.endswith("safetensors") and \
+                    sd_model_type_from_safetensors(
+                        os.path.join(model_dir, f)) == MODEL_TYPE_SDXL
+                ) or \
+            "refiner" in f
+    ]
+
+    # Drop inpaint models  TODO: Make this more robust
+    files = [f for f in files if f.upper().find("INPAINT") < 0]
+
+    return files
+
+
+def load_sdxl_ldm_inpaint_model_paths(model_dir: str):
+    files = _files_in_model_dir(
+                model_dir,
+                supported_extensions=[".safetensors"])
+    files = [f for f in files if "inpaint" in f]
+    files = [f for f in files if f.upper().find("XL") >= 0]
+
+    # Drop SDXL models  TODO: Make this more robust
+    files = [f for f in files if f.upper().find("XL") < 0]
+    return files
+
+
+def load_sdxl_vae_model_paths(model_dir: str):
+    """
+    Get the list of VAE model file base names.
+    The list element does not contain the directory part of the path.
+    """
+    return (_files_in_model_dir(model_dir))
+
+
+def load_sdxl_lora_model_paths(model_dir: str):
+    """
+    Get the list of lora model file base names.
+    The list element does not contain the directory part of the path.
+    """
+    return _files_in_model_dir(model_dir)
 
 
 def load_torch_model_paths(model_dir: str):
@@ -303,6 +366,10 @@ def load_embedding(model_path: str) -> torch.Tensor:
             [-0.0001, ...,  0.0002],
             ...,
             [-0.0003, ..., -0.0004]])}
+
+
+    SDXL
+
     """   
     base_name = os.path.basename(model_path)
     file_extension = os.path.splitext(base_name)[1]
@@ -316,10 +383,13 @@ def load_embedding(model_path: str) -> torch.Tensor:
     if isinstance(model, dict):
         if "string_to_param" in model and "*" in model["string_to_param"]:
             embedding = model["string_to_param"]["*"]
-            logger.info("Type 1 embedding detected:")
+            logger.info("SD 1.5 Type 1 embedding detected:")
         elif "emb_params" in model:
             embedding = model["emb_params"]
-            logger.info("Type 2 embedding detected:")
+            logger.info("SD 1.5 Type 2 embedding detected:")
+        elif "clip_g" in model and "clip_l" in model:  # SDXL
+            embedding = model
+            logger.info("SDXL embedding detected:")
         else:
             logger.info("Unsupported dict-format embedding")
     else:
@@ -329,18 +399,23 @@ def load_embedding(model_path: str) -> torch.Tensor:
     return embedding
 
 
-def load_lora(lora_file_full_path):
+def load_lora(lora_file_full_path, model_type="SD 1.5", name_check=True):
     lora = load_model(lora_file_full_path)
     if isinstance(lora, dict) is False:
-        logger.warn("LoRA is not a dict. Ignoring")
+        logger.warning("LoRA is not a dict. Ignoring")
         return None
 
-    for k in lora:
-        if k not in LORA_WEIGHTS:
-            logger.warn(f"Unsupported LoRA weight name is found {k}. Abort loading")
-            return None
+    if model_type == "SD 1.5" and name_check:
+        for k in lora:
+            if k not in LORA_WEIGHTS:
+                logger.warning(f"Unsupported LoRA weight name is found {k}. Abort loading")
+                return None
 
     # Check rank
-    w = lora['lora_unet_down_blocks_0_attentions_0_transformer_blocks_0_attn1_to_k.lora_down.weight']
+    if model_type == "SD 1.5":
+        w = lora['lora_unet_down_blocks_0_attentions_0_transformer_blocks_0_attn1_to_k.lora_down.weight']
+    else: # sdxl
+        w = lora['lora_unet_output_blocks_5_1_transformer_blocks_1_attn1_to_k.lora_down.weight']
+
     rank = w.shape[0]  # [4, 320]
     return lora, rank

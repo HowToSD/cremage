@@ -9,7 +9,8 @@ class StatusUpdater():
     def status_update(self, step):
         self.steps_completed += 1  # Just count the frequency
         if self.steps_completed == self.total_steps:
-            self.status_queue.put("Done")
+            # self.status_queue.put("Done")
+            self.status_queue.put(f"{self.steps_completed} / {self.total_steps}")
         else:
             self.status_queue.put(f"{self.steps_completed} / {self.total_steps}")
 

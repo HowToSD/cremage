@@ -1,19 +1,69 @@
 import os
 import sys
+import json
 import unittest
+import tempfile
 
+import torch
 import numpy as np
 import PIL
 from PIL import Image
+from imwatermark import WatermarkEncoder
 
 PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", "..")) 
 MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 sys.path = [MODULE_ROOT] + sys.path
 from cremage.utils.image_utils import display_pil_image_from_mask_pil_image
 from cremage.utils.image_utils import resize_with_padding, bbox_for_multiple_of_64
-
+from cremage.utils.image_utils import save_torch_tensor_as_image
+from cremage.utils.image_utils import save_torch_tensor_as_image_with_watermark
 
 class TestImageUtil(unittest.TestCase):
+    def test_save_torch_tensor_as_image_with_watermark(self):
+
+        wm = "Cremage"
+        wm_encoder = WatermarkEncoder()
+        wm_encoder.set_watermark('bytes', wm.encode('utf-8'))
+
+        img = torch.rand((3, 768, 512)).float()
+        img = img.to("cuda")
+        with tempfile.TemporaryDirectory() as temp_test_dir:
+            files = os.listdir(temp_test_dir)
+            meta = {"h": 768, "w": 512}
+            img2 = save_torch_tensor_as_image_with_watermark(
+                temp_test_dir,
+                img,
+                meta,
+                file_number=0,
+                wm_encoder=wm_encoder)
+            files2 = os.listdir(temp_test_dir)
+            self.assertTrue(len(files2) - len(files) == 1)
+
+    def test_save_torch_tensor_as_image(self):
+        img = torch.rand((3, 768, 512)).float()
+        img = img.to("cuda")
+        with tempfile.TemporaryDirectory() as temp_test_dir:
+            temp_test_file = tempfile.NamedTemporaryFile(
+                dir=temp_test_dir, suffix=".png")
+            meta = {"h": 768, "w": 512}
+            img2 = save_torch_tensor_as_image(
+                temp_test_file.name,
+                img,
+                meta)
+    
+            self.assertTrue(os.path.exists(temp_test_file.name) is True)
+            img3 = Image.open(temp_test_file.name)
+
+            for img in [img2, img3]:
+                w, h = img.size
+                self.assertTrue(w == 512 and h == 768)
+                self.assertTrue("generation_data" in img.info)
+                generation_data = json.loads(img.info["generation_data"])
+                self.assertTrue(generation_data["h"] == 768)
+                self.assertTrue(generation_data["w"] == 512)
+
+        assert(os.path.exists(temp_test_file.name) is False)
+
     def test_display_from_mask(self):
         
         img = np.array([

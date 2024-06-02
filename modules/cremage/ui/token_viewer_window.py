@@ -1,4 +1,8 @@
 import os
+if os.environ.get("ENABLE_HF_INTERNET_CONNECTION") == "1":
+    local_files_only_value=False
+else:
+    local_files_only_value=True
 import sys
 from transformers import CLIPTextModel
 from transformers import CLIPTokenizerFast as CLIPTokenizer
@@ -83,8 +87,10 @@ class TokenViewerWindow(Gtk.Window):
         max_length = 77  # Set max_length as per CLIP's requirement
 
         # Initialize tokenizer and model
-        tokenizer = CLIPTokenizer.from_pretrained(version)
-        transformer = CLIPTextModel.from_pretrained(version)
+        tokenizer = CLIPTokenizer.from_pretrained(version,
+                                                  local_files_only=local_files_only_value)
+        transformer = CLIPTextModel.from_pretrained(version,
+                                                  local_files_only=local_files_only_value)
 
         # Encode the input text
         batch_encoding = tokenizer(

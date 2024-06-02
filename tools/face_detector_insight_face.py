@@ -136,7 +136,7 @@ def get_aligned_faces(
     source_faces = face_analyzer.get(rgb_cv_image)  
     images = list()
     if len(source_faces) == 0:
-        logger.warn(f"No face found")
+        logger.warning(f"No face found")
         return np.asarray(images)
     for face in source_faces:
         print(face)

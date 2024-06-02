@@ -272,10 +272,21 @@ def parse_options(arguments=None):
         default="None"
     )
     parser.add_argument(
+        "--hires_fix_scale_factor",
+        type=float,
+        help="Upscaler scale factor",
+        default=1.5
+    )
+    parser.add_argument(
         "--auto_face_fix",
         action="store_true",
         help="Apply face fix automatically for each generated image",
     )
- 
+    parser.add_argument(
+        "--embedding_images_dir",
+        type=str,
+        help="Path to store images to showcase each TI embedding",
+        default=None
+    )
     opt = parser.parse_args(arguments)
     return opt

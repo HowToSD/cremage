@@ -42,9 +42,10 @@ from tool_base import ToolBase
 from cremage.utils.misc_utils import get_tmp_file
 from cremage.utils.gtk_utils import show_alert_dialog, set_pil_image_to_gtk_image
 from cremage.utils.image_utils import pil_image_to_pixbuf, get_single_bounding_box_from_grayscale_image
-from cremage.utils.gtk_utils import text_view_get_text
+from cremage.utils.gtk_utils import text_view_get_text, create_combo_box_typeahead
 from cremage.utils.misc_utils import get_tmp_dir
 from cremage.utils.misc_utils import generate_lora_params
+from cremage.ui.model_path_update_handler import update_ldm_model_name_value_from_ldm_model_dir
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -103,6 +104,16 @@ class ImageSegmenter(ToolBase):  # Subclass Window object
         self_prev_y = None
         self.pen_width = 10
         self.is_eraser = False
+
+        self.ldm_model_names = None # This is populated in update_ldm_model_name_value_from_ldm_model_dir
+        self.enable_lora = False
+        update_ldm_model_name_value_from_ldm_model_dir(self)
+
+        self.generation_information = dict()
+        if self.generation_information_call_back is not None:
+            d = self.generation_information_call_back()
+            if d:  # The original image may not have generation info
+                self.generation_information = d
 
         # UI definition
         self.width, self.height = self.pil_image.size
@@ -185,16 +196,41 @@ class ImageSegmenter(ToolBase):  # Subclass Window object
             checkbox.connect("toggled", self.on_checkbox_toggled)
             self.checkboxes.append(checkbox)
 
+        # LDM model
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        root_box.pack_start(box, False, False, 0)
+        model_name = self.preferences["ldm_model"]
+        # Check to see if we have generation info to override
+        if "ldm_model" in self.generation_information:
+            model_name = self.generation_information["ldm_model"]
+        ldm_label = Gtk.Label()
+        ldm_label.set_text("Model")
+        ldm_label.set_halign(Gtk.Align.START)  # Align label to the left
+        box.pack_start(ldm_label, False, False, 0)
+        
+        if model_name in self.ldm_model_names:
+            ind = self.ldm_model_names.index(model_name)
+            self.enable_lora = True
+        else:
+            model_name = self.preferences["ldm_model"]
+            ind = self.ldm_model_names.index(model_name)
+            # ind = 0
+
+        self.ldm_model_cb = create_combo_box_typeahead(
+            self.ldm_model_names,
+            ind)
+        box.pack_start(self.ldm_model_cb, False, False, 0)
+
         #
         # Denoise entry
         #
         denoise_label = Gtk.Label()
         denoise_label.set_text("Denoising strength")
         denoise_label.set_halign(Gtk.Align.START)  # Align label to the left
-        controls_box.pack_start(denoise_label, False, False, 0)
+        box.pack_start(denoise_label, False, False, 0)
 
         self.denoise_text = Gtk.Entry(text=self.preferences["denoising_strength"])
-        controls_box.pack_start(self.denoise_text, False, True, 0)
+        box.pack_start(self.denoise_text, False, True, 0)
 
         #
         # Positive prompt fields
@@ -455,14 +491,10 @@ class ImageSegmenter(ToolBase):  # Subclass Window object
                     self.preferences["vae_model_path"],
                     self.preferences["vae_model"])
 
-        model_name = self.preferences["ldm_model"]
+        model_name = self.ldm_model_cb.get_child().get_text() # Use the model on UI
         clip_skip = str(self.preferences["clip_skip"])
         lora_models, lora_weights = generate_lora_params(self.preferences)
 
-        # Check to see if we have generation info to override
-        if "ldm_model" in generation_info:
-            model_name = generation_info["ldm_model"]
-            logger.info(f"Overriding preference model name with generation model: {model_name}")
         if "clip_skip" in generation_info:
             clip_skip = str(generation_info["clip_skip"])
 
@@ -472,9 +504,15 @@ class ImageSegmenter(ToolBase):  # Subclass Window object
         if "lora_models" in generation_info:
             if generation_info["lora_models"] and len(generation_info["lora_models"]) > 0:
                 l = generation_info["lora_models"].split(",")
-                l = [os.path.join(
-                    self.preferences["lora_model_path"], e.strip()) for e in l if len(e.strip()) > 0]
-                l = ",".join(l)
+
+                # if image was generated in SD1.5, enable LoRA
+                if self.enable_lora:
+                    model_name = self.generation_information["ldm_model"]
+                    l = [os.path.join(
+                        self.preferences["lora_model_path"], e.strip()) for e in l if len(e.strip()) > 0]
+                    l = ",".join(l)
+                else:  # if SDXL, disable LoRA for now
+                    l = ""
             else:
                 l = ""
             lora_models = l
@@ -676,7 +714,7 @@ def main():
         "seed": "0"
     }
 
-    pil_image = Image.open("../cremage_resources/human_couple.png")   # FIXME
+    pil_image = Image.open("../cremage_resources/512x512_human_couple.png")   # FIXME
     app = ImageSegmenter(
         pil_image=pil_image,
         output_file_path=os.path.join(get_tmp_dir(), "tmp_face_fix.png"),

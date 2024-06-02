@@ -696,7 +696,7 @@ def generate_face_embedding_from_image(face_input_img_path: str,
             None, # pipe
             image_encoder_path = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K",
             ip_ckpt=face_model_path,
-            device="cuda", 
+            device=os.environ.get("GPU_DEVICE", "cpu"),
             lora_rank=128,
             num_tokens=4,
             torch_dtype=torch.float16)

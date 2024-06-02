@@ -186,7 +186,7 @@ class FaceDetector(Gtk.Window):  # Subclass Window object
                     logger.info(f"Saving image as {self.annotated_file_path}")
                     self.pil_image.save(self.annotated_file_path)
                 else:
-                    logger.warn("detected image file path is not set")
+                    logger.warning("detected image file path is not set")
 
     def on_detect_clicked(self, widget):
         detection_method = self.detection_method_combo.get_active_text()

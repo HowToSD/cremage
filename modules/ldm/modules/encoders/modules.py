@@ -19,11 +19,21 @@ from transformers import CLIPTokenizer  # HINADA Change
 import kornia
 
 from ldm.modules.x_transformer import Encoder, TransformerWrapper  # TODO: can we directly rely on lucidrains code and simply add this as a reuirement? --> test
-from clip.modeling_clip import CLIPTextModel as ModCLIPTextModel
+# Cremage FIXME: Note that this is the only dependency of the old hacked version
+# of CLIP code. I identified that there is an issue with this code with
+# the version of transformers package that is currently specified in
+# requirements.txt so the compatible version of CLIP is used for SDXL.
+# The reference to the old code is kept for now so that we can go back
+# to the original CLIP version in case there is any degradation
+# due to the new CLIP version.
+# Once we verify that there are no issues, we can delete module/clip
+# directory as well.
+# from clip.modeling_clip import CLIPTextModel as ModCLIPTextModel  # Cremage. Legacy version used for the first release
 
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..")
 sys.path = [MODULE_ROOT] + sys.path
 from cremage.utils.prompt_score_parser import generate_clip_embeddings_from_prompt
+from clip_sdxl.modeling_clip import CLIPTextModel as ModCLIPTextModel
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -186,6 +196,7 @@ class FrozenCLIPEmbedder(AbstractEncoder):
         self.transformer = ModCLIPTextModel.from_pretrained(version,
                                                             lora_ranks=lora_ranks,
                                                             lora_weights=lora_weights,
+                                                            normalize_hidden_states=True,
                                                             local_files_only=local_files_only_value)
         self.device = device
         self.max_length = max_length
@@ -352,7 +363,7 @@ class FrozenCLIPEmbedder(AbstractEncoder):
         single_text = text[0]
         logger.debug(f"In CLIP: single_text: {single_text}")
         # unprocessed embeding : List[embedding] where embeding is [77, 768]
-        unprocessed_embeddings = generate_clip_embeddings_from_prompt(
+        unprocessed_embeddings, eos_index_list = generate_clip_embeddings_from_prompt(
             self.tokenizer, 
             self.transformer, 
             embedding_dir, 

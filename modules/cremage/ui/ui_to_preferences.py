@@ -30,8 +30,28 @@ COMBO_BOX_FIELDS = [
     "lora_model_3",
     "lora_model_4",
     "lora_model_5",
+    "sdxl_vae_model",
+    "sdxl_ldm_model",
+    "sdxl_ldm_inpaint_model",
+    "sdxl_lora_model_1",
+    "sdxl_lora_model_2",
+    "sdxl_lora_model_3",
+    "sdxl_lora_model_4",
+    "sdxl_lora_model_5",
+    "refiner_sdxl_vae_model",
+    "refiner_sdxl_ldm_model",
+    "refiner_sdxl_lora_model_1",
+    "refiner_sdxl_lora_model_2",
+    "refiner_sdxl_lora_model_3",
+    "refiner_sdxl_lora_model_4",
+    "refiner_sdxl_lora_model_5",
+    "sdxl_image_resolution",
     "sampler",
-    "hires_fix_upscaler"
+    "sdxl_sampler",
+    "hires_fix_upscaler",
+    "generator_model_type",
+    "guider",
+    "discretization"
 ]
 
 INT_FIELDS = [
@@ -41,20 +61,46 @@ INT_FIELDS = [
     "clip_skip",
     "batch_size",
     "number_of_batches",
-    "seed"
+    "seed",
+    "sampler_order"
 ]
 
 FLOAT_FIELDS = [
     "denoising_strength",
+    "sdxl_refiner_strength",
     "cfg",
-    "face_strength"
+    "face_strength",
+    "discretization_sigma_min",
+    "discretization_sigma_max",
+    "discretization_rho",
+    "linear_prediction_guider_min_scale",
+    "linear_prediction_guider_max_scale",
+    "triangle_prediction_guider_min_scale",
+    "triangle_prediction_guider_max_scale",
+    "sampler_s_churn",
+    "sampler_s_tmin",
+    "sampler_s_tmax",
+    "sampler_s_noise",
+    "sampler_eta"
 ]
 
 TEXT_VIEW_FIELDS = [
+    "positive_prompt_pre_expansion",
+    "negative_prompt_pre_expansion",
     "positive_prompt_expansion",
     "negative_prompt_expansion"
 ]
 
+CHECK_BUTTON_FIELDS = [
+    "sdxl_use_refiner"
+]
+
+SKIP_FIELDS = [
+    "positive_prompt_pre_expansion_history",
+    "negative_prompt_pre_expansion_history",
+    "positive_prompt_expansion_history",
+    "negative_prompt_expansion_history"
+]
 
 def copy_ui_field_values_to_preferences(app:Gtk.Window) -> None:
     """
@@ -70,15 +116,30 @@ def copy_ui_field_values_to_preferences(app:Gtk.Window) -> None:
             if isinstance(field, Gtk.ComboBoxText):
                 app.preferences[key] = field.get_active_text()
             elif isinstance(field, Gtk.ComboBox):  # This is a Cremage specific combobox that contains Entry
-                app.preferences[key] = field.get_child().get_text()
+                if key == "sdxl_image_resolution":
+                    if app.fields["generator_model_type"].get_child().get_text() == "SDXL":
+                        resolution = field.get_child().get_text()
+                        w, h = resolution.split("x")
+                        app.preferences["image_width"] = w
+                        app.preferences["image_height"] = h
+                    else: # SD 1.5 mode, so ignore
+                        continue
+                else:
+                    app.preferences[key] = field.get_child().get_text()
         elif isinstance(field, Gtk.ComboBoxText):  # bool
             app.preferences[key] = field.get_active_text() == "True"
         elif key in INT_FIELDS:
+            if key in ["image_width", "image_height"] and app.fields["generator_model_type"].get_child().get_text() == "SDXL":
+                continue  # Ignore in SDXL mode
             app.preferences[key] = int(field.get_text())
         elif key in FLOAT_FIELDS:
             app.preferences[key] = float(field.get_text())
         elif key in TEXT_VIEW_FIELDS:
             app.preferences[key] = text_view_get_text(field)
+        elif key in CHECK_BUTTON_FIELDS:
+            app.preferences[key] = field.get_active()
+        elif key in SKIP_FIELDS:
+            continue
         else:  # str
             app.preferences[key] = field.get_text()
 

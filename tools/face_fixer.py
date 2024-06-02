@@ -23,6 +23,39 @@ https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet
 Licensed under the MIT license.
 
 See the license in the project root directory.
+
+Note on transform matrices
+This code uses two transform matrices instead of one matrix.
+
+There are two coordinate systems:
+1) Screen coordinates
+2) Cairo coordinates
+
+1) is for physical locations such as mouse click points.
+2) is for drawing operations using Cairo such as lineTo() & stroke().
+
+You need a matrix to map these coordinate systems.
+1) Forward matrix is used to convert Cairo to screen.
+   You need to give this to Cairo in on_draw().
+2) Inverse matrix is used to convert screen to Cairo (convert mouse click pos to a
+specific position in the image)
+
+You would think that 2) is an inverse of 1). But that is NOT the case,
+which makes this issue tricky.
+
+For 1), Cairo already maintains a matrix to account for the position of the
+drawing area in the application window. Therefore, you need to use that matrix
+as the base and update for translation and scaling.
+If you start with an identity matrix, then these offset computation is not reflected
+in Cairo drawing, and top-left corner is sets to the app window's left corner
+instead of the drawing area.  You can simply verify this behavior by adding debug code
+to do move_to(), line_to(), stroke().
+
+For 2), You can NOT use the inverse of 1), but you have to start off with an identity
+matrix then apply translation and scaling to create a forward matrix.
+Then you compute the inverse.
+
+I haven't tested this behavior in GTK4, so it's unclear if this is specific to GTK3.
 """
 import os
 import sys
@@ -33,7 +66,7 @@ from io import BytesIO
 import tempfile
 import threading
 import shutil
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 from dataclasses import dataclass
 
 from transformers import ViTImageProcessor, ViTForImageClassification  # For face classification
@@ -45,6 +78,7 @@ from PIL.PngImagePlugin import PngInfo
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk
+import cairo
 
 PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
@@ -54,7 +88,6 @@ sys.path = [MODULE_ROOT, TOOLS_ROOT] + sys.path
 OPENCV_FACE_DETECTION_MODEL_PATH = os.path.join(MODELS_ROOT, "opencv", "face_detection_yunet_2023mar.onnx")
 
 from sd.img2img import img2img_parse_options_and_generate
-
 from cremage.utils.image_utils import pil_image_to_pixbuf
 from cremage.utils.gtk_utils import text_view_get_text, create_combo_box_typeahead
 from cremage.utils.misc_utils import generate_lora_params
@@ -70,7 +103,7 @@ else:
     local_files_only_value=True
 
 TARGET_EDGE_LEN = 512  # FIXME
-SELECTED_COLOR =  (0, 0x7B/255.0, 0xFF/255.0, 0.5) # "#007BFF"
+SELECTED_COLOR =  (0, 0x7B/255.0, 0xFF/255.0, 0.5)  # "#007BFF"
 UNSELECTED_COLOR = (0xD3/255.0, 0xD3/255.0, 0xD3/255.0, 0.5)
 FACE_FIX_TMP_DIR = os.path.join(get_tmp_dir(), "face_fix.tmp")
 FACE_FIX_OUTPUT_DIR = os.path.join(FACE_FIX_TMP_DIR, "outputs")
@@ -83,8 +116,30 @@ class FaceRect:
     bottom: int
 
 
-class FaceFixer(Gtk.Window):  # Subclass Window object
-    def __init__(self, pil_image=None,
+def get_absolute_position(widget):
+    """
+    Computes the position of the widget in screen coordinates and size allocation of the widget
+
+    """
+    allocation = widget.get_allocation()
+    x, y = allocation.x, allocation.y
+
+    # Initialize the variables for the translated coordinates
+    screen_x, screen_y = 0, 0
+
+    # Get the widget's window
+    window = widget.get_window()
+
+    # Translate coordinates to the root window (absolute screen coordinates)
+    if window:
+        screen_x, screen_y = window.get_root_coords(x, y)
+
+    return screen_x, screen_y
+
+
+class FaceFixer(Gtk.Window):
+    def __init__(self,
+                 pil_image=None,
                  output_file_path=None,
                  save_call_back=None,
                  positive_prompt=None,
@@ -92,9 +147,17 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
                  generation_information_call_back=None,
                  preferences=None,
                  pil_face_image=None,
-                 face_model_full_path=None):
-        super().__init__(title="Face detection")
-
+                 face_model_full_path=None,
+                 procedural=False,
+                 status_queue=None):
+        """
+        Args:
+            pil_image: An image containing one or more faces
+            pil_face_image: Face ID image
+            procedural (bool): True if called from img2img. False if invoked on the UI
+        """
+        super().__init__(title="Face fixer")
+        self.pil_image = pil_image
         self.face_rects = []
         self.selected_face_rect_index = None
         self.prev_x = None  # LMB press position
@@ -109,17 +172,56 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
         self.pil_face_image = pil_face_image
         self.face_model_full_path = face_model_full_path
         self.ldm_model_names = None # This is populated in update_ldm_model_name_value_from_ldm_model_dir
-
+        self.enable_lora = False
         update_ldm_model_name_value_from_ldm_model_dir(self)
 
+        # Prompt used if invoked from img2img
+        self.procedural = procedural  # True if img2img. False if UI
+        self.positive_prompt_procedural = positive_prompt
+        self.negative_prompt_procedural = negative_prompt
+        self.status_queue = status_queue
+
+        # Create an Image widget
+        if pil_image is None:
+            pil_image = Image.new('RGBA', (512, 768), "gray")
+        self.pil_image = pil_image
+        self.pil_image_original = self.pil_image  # Make a copy to restore
+
+        # Put placeholder values - These are re-computed at the end of this method
+        self.image_width, self.image_height = self.pil_image.size
+        canvas_edge_length = 768
+        self.canvas_width = canvas_edge_length
+        self.canvas_height = canvas_edge_length
+        self.set_default_size(self.canvas_width + 200, self.canvas_height)  # This will be re-computed too.
+        
         self.generation_information = dict()
         if self.generation_information_call_back is not None:
             d = self.generation_information_call_back()
             if d:  # The original image may not have generation info
                 self.generation_information = d
 
-        self.set_default_size(800, 600)  # width, height
         self.set_border_width(10)
+
+        # Start screen layout
+        # app window
+        #   root_box (vert)
+        #     menubar
+        #     container_box (horz)
+        #       hbox
+        #         canvas (drawing area)
+        #         v slider
+        #       control_box (vert)
+        #         buttons/comboboxes (e.g. detection method)
+        #         
+        #     h slider
+        #     box
+        #       ldm_model_cb
+        #     box
+        #       Denoising strength
+        #     prompt label
+        #     prompt frame
+        #     button_box
+        #       zoom in, zoom out, reset
 
         # Create a vertical Gtk.Box
         root_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -156,48 +258,57 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
         container_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         root_box.pack_start(container_box, True, True, 0)  # Add container_box to root_box under the menu
 
-        # Create a ScrolledWindow
-        scrolled_window = Gtk.ScrolledWindow()
-        scrolled_window.set_hexpand(True)
-        scrolled_window.set_vexpand(True)
-        scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        # Create a horizontal Box layout for the drawing area and vertical slider
+        drawing_area_wrapper_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        container_box.pack_start(drawing_area_wrapper_box, True, True, 0)
 
-        # Create an Image widget
-        if pil_image is None:
-            pil_image = Image.new('RGBA', (512, 768), "gray")
-        self.pil_image = pil_image
-        self.pil_image_original = self.pil_image  # Make a copy to restore
-        pixbuf = pil_image_to_pixbuf(pil_image)
+        # Create a horizontal Box layout for the drawing area and vertical slider
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        drawing_area_wrapper_box.pack_start(hbox, True, True, 0)
 
         # Create a Gtk.Image and set the Pixbuf
-        # self.image = Gtk.Image.new_from_pixbuf(pixbuf)
-        self.image = Gtk.DrawingArea()
+        self.drawing_area = Gtk.DrawingArea()
 
         # Setup drag and drop for the image area
-        self.image.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
-        self.image.add_events(Gdk.EventMask.BUTTON_RELEASE_MASK)
-        self.image.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
-        self.image.drag_dest_add_text_targets()
-        self.image.connect('drag-data-received', self.on_drag_data_received)
+        # Click support
+        self.drawing_area.add_events(
+            Gdk.EventMask.BUTTON_PRESS_MASK |
+            Gdk.EventMask.BUTTON_RELEASE_MASK |
+            Gdk.EventMask.POINTER_MOTION_MASK)
 
-        self.image.connect("button-press-event", self.on_image_click)
+        self.drawing_area.connect("button-press-event", self.on_image_click)
+        self.drawing_area.connect("button-release-event", self.on_image_button_release)  # LMB release
+        self.drawing_area.connect("motion-notify-event", self.on_motion_notify)  # LMB drag
 
-        self.image.set_size_request(768, 768)
-        scrolled_window.add(self.image)
+        # Drag & drop support
+        self.drawing_area.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
+        self.drawing_area.drag_dest_add_text_targets()
+        self.drawing_area.connect('drag-data-received', self.on_drag_data_received)
 
-        # Connect the signal for mouse click events
-        self.image.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
-        self.image.connect("button-press-event", self.on_image_click)
-        self.image.connect("button-release-event", self.on_image_button_release)  # LMB release
+        self.drawing_area.set_size_request(self.canvas_width, self.canvas_height)
 
         # Connect to the draw event of the drawing area
-        self.image.connect("draw", self.on_image_draw)
+        self.drawing_area.connect("draw", self.on_draw)
+        hbox.pack_start(self.drawing_area, False, False, 0)
 
-        # Add the ScrolledWindow to the root_box
-        container_box.pack_start(scrolled_window,
-                        True,  # expand this field as the parent container expand
-                        True,  # take up the initially assigned space
-                        0)
+        # Create the vertical slider for Y translation
+        self.v_slider = Gtk.Scale(orientation=Gtk.Orientation.VERTICAL)
+        # self.v_slider.set_range(0, 1000)  # Set initial range
+        self.v_slider.set_range(0, 0)  # Set initial range
+        self.v_slider.set_value(0)
+        # self.v_slider.set_inverted(True)
+        self.v_slider.set_draw_value(False)  # Remove the number inside the slider
+        self.v_slider.connect("value-changed", self.on_vscroll)
+        hbox.pack_start(self.v_slider, False, False, 0)
+
+        # Create the horizontal slider for X translation
+        self.h_slider = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL)
+        # self.h_slider.set_range(0, 1000)  # Set initial range
+        self.h_slider.set_range(0, 0)  # Set initial range
+        self.h_slider.set_value(0)
+        self.h_slider.set_draw_value(False)  # Remove the number inside the slider
+        self.h_slider.connect("value-changed", self.on_hscroll)
+        drawing_area_wrapper_box.pack_start(self.h_slider, False, False, 0)
 
         # Vertical Box for controls next to the ScrolledWindow
         controls_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -265,9 +376,17 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
         ldm_label.set_halign(Gtk.Align.START)  # Align label to the left
         box.pack_start(ldm_label, False, False, 0)
         
+        if model_name in self.ldm_model_names:
+            ind = self.ldm_model_names.index(model_name)
+            self.enable_lora = True
+        else:
+            model_name = self.preferences["ldm_model"]
+            ind = self.ldm_model_names.index(model_name)
+            # ind = 0
+
         self.ldm_model_cb = create_combo_box_typeahead(
             self.ldm_model_names,
-            self.ldm_model_names.index(model_name))
+            ind)
         box.pack_start(self.ldm_model_cb, False, False, 0)
         root_box.pack_start(box, False, False, 0)
 
@@ -304,31 +423,86 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
         # Connect the key press event signal to the handler
         self.connect("key-press-event", self.on_key_press)
 
-    def on_image_draw(self, widget, cr):
-        pixbuf = pil_image_to_pixbuf(self.pil_image)
-        Gdk.cairo_set_source_pixbuf(cr, pixbuf, 0, 0)
-        cr.paint()
+        # Button box
+        button_box = Gtk.Box(spacing=6)
+        root_box.pack_start(button_box, False, True, 0)
 
-        # Draw a rectangle over the image
-        for i, face_rect in enumerate(self.face_rects):
-            if i == self.selected_face_rect_index:
-                cr.set_source_rgba(*SELECTED_COLOR)
-            else:
-                cr.set_source_rgba(*UNSELECTED_COLOR)
-            cr.rectangle(face_rect.left,
-                         face_rect.top,
-                         face_rect.right - face_rect.left,
-                         face_rect.bottom - face_rect.top)
-            cr.fill()
+        # Add the zoom in button
+        self.zoom_in_button = Gtk.Button(label="+")
+        self.zoom_in_button.connect("clicked", self.on_zoom_in)
+        button_box.pack_start(self.zoom_in_button, False, False, 0)
+
+        # Add the zoom out button
+        self.zoom_out_button = Gtk.Button(label="-")
+        self.zoom_out_button.connect("clicked", self.on_zoom_out)
+        button_box.pack_start(self.zoom_out_button, False, False, 0)
+
+        # Add the reset button
+        self.reset_button = Gtk.Button(label="Reset")
+        self.reset_button.connect("clicked", self.on_reset)
+        button_box.pack_start(self.reset_button, False, False, 0)
+
+        # Translation support
+        screen_x, screen_y = get_absolute_position(self.drawing_area)
+        logger.debug(f"screen x: {screen_x}, screen_y: {screen_y}")
+        self.translation = [0, 0]
+        self.scale_factor = 1.0
+
+        # Set up matrix with scale and translate elements. This is to convert screen to 
+        # cairo (logical coordinates)
+        # Below internally calls self.update_transform_matrix(), so no need to call it
+        # before.
+        # result is stored in self.transform_matrix
+        self._process_new_image()
+
+        # Variables required to show highlighting the mouse drag
+        self.drag_start_pos = None
+        self.drag_end_pos = None
+        self.in_motion = False
+
+    def update_transform_matrix(self, cr):
+        """
+        Update the transformation matrix with translation and scaling.
+        """
+        # This is to convert mouse click pos to Cairo conversion
+        self.transform_matrix_1 = cairo.Matrix()  # Create an identity matrix
+        self.transform_matrix_1.translate(self.translation[0], self.translation[1])
+        self.transform_matrix_1.scale(self.scale_factor, self.scale_factor)
+        
+        # this is used by Cairo to draw
+        # This incorporates menu and other offsets
+        self.transform_matrix = cr.get_matrix()
+        self.transform_matrix.translate(self.translation[0], self.translation[1])
+        self.transform_matrix.scale(self.scale_factor, self.scale_factor)
+
+
+    def screen_to_cairo_coord(self, x, y) -> Tuple[int, int]:
+        """
+        Converts screen coordinates to Cairo coordinates.
+
+        Screen coordinates are physical coordinates used in mouse events.
+        Cairo coordinates are logical coordinate used for Cairo drawing.
+
+        Args:
+            x (int): x in screen coordinates
+            y (int): y in screen coordinates
+        Returns:
+            Tuple of x, y in Cairo coordinates
+        """
+        inv_transform = cairo.Matrix(*self.transform_matrix_1)
+        inv_transform.invert()  # screen coordinates to cairo logical coordinates
+        x_logical, y_logical = inv_transform.transform_point(x, y)
+        return x_logical, y_logical
+    
 
     def on_image_click(self, widget, event):
-        x = event.x
-        y = event.y
 
+        logger.debug(f"DEBUG physical: click pos (screen coord): x:{event.x}, y:{event.y}")
+        x, y = self.screen_to_cairo_coord(event.x, event.y)
         self.prev_x = x
         self.prev_y = y
 
-        # print(f"Click at ({x}, {y}) in drawing area")
+        logger.debug(f"DEBUG: logical: Click at ({x}, {y}) in drawing area")
         # Check to see if the inside of any box is clicked.
         self.selected_face_rect_index = None  # no box is selected
         for i, face_rect in enumerate(self.face_rects):
@@ -338,7 +512,11 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
                y <= face_rect.bottom:
                 self.selected_face_rect_index = i
                 break
-        self.image.queue_draw()  # refresh image canvas
+
+        self.drag_start_pos = (x, y)
+        self.drag_end_pos = None
+        self.in_motion = True
+        self.drawing_area.queue_draw()  # refresh image canvas
 
     def on_key_press(self, widget, event):
         if event.state & Gdk.ModifierType.CONTROL_MASK:
@@ -351,18 +529,9 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
                     logger.info(f"Saving image as {self.output_file_path}")
                     self.pil_image.save(self.output_file_path)
                 else:
-                    logger.warn("detected image file path is not set")
+                    logger.warning("detected image file path is not set")
 
-    def on_auto_fix_clicked(self, widget):
-        detection_method = self.detection_method_combo.get_active_text()
-        logger.info(detection_method)
-
-        if detection_method == "InsightFace":
-            annotated_image = self.fix_with_insight_face(self.pil_image)
-        elif detection_method == "OpenCV":
-            annotated_image = self.fix_with_opencv(self.pil_image)
-        self.pil_image = annotated_image
-
+    def _post_process_after_image_generation(self):
         generation_information_dict = self.generation_information
         if "additional_processing" not in generation_information_dict:
             generation_information_dict["additional_processing"] = list()
@@ -375,11 +544,29 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
             metadata = PngInfo()
             metadata.add_text("generation_data", str_generation_params)
             self.pil_image.save(self.output_file_path, pnginfo=metadata)
-        self.image.queue_draw()  # refresh image canvas
+
+        # Clear rects
+        self.face_rects.clear()
+        self.selected_face_rect_index = None
+
+        # Update pixbuf for refresh the UI
+        self.pixbuf_with_base_image = pil_image_to_pixbuf(self.pil_image)
+        self.drawing_area.queue_draw()  # refresh image canvas
 
         if self.save_call_back:
             self.save_call_back(self.pil_image, str_generation_params)
 
+
+    def on_auto_fix_clicked(self, widget):
+        detection_method = self.detection_method_combo.get_active_text()
+        logger.info(detection_method)
+
+        if detection_method == "InsightFace":
+            annotated_image = self.fix_with_insight_face(self.pil_image)
+        elif detection_method == "OpenCV":
+            annotated_image = self.fix_with_opencv(self.pil_image)
+        self.pil_image = annotated_image
+        self._post_process_after_image_generation()
         return
 
     def mark_face_with_opencv(self, pil_image):
@@ -456,13 +643,13 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
         Args:
             pil_image (Image): Input image with faces
         Returns:
-            Annotated image
+            Annotated image in PIL format.
         """
         if face_data is not None:
 
             # Draw results on the input image
             self.parse_face_data(face_data, detection_method=detection_method)
-            self.image.queue_draw()
+            self.drawing_area.queue_draw()
 
             if detection_method == "OpenCV":
                 faces = face_data[1]
@@ -472,7 +659,9 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
             elif detection_method == "InsightFace":
                 faces = face_data
                 if len(faces) > 0:
-                    for face in faces:
+                    for i, face in enumerate(faces):
+                        if self.status_queue:
+                            self.status_queue.put(f"Fixing face {i+1}/{len(faces)}")
                         # left, top, right, bottom to left, top, w, h
                         face = [face[0], face[1], face[2]-face[0], face[3]-face[1]]
                         pil_image = self.process_face(pil_image, face)
@@ -492,7 +681,7 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
         if face_data is not None:
             # Draw results on the input image
             self.parse_face_data(face_data, detection_method=detection_method)
-            self.image.queue_draw()
+            self.drawing_area.queue_draw()
 
     def on_fix_marked_face_clicked(self, widget):
         pil_image = self.pil_image
@@ -508,34 +697,18 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
                 pil_image = self.process_face(pil_image, face)
 
         self.pil_image = pil_image
-        generation_information_dict = self.generation_information
-        if "additional_processing" not in generation_information_dict:
-            generation_information_dict["additional_processing"] = list()
-
-        generation_information_dict["additional_processing"].append(
-            {"face_fixer":[]}
-        )
-        str_generation_params = json.dumps(generation_information_dict)
-        if self.output_file_path:
-            metadata = PngInfo()
-            metadata.add_text("generation_data", str_generation_params)
-            self.pil_image.save(self.output_file_path, pnginfo=metadata)
-
-        self.image.queue_draw()  # refresh image canvas
-
-        if self.save_call_back:
-            self.save_call_back(self.pil_image, str_generation_params)
+        self._post_process_after_image_generation()
 
     def on_delete_mark_clicked(self, widget):
         if self.selected_face_rect_index is not None:
             del self.face_rects[self.selected_face_rect_index]
             self.selected_face_rect_index = None
-        self.image.queue_draw()  # refresh image canvas
+        self.drawing_area.queue_draw()  # refresh image canvas
 
     def on_clear_marks_clicked(self, widget):
         self.face_rects.clear()
         self.selected_face_rect_index = None
-        self.image.queue_draw()  # refresh image canvas
+        self.drawing_area.queue_draw()  # refresh image canvas
 
     def on_save_activate(self, widget):
         """
@@ -555,6 +728,74 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
             self.pil_image.save(filename)
         chooser.destroy()
 
+    def _process_new_image(self):
+        """
+        Computes various image-related values.
+
+        The only input needed is self.pil_image
+
+        Sets 
+          pixbuf for the input image
+          image width & height
+          canvas width & height (drawing area)
+          adjust the canvas size based on above
+        
+        """
+        # Creates pixbuf from the original input image to be used in on_draw
+        self.pixbuf_with_base_image = pil_image_to_pixbuf(self.pil_image)
+        self.image_width, self.image_height = self.pil_image.size
+
+        # Compute canvas size (DrawingArea for Cairo)
+        canvas_edge_length = 768  # FIXME
+        if self.image_width > self.image_height:  # landscape
+            new_width = canvas_edge_length
+            new_height = int(canvas_edge_length * self.image_height / self.image_width)
+        else: # portrait
+            new_height = canvas_edge_length
+            new_width = int(canvas_edge_length * self.image_width / self.image_height)
+        self.canvas_width = new_width
+        self.canvas_height = new_height
+
+        # Update the canvas size to match the new base image
+        self.drawing_area.set_size_request(new_width, new_height)
+        
+        # Adjust the main window size here if necessary
+        self.set_default_size(new_width + 200, new_height)
+        self.resize(new_width + 200, new_height)
+
+        self._adjust_matrix_redraw_canvas()
+
+    def on_draw(self, widget, cr):
+
+        # Give the transform matrix to Cairo for Cairo coordinates to screen coordinates
+        # mapping.
+        self.update_transform_matrix(cr)  # update transform_matrix
+        cr.set_matrix(self.transform_matrix)
+        
+        # Paint base image
+        Gdk.cairo_set_source_pixbuf(cr, self.pixbuf_with_base_image, 0, 0)
+        cr.paint()  # render the content of pixbuf in the source buffer on the canvas
+
+        # Draw a rectangle over the image
+        for i, face_rect in enumerate(self.face_rects):
+            if i == self.selected_face_rect_index:
+                cr.set_source_rgba(*SELECTED_COLOR)
+            else:
+                cr.set_source_rgba(*UNSELECTED_COLOR)
+            cr.rectangle(face_rect.left,
+                         face_rect.top,
+                         face_rect.right - face_rect.left,
+                         face_rect.bottom - face_rect.top)
+            cr.fill()
+
+        if self.in_motion and self.drag_end_pos:
+            cr.set_source_rgba(1, 0, 0, 0.5)  # Red color with transparency
+            cr.rectangle(self.drag_start_pos[0],  # left
+                         self.drag_start_pos[1],  # top
+                            self.drag_end_pos[0] - self.drag_start_pos[0],  # w
+                            self.drag_end_pos[1] - self.drag_start_pos[1])  # h
+            cr.fill()
+
     def on_drag_data_received(self, widget, drag_context, x, y, data, info, time):
         """Drag and Drop handler.
 
@@ -565,8 +806,7 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
             file_path = file_path[7:]
         logger.info("on_drag_data_received: {file_path}")
         self.pil_image = Image.open(file_path)
-        pixbuf = pil_image_to_pixbuf(self.pil_image)
-        self.image.set_from_pixbuf(pixbuf)
+        self._process_new_image()
 
     def process_face(self, pil_image, face) -> Image:
         """
@@ -586,12 +826,12 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
 
         # Create a temporary directory using the tempfile module
         with tempfile.TemporaryDirectory() as temp_dir:
-            print(f"Temporary directory created at {temp_dir}")
+            logger.debug(f"Temporary directory created at {temp_dir}")
             x = int(face[0])
             y = int(face[1])
             w = int(face[2])
             h = int(face[3])
-            print(f"{x}, {y}, {w}, {h}")
+            logger.debug(f"{x}, {y}, {w}, {h}")
 
             # Expand by buffer
             buffer = 20
@@ -695,7 +935,11 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
 
         # Prompt handling
         # Priority 1. User-provided for face fix
-        self.positive_prompt = text_view_get_text(self.positive_prompt_field)
+
+        if self.procedural:
+            self.positive_prompt = self.positive_prompt_procedural
+        else:
+            self.positive_prompt = text_view_get_text(self.positive_prompt_field)
 
         if self.positive_prompt:
             positive_prompt = self.positive_prompt
@@ -713,6 +957,11 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
             positive_prompt = "face of " + meta_prompt + ", " + positive_prompt
 
         # Negative prompt
+        if self.procedural:  # img2img
+            self.negative_prompt = self.negative_prompt_procedural
+        else:  # UI
+            pass
+
         if self.negative_prompt:
             negative_prompt = self.negative_prompt
             if self.preferences["enable_negative_prompt_expansion"]:
@@ -748,9 +997,15 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
         if "lora_models" in generation_info:
             if generation_info["lora_models"] and len(generation_info["lora_models"]) > 0:
                 l = generation_info["lora_models"].split(",")
-                l = [os.path.join(
-                    self.preferences["lora_model_path"], e.strip()) for e in l if len(e.strip()) > 0]
-                l = ",".join(l)
+
+                # if image was generated in SD1.5, enable LoRA
+                if self.enable_lora:
+                    model_name = self.generation_information["ldm_model"]
+                    l = [os.path.join(
+                        self.preferences["lora_model_path"], e.strip()) for e in l if len(e.strip()) > 0]
+                    l = ",".join(l)
+                else:  # if SDXL, disable LoRA for now
+                    l = ""
             else:
                 l = ""
             lora_models = l
@@ -770,6 +1025,7 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
                      "--lora_models", lora_models,
                      "--lora_weights", lora_weights,
                      "--outdir", output_dir]
+
         input_image_path = os.path.join(get_tmp_dir(), "input_image.png")
         input_image.save(input_image_path)
 
@@ -841,8 +1097,12 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
                     self.face_rects.append(face_rect)
 
     def on_image_button_release(self, widget, event):
-        x, y = (event.x, event.y)
-        if abs(x - self.prev_x) > 5 and  abs(y - self.prev_y) > 5:
+        x, y = self.screen_to_cairo_coord(event.x, event.y)
+        self.drag_start_pos = None
+        self.drag_end_pos = None
+        self.in_motion = False
+
+        if abs(x - self.prev_x) > 5 and abs(y - self.prev_y) > 5:
             left = min(x, self.prev_x)
             right = max(x, self.prev_x)
             top = min(y, self.prev_y)
@@ -850,7 +1110,66 @@ class FaceFixer(Gtk.Window):  # Subclass Window object
             face_rect = FaceRect(left, top, right, bottom)
             self.face_rects.append(face_rect)
 
-            self.image.queue_draw()  # invalidate
+            self.drawing_area.queue_draw()  # invalidate
+
+    def on_motion_notify(self, widget, event):
+        x, y = self.screen_to_cairo_coord(event.x, event.y)
+        if self.drag_start_pos and (event.state & Gdk.ModifierType.BUTTON1_MASK):
+            self.drag_end_pos = (x, y)
+            self.drawing_area.queue_draw()  # invalidate
+
+    def on_slider_value_changed(self, slider):
+        self.pen_width = slider.get_value()
+        logger.debug(f"Pen width: {self.pen_width}")
+
+    def on_eraser_checkbox_toggled(self, checkbox):
+        self.is_eraser = checkbox.get_active()
+
+    def _adjust_matrix_redraw_canvas(self):
+        # self.update_transform_matrix()
+        self.drawing_area.queue_draw()
+        self.update_slider_ranges()        
+
+    def on_zoom_in(self, button):
+        """
+        Scale up
+        """
+        self.scale_factor *= 1.1
+        self._adjust_matrix_redraw_canvas()
+
+    def on_zoom_out(self, button):
+        """
+        Scale down
+        """
+        self.scale_factor /= 1.1
+        self._adjust_matrix_redraw_canvas()
+
+    def on_reset(self, button):
+        self.scale_factor = 1.0
+        self.translation = [0, 0]
+        self._adjust_matrix_redraw_canvas()
+
+    def update_slider_ranges(self):
+        """
+        Called when the image is scaled.
+        """
+        image_width_scaled = self.image_width * self.scale_factor
+        image_height_scaled = self.image_height * self.scale_factor
+
+        self.h_slider.set_range(0, max(image_width_scaled - self.canvas_width, 0))
+        self.h_slider.set_value(0)
+        self.v_slider.set_range(0, max(image_height_scaled - self.canvas_height, 0))
+        self.v_slider.set_value(0)
+
+    def on_hscroll(self, adjustment):
+        self.translation[0] = -adjustment.get_value()
+        # self.update_transform_matrix()
+        self.drawing_area.queue_draw()
+
+    def on_vscroll(self, adjustment):
+        self.translation[1] = -adjustment.get_value()
+        # self.update_transform_matrix()
+        self.drawing_area.queue_draw()
 
 
 def main():
@@ -887,7 +1206,7 @@ def main():
         "seed": "0"
     }
 
-    pil_image = Image.open("../cremage_resources/human_couple.png")   # FIXME
+    pil_image = Image.open("../cremage_resources/512x512_human_couple.png")   # FIXME
     app = FaceFixer(
         pil_image=pil_image,
         output_file_path=os.path.join(get_tmp_dir(), "tmp_face_fix.png"),

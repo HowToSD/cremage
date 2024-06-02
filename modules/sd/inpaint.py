@@ -337,7 +337,7 @@ def generate(opt, ui_thread_instance=None, status_queue=None):
                 # Convert the result back to PIL format if needed
                 output_image = Image.fromarray(cv.cvtColor(output, cv.COLOR_BGR2RGB))
             except:
-                logger.warn("Seamless clone failed. Switching back to simple paste")
+                logger.warning("Seamless clone failed. Switching back to simple paste")
                 # In case mask is not binary (0 or 255), binarize it.
                 mask_binary = cv.threshold(mask_cv, 127, 255, cv.THRESH_BINARY)[1]
 

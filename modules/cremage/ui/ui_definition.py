@@ -9,6 +9,7 @@ import re
 from collections import OrderedDict
 from functools import partial
 
+import omegaconf
 from PIL import Image
 import gi
 gi.require_version('Gtk', '3.0')
@@ -20,13 +21,14 @@ sys.path = [MODULE_ROOT] + sys.path
 
 from cremage.const.const import MAIN_IMAGE_CANVAS_SIZE, TRUE_FALSE_LIST, FACE_MODEL_NAME
 from cremage.const.const import THUMBNAIL_IMAGE_EDGE_LENGTH
+from cremage.const.const import GENERATOR_MODEL_TYPE_LIST
 from cremage.ui.generate_handler import generate_handler
 from cremage.ui.save_preference_handler import save_preference_handler
 from cremage.ui.graffiti_editor_widget_click_handler import graffiti_editor_widget_click_handler
 from cremage.ui.control_image_view_click_handler import control_image_view_click_handler
 from cremage.ui.generation_mode_toggle_handler import generation_mode_toggle_handler
 from cremage.utils.image_utils import pil_image_to_pixbuf
-from cremage.utils.gtk_utils import text_view_get_text
+from cremage.utils.gtk_utils import text_view_get_text, show_error_dialog
 from cremage.utils.gtk_utils import text_view_set_text
 from cremage.utils.gtk_utils import create_combo_box, create_combo_box_typeahead
 from cremage.utils.gtk_utils import resized_gtk_image_from_file
@@ -39,13 +41,19 @@ from cremage.ui.model_path_update_handler import update_ldm_inpaint_model_name_v
 from cremage.ui.model_path_update_handler import update_vae_model_name_value_from_vae_model_dir
 from cremage.ui.model_path_update_handler import update_control_model_name_value_from_control_model_dir
 from cremage.ui.model_path_update_handler import update_lora_model_name_value_from_lora_model_dir
+from cremage.ui.model_path_update_handler import update_sdxl_ldm_model_name_value_from_sdxl_ldm_model_dir
+from cremage.ui.model_path_update_handler import update_sdxl_ldm_inpaint_model_name_value_from_sdxl_ldm_model_dir
+from cremage.ui.model_path_update_handler import update_sdxl_vae_model_name_value_from_sdxl_vae_model_dir
+from cremage.ui.model_path_update_handler import update_sdxl_lora_model_name_value_from_sdxl_lora_model_dir
 from cremage.ui.input_image_view_click_handler import input_image_view_click_handler
+from cremage.ui.main_image_view_click_handler import main_image_view_click_handler
 from cremage.ui.face_input_image_view_click_handler import face_input_image_view_click_handler
 from cremage.ui.face_input_image_view_click_handler import face_input_image_view_close_handler
 from cremage.ui.mask_image_view_click_handler import mask_image_view_click_handler
 from cremage.ui.copy_image_widget_click_handler import copy_image_widget_click_handler
 from cremage.ui.drag_and_drop_handlers import control_image_drag_data_received
 from cremage.ui.drag_and_drop_handlers import input_image_drag_data_received
+from cremage.ui.drag_and_drop_handlers import main_image_drag_data_received
 from cremage.ui.drag_and_drop_handlers import face_input_image_drag_data_received
 from cremage.ui.menu_definition import main_menu_definition
 from cremage.ui.image_listbox_handlers import refresh_image_file_list
@@ -53,13 +61,26 @@ from cremage.ui.tool_palette import ToolPaletteArea
 from cremage.ui.update_image_handler import update_image
 from cremage.ui.face_ui_event_handlers import open_face_dir_button_handler
 from cremage.ui.face_ui_event_handlers import copy_current_image_to_face_button_handler
+from cremage.ui.show_prompt_list_handlers import show_positive_prompt_history_handler
+from cremage.ui.show_prompt_list_handlers import show_negative_prompt_history_handler
+from cremage.ui.show_prompt_list_handlers import show_positive_prompt_pre_expansion_history_handler
+from cremage.ui.show_prompt_list_handlers import show_negative_prompt_pre_expansion_history_handler
+from cremage.ui.show_prompt_list_handlers import show_positive_prompt_expansion_history_handler
+from cremage.ui.show_prompt_list_handlers import show_negative_prompt_expansion_history_handler
 from cremage.utils.sampler_utils import sampler_name_list
 from cremage.utils.hires_fix_upscaler_utils import hires_fix_upscaler_name_list
 from cremage.utils.misc_utils import join_directory_and_file_name
+from cremage.ui.generator_model_type_change_handler import sdxl_sampler_cb_changed
+from cremage.ui.sdxl_use_refiner_check_box_handler import sdxl_use_refiner_check_box_changed
+from sdxl.const.const import SDXL_RESOLUTIONS
+from sdxl.const.const import SDXL_SAMPLER_NAME_LIST
+from sdxl.const.const import DISCRETIZATION_LIST
+from sdxl.const.const import GUIDER_LIST
 
 BLANK_INPUT_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "blank_input_image.png")
 BLANK_MASK_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "blank_mask_image.png")
 BLANK_CONTROL_NET_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "blank_image_control_net.png")
+LIST_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "prompt_history.png")
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -137,6 +158,11 @@ def main_ui_definition(app) -> None:
     app.images_per_page = 6  # Number of images displayed on a list at a time
     app.current_image_start_index = 0
 
+    # Control tab visibility on the right side of the UI
+    # Key is the tab name
+    app.tab_labels = dict()
+    app.tab_contents = dict()
+
     # Update the image file list from the disk
     refresh_image_file_list(app, skip_adjustment=True)
 
@@ -183,18 +209,63 @@ def main_ui_definition(app) -> None:
     vbox_root.pack_start(vboxImage, True, True, 0)
 
     # Image field
+    # Wrap the input image in an event box to handle click events
+    app.main_image_wrapper = Gtk.EventBox()
+
     img_placeholder = Image.new('RGBA', (MAIN_IMAGE_CANVAS_SIZE, MAIN_IMAGE_CANVAS_SIZE), "gray")
     app.image = Gtk.Image.new_from_pixbuf(
         pil_image_to_pixbuf(img_placeholder)
     )
-    vboxImage.pack_start(app.image, True, False, 0)
 
-    ## Potisive prompt fields
-    # Label for the Positive Prompt text field
-    positive_prompt_label = Gtk.Label()
-    positive_prompt_label.set_text("Positive prompt")
+    # Input image drag and drop support
+    app.image.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
+    app.image.drag_dest_add_text_targets()
+    app.image.connect('drag-data-received',
+                                       lambda
+                                            widget,
+                                            drag_context,
+                                            x,
+                                            y,
+                                            data,
+                                            info,
+                                            time,
+                                            app=app:
+                                            main_image_drag_data_received(
+                                            app,
+                                            widget,
+                                            drag_context,
+                                            x,
+                                            y,
+                                            data,
+                                            info,
+                                            time,
+                                        ))
+
+    # Main image click support
+    app.main_image_wrapper.add(app.image)
+    # app.main_image_wrapper.set_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+    app.main_image_wrapper.set_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK)
+    app.main_image_wrapper.connect("button-press-event", lambda widget, event, app=app: main_image_view_click_handler(app, widget, event))
+    vboxImage.pack_start(app.main_image_wrapper, True, False, 0)
+
+    ## Positive prompt fields
+    # Label and button
+    hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+    
+    # Create and configure the label
+    positive_prompt_label = Gtk.Label(label="Positive prompt")
     positive_prompt_label.set_halign(Gtk.Align.START)  # Align label to the left
-    vboxImage.pack_start(positive_prompt_label, False, False, 0)
+    hbox.pack_start(positive_prompt_label, True, True, 0)
+    
+    # Create the button with an image
+    icon_image = Gtk.Image.new_from_file(LIST_IMAGE_PATH)
+    icon_button = Gtk.Button()
+    icon_button.set_image(icon_image)
+    icon_button.set_relief(Gtk.ReliefStyle.NONE)  # Optional: remove button border
+    icon_button.connect("clicked", lambda widget, app=app: show_positive_prompt_history_handler(app, widget))
+    hbox.pack_end(icon_button, False, False, 0)
+    vboxImage.pack_start(hbox, False, False, 0)
+    # Positive prompt label end
 
     # Frame for the text view with a 1-pixel black border
     positive_frame = Gtk.Frame()
@@ -210,11 +281,23 @@ def main_ui_definition(app) -> None:
     vboxImage.pack_start(positive_frame, False, False, 0)
 
     ## Negative prompt fields
-    # Label for the negative Prompt text field
-    negative_prompt_label = Gtk.Label()
-    negative_prompt_label.set_text("Nagative prompt")
+    # Label and button
+    hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+    
+    # Create and configure the label
+    negative_prompt_label = Gtk.Label(label="Negative prompt")
     negative_prompt_label.set_halign(Gtk.Align.START)  # Align label to the left
-    vboxImage.pack_start(negative_prompt_label, False, False, 0)
+    hbox.pack_start(negative_prompt_label, True, True, 0)
+    
+    # Create the button with an image
+    icon_image = Gtk.Image.new_from_file(LIST_IMAGE_PATH)
+    icon_button = Gtk.Button()
+    icon_button.set_image(icon_image)
+    icon_button.set_relief(Gtk.ReliefStyle.NONE)  # Optional: remove button border
+    icon_button.connect("clicked", lambda widget, app=app: show_negative_prompt_history_handler(app, widget))
+    hbox.pack_end(icon_button, False, False, 0)
+    vboxImage.pack_start(hbox, False, False, 0)
+    # Negative prompt label end
 
     # Negative prompt multi-line text field
     # Frame for the text view with a 1-pixel black border
@@ -246,8 +329,8 @@ def main_ui_definition(app) -> None:
     button_box.pack_start(app.override_checkbox, False, False, 0)
 
     # Generation status
-    app.generation_status = Gtk.Entry(text="")
-    app.generation_status.set_size_request(30, -1)  # Width = 30 pixels, height is default
+    app.generation_status = Gtk.Label(label="")
+    app.generation_status.set_size_request(200, -1)  # Width = 30 pixels, height is default
     button_box.pack_start(app.generation_status, False, False, 0)  # widget, expand, fill, padding
 
     ## Generation information field
@@ -379,20 +462,25 @@ def main_ui_definition(app) -> None:
     update_control_model_name_value_from_control_model_dir(app)
     update_lora_model_name_value_from_lora_model_dir(app)
 
+    update_sdxl_ldm_model_name_value_from_sdxl_ldm_model_dir(app)
+    update_sdxl_ldm_inpaint_model_name_value_from_sdxl_ldm_model_dir(app)
+    update_sdxl_vae_model_name_value_from_sdxl_vae_model_dir(app)
+    update_sdxl_lora_model_name_value_from_sdxl_lora_model_dir(app)
+
     # Notebook for the tabbed UI for the right panel
     # Page 1 hierarchy:
     # vbox_root
-    #   notebook
+    #   app.notebook
     #     tab
     #       vbox
     #         grid
-    notebook = Gtk.Notebook()
-    vbox_root.pack_start(notebook, True, True, 0)
+    app.notebook = Gtk.Notebook()
+    vbox_root.pack_start(app.notebook, True, True, 0)
 
     # Page 1 start
     vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
     # vbox_root.pack_start(vbox, True, True, 0)
-    notebook.append_page(vbox, Gtk.Label(label="Basic"))
+    app.notebook.append_page(vbox, Gtk.Label(label="Basic"))
 
     grid = Gtk.Grid()
     grid.set_column_spacing(10)
@@ -421,32 +509,74 @@ def main_ui_definition(app) -> None:
     css_provider = Gtk.CssProvider()
     css_provider.load_from_data(css)
 
+    generator_model_type_list = GENERATOR_MODEL_TYPE_LIST
     sampler_list = list(filter(lambda e: e.find("DDIM") >= 0, sampler_name_list)) if app.preferences["hide_k_diffusion_samplers"] else sampler_name_list  # If you need to filter out any sampler, do here.
+    sdxl_sampler_list = SDXL_SAMPLER_NAME_LIST
     hires_fix_upscaler_list = hires_fix_upscaler_name_list
+    
+    sdxl_resolution_str_list = [f"{w}x{h}" for (w, h) in SDXL_RESOLUTIONS]
+    # Try to see if exact match is found if SD resolution is stored in preference.
+    # If not, fall back to 1024x1024.
+    try:
+        resolution_index =  sdxl_resolution_str_list.index(
+            f'{app.preferences["image_width"]}x{app.preferences["image_height"]}')
+    except:
+        resolution_index =  sdxl_resolution_str_list.index("1024x1024")
 
+    def create_list_button(handler):
+        icon_image = Gtk.Image.new_from_file(LIST_IMAGE_PATH)
+        icon_button = Gtk.Button()
+        icon_button.set_image(icon_image)
+        icon_button.set_relief(Gtk.ReliefStyle.NONE)  # Optional: remove button border
+        # icon_button.connect("clicked", lambda widget, app=app: show_positive_prompt_history_handler(app, widget))
+        icon_button.connect("clicked", lambda widget, app=app: handler(app, widget))
+        return icon_button
+    
     fields1 = {
+        "generator_model_type": create_combo_box_typeahead(generator_model_type_list, generator_model_type_list.index(app.preferences["generator_model_type"])),
         "sampler": create_combo_box_typeahead(sampler_list, sampler_list.index(app.preferences["sampler"])),
+        "sdxl_sampler": create_combo_box_typeahead(sdxl_sampler_list, sdxl_sampler_list.index(app.preferences["sdxl_sampler"])),
         "sampling_steps": Gtk.Entry(text=str(app.preferences["sampling_steps"])),
         "image_width": Gtk.Entry(text=str(app.preferences["image_width"])),
         "image_height": Gtk.Entry(text=str(app.preferences["image_height"])),
+        "sdxl_image_resolution":  create_combo_box_typeahead(sdxl_resolution_str_list, resolution_index),
         "clip_skip": Gtk.Entry(text=str(app.preferences["clip_skip"])),
         "denoising_strength": Gtk.Entry(text=str(app.preferences["denoising_strength"])),
         "batch_size": Gtk.Entry(text=str(app.preferences["batch_size"])),
         "number_of_batches": Gtk.Entry(text=str(app.preferences["number_of_batches"])),
+        "positive_prompt_pre_expansion": Gtk.TextView(),
+        "positive_prompt_pre_expansion_history": create_list_button(show_positive_prompt_pre_expansion_history_handler),
+        "negative_prompt_pre_expansion": Gtk.TextView(),
+        "negative_prompt_pre_expansion_history": create_list_button(show_negative_prompt_pre_expansion_history_handler),
         "positive_prompt_expansion": Gtk.TextView(),
+        "positive_prompt_expansion_history": create_list_button(show_positive_prompt_expansion_history_handler),
         "negative_prompt_expansion": Gtk.TextView(),
+        "negative_prompt_expansion_history": create_list_button(show_negative_prompt_expansion_history_handler),
+        "enable_positive_prompt_pre_expansion": create_combo_box(TRUE_FALSE_LIST, int(not app.preferences["enable_positive_prompt_pre_expansion"])),
+        "enable_negative_prompt_pre_expansion": create_combo_box(TRUE_FALSE_LIST, int(not app.preferences["enable_negative_prompt_pre_expansion"])),
         "enable_positive_prompt_expansion": create_combo_box(TRUE_FALSE_LIST, int(not app.preferences["enable_positive_prompt_expansion"])),
         "enable_negative_prompt_expansion": create_combo_box(TRUE_FALSE_LIST, int(not app.preferences["enable_negative_prompt_expansion"])),
         "seed": Gtk.Entry(text=str(app.preferences["seed"])),
         "cfg": Gtk.Entry(text=str(app.preferences["cfg"])),
         "hires_fix_upscaler": create_combo_box_typeahead(hires_fix_upscaler_list, hires_fix_upscaler_list.index(app.preferences["hires_fix_upscaler"])),
+        "hires_fix_scale_factor": Gtk.Entry(text=str(app.preferences["hires_fix_scale_factor"])),
         "auto_face_fix": create_combo_box(TRUE_FALSE_LIST, int(not app.preferences["auto_face_fix"])),
     }
+
+    fields1["generator_model_type"].connect("changed", lambda widget, app=app:sdxl_sampler_cb_changed(app, widget))
+
+    text_view_set_text(fields1["positive_prompt_pre_expansion"], app.preferences["positive_prompt_pre_expansion"])
+    text_view_set_text(fields1["negative_prompt_pre_expansion"], app.preferences["negative_prompt_pre_expansion"])
     text_view_set_text(fields1["positive_prompt_expansion"], app.preferences["positive_prompt_expansion"])
     text_view_set_text(fields1["negative_prompt_expansion"], app.preferences["negative_prompt_expansion"])
 
     # Apply the same style to both TextViews
-    for textview in [fields1["positive_prompt_expansion"], fields1["negative_prompt_expansion"]]:
+    for textview in [
+        fields1["positive_prompt_pre_expansion"],
+        fields1["negative_prompt_pre_expansion"],
+        fields1["positive_prompt_expansion"],
+        fields1["negative_prompt_expansion"]
+        ]:
         context = textview.get_style_context()
         context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
@@ -463,7 +593,13 @@ def main_ui_definition(app) -> None:
     # value: ((label grid pos), (value field grid pos))
     row = 0
     fields1_pos = OrderedDict()
+    fields1_pos["generator_model_type"] = ((0, row, 1, 1), (1, row, 1, 1))
+    row += 1
+
+    # Place both samplers at the Same position as display is toggled
+    # by the generator type combobox
     fields1_pos["sampler"] = ((0, row, 1, 1), (1, row, 1, 1))
+    fields1_pos["sdxl_sampler"] = ((0, row, 1, 1), (1, row, 1, 1))
     fields1_pos["sampling_steps"] = ((2, row, 1, 1), (3, row, 1, 1))
     row += 1
 
@@ -471,18 +607,31 @@ def main_ui_definition(app) -> None:
     fields1_pos["image_height"] = ((2, row, 1, 1), (3, row, 1, 1))
     row += 1
 
-    fields1_pos["clip_skip"] = ((0, row, 1, 1), (1, row, 1, 1))
-    fields1_pos["denoising_strength"] = ((2, row, 1, 1), (3, row, 1, 1))
+    fields1_pos["sdxl_image_resolution"] = ((0, row, 1, 1), (1, row, 1, 1))
     row += 1
 
     fields1_pos["batch_size"] = ((0, row, 1, 1), (1, row, 1, 1))
     fields1_pos["number_of_batches"] = ((2, row, 1, 1), (3, row, 1, 1))
     row += 1
 
+    fields1_pos["positive_prompt_pre_expansion"] = ((0, row, 1, 1), (1, row, 3, 2))
+    fields1_pos["positive_prompt_pre_expansion_history"] = ((4, row, 1, 1), (4, row, 1, 1))
+    row += 2
+
+    fields1_pos["negative_prompt_pre_expansion"] = ((0, row, 1, 1), (1, row, 3, 2))
+    fields1_pos["negative_prompt_pre_expansion_history"] = ((4, row, 1, 1), (4, row, 1, 1))
+    row += 2
+
+    fields1_pos["enable_positive_prompt_pre_expansion"] = ((0, row, 1, 1), (1, row, 1, 1))
+    fields1_pos["enable_negative_prompt_pre_expansion"] = ((2, row, 1, 1), (3, row, 1, 1))
+    row += 1
+
     fields1_pos["positive_prompt_expansion"] = ((0, row, 1, 1), (1, row, 3, 2))
+    fields1_pos["positive_prompt_expansion_history"] = ((4, row, 1, 1), (4, row, 1, 1))
     row += 2
 
     fields1_pos["negative_prompt_expansion"] = ((0, row, 1, 1), (1, row, 3, 2))
+    fields1_pos["negative_prompt_expansion_history"] = ((4, row, 1, 1), (4, row, 1, 1))
     row += 2
 
     fields1_pos["enable_positive_prompt_expansion"] = ((0, row, 1, 1), (1, row, 1, 1))
@@ -494,16 +643,28 @@ def main_ui_definition(app) -> None:
     row += 1
 
     fields1_pos["hires_fix_upscaler"] = ((0, row, 1, 1), (1, row, 1, 1))
-    fields1_pos["auto_face_fix"] = ((2, row, 1, 1), (3, row, 1, 1))    
+    fields1_pos["hires_fix_scale_factor"] = ((2, row, 1, 1), (3, row, 1, 1))    
     row += 1
+
+    fields1_pos["auto_face_fix"] = ((0, row, 1, 1), (1, row, 1, 1))
+    row += 1
+
+    fields1_pos["denoising_strength"] = ((0, row, 1, 1), (1, row, 1, 1))
+    fields1_pos["clip_skip"] = ((2, row, 1, 1), (3, row, 1, 1))
+    row += 1
+
     assert sorted(fields1.keys()) == sorted(fields1_pos.keys())
 
+    app.fields1_labels = dict()
     for k, v in fields1_pos.items():
-        grid.attach(
-            Gtk.Label(
-                label=k.replace("_", " ").capitalize(),
-                halign=Gtk.Align.START),
-            *v[0])
+        label = k.replace("_", " ").capitalize()
+        app.fields1_labels[label] = Gtk.Label(
+                label=label,
+                halign=Gtk.Align.START)
+        if v[0] != v[1]:  # Skip icon
+            grid.attach(
+                app.fields1_labels[label],
+                *v[0])
         grid.attach(fields1[k], *v[1])
 
     # Save preferences button
@@ -513,7 +674,16 @@ def main_ui_definition(app) -> None:
     # Page 2
     vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
     # vbox_root.pack_start(vbox, True, True, 0)
-    notebook.append_page(vbox, Gtk.Label(label="Models"))
+    # app.notebook.append_page(vbox, Gtk.Label(label="Models"))
+    # app.tab_labels["Models"] = Gtk.Label(label="Models")
+    # app.notebook.append_page(vbox, app.tab_labels["Models"])
+
+    app.tab_labels["Models"] = Gtk.Label(label="Models")
+    app.tab_contents["Models"] = vbox
+
+    app.notebook.append_page(
+        app.tab_contents["Models"],
+        app.tab_labels["Models"])
 
     grid = Gtk.Grid()
     grid.set_column_spacing(10)
@@ -561,15 +731,121 @@ def main_ui_definition(app) -> None:
             row += 1
 
     # Merge two dicts:
-    app.fields = {**fields1, **fields2}
+    # app.fields = {**fields1, **fields2}
 
     # Save preferences button
     add_save_preferences_button()
     # end of page 2
 
+    # Page 2 for SDXL
+    vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    # vbox_root.pack_start(vbox, True, True, 0)
+    # app.notebook.append_page(vbox, Gtk.Label(label="SDXL Models"))
+    # app.tab_labels["SDXL Models"] = app.notebook.get_tab_label(vbox)
+    app.tab_labels["SDXL Models"] = Gtk.Label(label="SDXL Models")
+    app.tab_contents["SDXL Models"] = vbox
+
+    app.notebook.append_page(
+        app.tab_contents["SDXL Models"],
+        app.tab_labels["SDXL Models"])
+
+    grid = Gtk.Grid()
+    grid.set_column_spacing(10)
+    grid.set_row_spacing(10)
+
+    # Set margins for the grid
+    grid.set_margin_start(10)  # Margin on the left side
+    grid.set_margin_end(10)    # Margin on the right side
+    grid.set_margin_top(10)    # Margin on the top
+    grid.set_margin_bottom(10) # Margin on the bottom
+
+    vbox.pack_start(grid, True, True, 0)
+    fields2sdxl = {
+        "sdxl_ldm_model": create_combo_box_typeahead(app.sdxl_ldm_model_names, app.sdxl_ldm_model_names.index(app.preferences["sdxl_ldm_model"])),
+        "sdxl_ldm_inpaint_model": create_combo_box_typeahead(app.sdxl_ldm_inpaint_model_names, app.sdxl_ldm_inpaint_model_names.index(app.preferences["sdxl_ldm_inpaint_model"])),
+        "sdxl_vae_model": create_combo_box_typeahead(app.sdxl_vae_model_names, app.sdxl_vae_model_names.index(app.preferences["sdxl_vae_model"])),
+        "sdxl_lora_model_1": create_combo_box_typeahead(app.sdxl_lora_model_names, app.sdxl_lora_model_names.index(app.preferences["sdxl_lora_model_1"])),
+        "sdxl_lora_weight_1": Gtk.Entry(text=app.preferences["sdxl_lora_weight_1"]),
+        "sdxl_lora_model_2": create_combo_box_typeahead(app.sdxl_lora_model_names, app.sdxl_lora_model_names.index(app.preferences["sdxl_lora_model_2"])),
+        "sdxl_lora_weight_2": Gtk.Entry(text=app.preferences["sdxl_lora_weight_2"]),
+        "sdxl_lora_model_3": create_combo_box_typeahead(app.sdxl_lora_model_names, app.sdxl_lora_model_names.index(app.preferences["sdxl_lora_model_3"])),
+        "sdxl_lora_weight_3": Gtk.Entry(text=app.preferences["sdxl_lora_weight_3"]),
+        "sdxl_lora_model_4": create_combo_box_typeahead(app.sdxl_lora_model_names, app.sdxl_lora_model_names.index(app.preferences["sdxl_lora_model_4"])),
+        "sdxl_lora_weight_4": Gtk.Entry(text=app.preferences["sdxl_lora_weight_4"]),
+        "sdxl_lora_model_5": create_combo_box_typeahead(app.sdxl_lora_model_names, app.sdxl_lora_model_names.index(app.preferences["sdxl_lora_model_5"])),
+        "sdxl_lora_weight_5": Gtk.Entry(text=app.preferences["sdxl_lora_weight_5"]),
+
+        "sdxl_use_refiner": Gtk.CheckButton(label="Use refiner"),
+        "sdxl_refiner_strength": Gtk.Entry(text=app.preferences["sdxl_refiner_strength"]),
+
+        "refiner_sdxl_ldm_model": create_combo_box_typeahead(app.sdxl_ldm_model_names, app.sdxl_ldm_model_names.index(app.preferences["refiner_sdxl_ldm_model"])),
+        "refiner_sdxl_vae_model": create_combo_box_typeahead(app.sdxl_vae_model_names, app.sdxl_vae_model_names.index(app.preferences["refiner_sdxl_vae_model"])),
+        "refiner_sdxl_lora_model_1": create_combo_box_typeahead(app.sdxl_lora_model_names, app.sdxl_lora_model_names.index(app.preferences["refiner_sdxl_lora_model_1"])),
+        "refiner_sdxl_lora_weight_1": Gtk.Entry(text=app.preferences["refiner_sdxl_lora_weight_1"]),
+        "refiner_sdxl_lora_model_2": create_combo_box_typeahead(app.sdxl_lora_model_names, app.sdxl_lora_model_names.index(app.preferences["refiner_sdxl_lora_model_2"])),
+        "refiner_sdxl_lora_weight_2": Gtk.Entry(text=app.preferences["refiner_sdxl_lora_weight_2"]),
+        "refiner_sdxl_lora_model_3": create_combo_box_typeahead(app.sdxl_lora_model_names, app.sdxl_lora_model_names.index(app.preferences["refiner_sdxl_lora_model_3"])),
+        "refiner_sdxl_lora_weight_3": Gtk.Entry(text=app.preferences["refiner_sdxl_lora_weight_3"]),
+        "refiner_sdxl_lora_model_4": create_combo_box_typeahead(app.sdxl_lora_model_names, app.sdxl_lora_model_names.index(app.preferences["refiner_sdxl_lora_model_4"])),
+        "refiner_sdxl_lora_weight_4": Gtk.Entry(text=app.preferences["refiner_sdxl_lora_weight_4"]),
+        "refiner_sdxl_lora_model_5": create_combo_box_typeahead(app.sdxl_lora_model_names, app.sdxl_lora_model_names.index(app.preferences["refiner_sdxl_lora_model_5"])),
+        "refiner_sdxl_lora_weight_5": Gtk.Entry(text=app.preferences["refiner_sdxl_lora_weight_5"]),
+    }
+
+    fields2sdxl["sdxl_use_refiner"].set_active(app.preferences["sdxl_use_refiner"])
+    fields2sdxl["sdxl_use_refiner"].connect("toggled", lambda widget, app=app:sdxl_use_refiner_check_box_changed(app, widget))
+
+    def sdxl_use_refiner_handler(widget):
+        model_name = widget.get_child().get_text()
+        if model_name.startswith("sd_xl_refiner"):
+            show_error_dialog(app, """A standard refiner model (sd_xl_refiner) does not support LoRA.
+                              Use a regular SDXL model to use LoRA.""")
+    fields2sdxl["refiner_sdxl_ldm_model"].connect("changed", sdxl_use_refiner_handler)
+
+    app.fields2_labels = dict()
+    # Add fields to the grid
+    row = 0
+    for _, (label_text, field) in enumerate(fields2sdxl.items()):
+        i = row
+        if label_text.find("sdxl_lora_weight") < 0:
+            if label_text == "sdxl_use_refiner":
+                grid.attach(field, 0, i, 1, 1)  # field, left, top, width, height
+            elif label_text == "sdxl_refiner_strength":
+                label_text = label_text.replace("sdxl_", "").replace("_", " ").capitalize()
+                label = Gtk.Label(label=label_text, halign=Gtk.Align.START)
+                app.fields2_labels[label_text] = label
+                grid.attach(label, 1, i, 1, 1)  # field, left, top, width, height
+                grid.attach(field, 2, i, 1, 1)  # field, left, top, width, height
+                row += 1
+            else:
+                label = Gtk.Label(label=label_text.replace("_", " ").capitalize(), halign=Gtk.Align.START)
+                app.fields2_labels[label_text] = label
+
+                if re.search("sdxl_lora_model_[\d+]", label_text):
+                    grid.attach(label, 0, i, 1, 1)  # field, left, top, width, height
+                    grid.attach(field, 1, i, 1, 1)
+                else:  # Non-LoRA
+                    grid.attach(label, 0, i, 1, 1)  # field, left, top, width, height
+                    grid.attach(field, 1, i, 2, 1)
+                    row += 1
+        else:  # LoRA weight
+            grid.attach(field, 2, i, 1, 1)
+            row += 1
+
+    # Merge two dicts:
+    app.fields = {**fields1, **fields2, **fields2sdxl}
+
+    # Save preferences button
+    add_save_preferences_button()
+    # end of page 2 model sdxl
+
     # Page 3
     vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-    notebook.append_page(vbox, Gtk.Label(label="ControlNet"))
+    app.tab_labels["ControlNet"] = Gtk.Label(label="ControlNet")
+    app.tab_contents["ControlNet"] = vbox
+    app.notebook.append_page(
+        app.tab_contents["ControlNet"],
+        app.tab_labels["ControlNet"])
 
     grid = Gtk.Grid()
     grid.set_column_spacing(10)
@@ -650,7 +926,7 @@ def main_ui_definition(app) -> None:
     generation_information_call_back_wrapper = partial(_generation_information_call_back, app)
 
     vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-    notebook.append_page(vbox, Gtk.Label(label="Tools"))
+    app.notebook.append_page(vbox, Gtk.Label(label="Tools"))
     tools_area = ToolPaletteArea(vbox,
         get_current_image_call_back=app.get_current_image_call_back,
         get_tool_processed_file_path_call_back=get_tool_processed_file_path_call_back_wrapper,
@@ -661,12 +937,13 @@ def main_ui_definition(app) -> None:
         negative_prompt=text_view_get_text(app.negative_prompt),
         get_current_face_image_call_back=app.get_current_face_image_call_back,
         face_model_full_path=join_directory_and_file_name(
-                app.preferences["control_model_path"], FACE_MODEL_NAME)
+                app.preferences["control_model_path"], FACE_MODEL_NAME),
+        app=app
     )
 
     # Page 5
     vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-    notebook.append_page(vbox, Gtk.Label(label="Face"))
+    app.notebook.append_page(vbox, Gtk.Label(label="Face"))
 
     grid = Gtk.Grid()
     grid.set_column_spacing(10)
@@ -758,3 +1035,83 @@ def main_ui_definition(app) -> None:
     # Save preferences button
     add_save_preferences_button()
     # End of page 5
+
+
+    # Page 6 start: SDXL advanced
+    vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    app.tab_labels["SDXL Advanced"] = Gtk.Label(label="SDXL Advanced")
+    app.tab_contents["SDXL Advanced"] = vbox
+    app.notebook.append_page(vbox, app.tab_labels["SDXL Advanced"])
+
+    grid = Gtk.Grid()
+    grid.set_column_spacing(10)
+    grid.set_row_spacing(10)
+
+    # Set margins for the grid
+    grid.set_margin_start(10)  # Margin on the left side
+    grid.set_margin_end(10)    # Margin on the right side
+    grid.set_margin_top(10)    # Margin on the top
+    grid.set_margin_bottom(10) # Margin on the bottom
+
+    vbox.pack_start(grid, True, True, 0)
+    # Create fields
+    # app.fields contain fields that hold user preference values
+    # with some exceptions
+
+    # CSS Styling
+    css = b"""
+    textview text {
+        border: 1px solid #818181; /* Light gray border */
+        border-radius: 5px; /* Rounded corners */
+        padding: 30px;
+    }
+    """
+    css_provider = Gtk.CssProvider()
+    css_provider.load_from_data(css)
+
+    guider_list = list(filter(lambda e: e=="VanillaCFG", GUIDER_LIST))
+    discretization_list = DISCRETIZATION_LIST
+
+    fields_sdxl_advanced = {
+        "discretization": create_combo_box_typeahead(discretization_list, discretization_list.index(app.preferences["discretization"])),
+        "discretization_sigma_min": Gtk.Entry(text=str(app.preferences["discretization_sigma_min"])),
+        "discretization_sigma_max": Gtk.Entry(text=str(app.preferences["discretization_sigma_max"])),
+        "discretization_rho": Gtk.Entry(text=str(app.preferences["discretization_rho"])),
+        "guider": create_combo_box_typeahead(guider_list, guider_list.index(app.preferences["guider"])),
+        "linear_prediction_guider_min_scale": Gtk.Entry(text=str(app.preferences["linear_prediction_guider_min_scale"])),
+        "linear_prediction_guider_max_scale": Gtk.Entry(text=str(app.preferences["linear_prediction_guider_max_scale"])),
+        "triangle_prediction_guider_min_scale": Gtk.Entry(text=str(app.preferences["triangle_prediction_guider_min_scale"])),
+        "triangle_prediction_guider_max_scale": Gtk.Entry(text=str(app.preferences["triangle_prediction_guider_max_scale"])),
+        "sampler_s_churn": Gtk.Entry(text=str(app.preferences["sampler_s_churn"])),
+        "sampler_s_tmin": Gtk.Entry(text=str(app.preferences["sampler_s_tmin"])),
+        "sampler_s_tmax": Gtk.Entry(text=str(app.preferences["sampler_s_tmax"])),
+        "sampler_s_noise": Gtk.Entry(text=str(app.preferences["sampler_s_noise"])),
+        "sampler_eta": Gtk.Entry(text=str(app.preferences["sampler_eta"])),
+        "sampler_order": Gtk.Entry(text=str(app.preferences["sampler_order"]))
+    }
+
+    # value: ((label grid pos), (value field grid pos))
+    row = 0
+    fields_sdxl_advanced_pos = OrderedDict()
+    for k, w in fields_sdxl_advanced.items():
+        fields_sdxl_advanced_pos[k] = ((0, row, 1, 1), (1, row, 1, 1))
+        row += 1
+
+    assert sorted(fields_sdxl_advanced.keys()) == sorted(fields_sdxl_advanced_pos.keys())
+
+    app.fields_sdxl_advanced_labels = dict()
+    for k, v in fields_sdxl_advanced_pos.items():
+        label = k.replace("_", " ").capitalize()
+        app.fields_sdxl_advanced_labels[label] = Gtk.Label(
+                label=label,
+                halign=Gtk.Align.START)
+        grid.attach(app.fields_sdxl_advanced_labels[label], *v[0])
+        grid.attach(fields_sdxl_advanced[k], *v[1])
+
+    # Save preferences button
+    add_save_preferences_button()
+    # end of page 6 sdxl_advanced
+
+   # Merge two dicts:
+    tmp_fields = {**app.fields, **fields_sdxl_advanced}
+    app.fields = tmp_fields

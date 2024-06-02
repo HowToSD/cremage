@@ -17,6 +17,7 @@ from transformers import CLIPTokenizer
 from clip.modeling_clip import CLIPTextModel as ModCLIPTextModel
 from cremage.utils.token_process_helper import split_token_with_embedding_tags
 from cremage.utils.generate_clip_embeddings_from_tokens import generate_clip_embeddings
+from cremage.utils.generate_open_clip_embeddings_from_tokens import generate_open_clip_embeddings
 
 class Node():
     """
@@ -66,7 +67,10 @@ def _build_tree(text: str) -> Node:
             current.children.append(child)
             current = child
         elif c == ")":
-            current = current.parent
+            if current.parent is None:  # User error. Prompt is missing "(" at the root level
+                pass  # Already the root, so don't switch nodes
+            else:
+                current = current.parent
         else:
             current.characters.append(c)
             current.pos.append(i)
@@ -92,27 +96,20 @@ def _compute_product_score(node: Node, base_score: float) -> None:
     for n in node.children:
         _compute_product_score(n, node.product_score)
 
-
-def _compute_prompt_score(prompt: str) -> List[Tuple[str, float]]:
+def _build_region(prompt: str):
     """
-    Computes scores for each token in the input prompt based on specific criteria.
+    Compute a tree of regions from a text prompt.
 
-    Args:
-        prompt (str): The input text for which the scores are to be computed.
+    It first builds a tree of characters where a node contains:
+    characters = ['a','b', 'c']
 
-    Returns:
-        List[Tuple[str, float]]: A list of tuples, where each tuple contains a token from the input text and its corresponding score as a float. The scoring criteria are defined by the implementation details of the function.
+    Then the built tree is parsed and regions will be added to each node:
+    For example, for the above character list, the region will be "abc".
 
-    Example:
-        >>> compute_prompt_score("hello, ((world), everyone:1.2).")
-        [('hello,', 1.0), ('world', 1.32), (',', 1.2), ('everyone', 1.2), ('.', 1.0)]
-
-    Note:
-        The scoring algorithm and the way tokens are identified and extracted should be detailed in the implementation section of this function. This docstring assumes a scoring system that is influenced by the example provided but may need to be adjusted according to the actual implementation.
+    It also add two more attributes to each node:
+    start_index (int): This is an index of the first character in the input text.
+      This includes parantheses.
     """
-    if len(prompt.strip()) == 0:
-        logger.debug("Prompt is empty")
-        return [("", 1.0)]
     # Build a tree of nodes
     root = _build_tree(prompt)
 
@@ -135,7 +132,7 @@ def _compute_prompt_score(prompt: str) -> List[Tuple[str, float]]:
         regions = list()
         start_indices = list()
         prev_index = -1
-        start_index = 0
+        start_index = 0  # global character index including "(" and ")" that are not put in a tree
         word = ""
         for i, c in enumerate(current.characters):
             current_index = current.pos[i]
@@ -167,30 +164,36 @@ def _compute_prompt_score(prompt: str) -> List[Tuple[str, float]]:
         # so extract the embedding.tag
         # First array is the list of strings
         l, _ = split_token_with_embedding_tags(last_region)
-        tmp_last_region = l[-1]  
-        logger.debug("compute_prompt_score:word:last region:" + last_region)
+        if l != []:  # i.e. if last_region == ['']
+            tmp_last_region = l[-1]  
+            logger.debug("compute_prompt_score:word:last region:" + last_region)
 
-        # Check if it has ":"
-        colon_pos = tmp_last_region.rfind(":")
+            # Check if it has ":"
+            colon_pos = tmp_last_region.rfind(":")
 
-        # If ":" is found and is not the last character
-        if colon_pos >= 0 and colon_pos < len(tmp_last_region)-1:
-            # Adjust the colon pos
-            # as "<embedding:foo.bin>world:1.2"
-            # will be split to <embedding:foo.bin> and world:1.2
-            colon_pos = last_region.rfind(":")
-            score_candidate = last_region[colon_pos+1:]
-            try:
-                score = float(score_candidate)
-                current.score = score
-                current.regions[-1] = last_region[:colon_pos]  # remove score from text
-            except:
-                # ignore invalid score
+            # If ":" is found and is not the last character
+            if colon_pos >= 0 and colon_pos < len(tmp_last_region)-1:
+                # Adjust the colon pos
+                # as "<embedding:foo.bin>world:1.2"
+                # will be split to <embedding:foo.bin> and world:1.2
+                colon_pos = last_region.rfind(":")
+                score_candidate = last_region[colon_pos+1:]
+                try:
+                    score = float(score_candidate)
+                    current.score = score
+                    current.regions[-1] = last_region[:colon_pos]  # remove score from text
+                except:
+                    # ignore invalid score
+                    if current == root:
+                        current.score = 1.0
+                    else:
+                        current.score = 1.1
+            else:  # if a score is missing, assign 1.1
                 if current == root:
                     current.score = 1.0
                 else:
                     current.score = 1.1
-        else:  # if a score is missing, assign 1.1
+        else:  # current region is empty
             if current == root:
                 current.score = 1.0
             else:
@@ -199,10 +202,20 @@ def _compute_prompt_score(prompt: str) -> List[Tuple[str, float]]:
         for n in current.children:
             queue.append(n)
 
-
     # Compute product score from the tree
     _compute_product_score(node, 1.0)
 
+    return node
+
+
+def _convert_region_tree_to_word_list(root):
+    """
+    Converts a tree of regions to a word list.
+    Each element of the word list contains:
+    (region, product score of region)
+
+    A region is a list of words that can contain an empty string ''.
+    """
     # Generate a list that contains
     # (region, start index of region, product score of region)
     word_list = []   
@@ -225,7 +238,16 @@ def _compute_prompt_score(prompt: str) -> List[Tuple[str, float]]:
     word_list = sorted(word_list, key=lambda e: e[1])
     for w in word_list:
         l.append((w[0], w[2]))  # Drop start index as we don't need it any more
-    l_prev_step = l
+    
+    return l
+
+def _convert_region_score_tuple_list_to_word_list(region_score_tuple_list):
+    """
+    Converts a tuple of region and score to a word list.
+
+    A region is a string that can contain multiple words.
+    """
+    l_prev_step = region_score_tuple_list
 
     # Split each region to words by a white space
     l = list()
@@ -244,7 +266,34 @@ def _compute_prompt_score(prompt: str) -> List[Tuple[str, float]]:
         score = w[1]
         for w2 in words:
             l.append((w2, score))
-    l_prev_step = l
+    return l
+
+def _compute_prompt_score(prompt: str) -> List[Tuple[str, float]]:
+    """
+    Computes scores for each token in the input prompt based on specific criteria.
+
+    Args:
+        prompt (str): The input text for which the scores are to be computed.
+
+    Returns:
+        List[Tuple[str, float]]: A list of tuples, where each tuple contains a token from the input text and its corresponding score as a float. The scoring criteria are defined by the implementation details of the function.
+
+    Example:
+        >>> compute_prompt_score("hello, ((world), everyone:1.2).")
+        [('hello,', 1.0), ('world', 1.32), (',', 1.2), ('everyone', 1.2), ('.', 1.0)]
+
+    Note:
+        The scoring algorithm and the way tokens are identified and extracted should be detailed in the implementation section of this function. This docstring assumes a scoring system that is influenced by the example provided but may need to be adjusted according to the actual implementation.
+    """
+    if len(prompt.strip()) == 0:
+        logger.debug("Prompt is empty")
+        return [("", 1.0)]
+    
+    root = _build_region(prompt)
+
+    # Generate a word list
+    word_list = _convert_region_tree_to_word_list(root)
+    l_prev_step = _convert_region_score_tuple_list_to_word_list(word_list)
 
     # Special token processing
     # Take out embedding tag
@@ -263,6 +312,7 @@ def _compute_prompt_score(prompt: str) -> List[Tuple[str, float]]:
 
     return l
 
+
 def generate_clip_embeddings_from_prompt(tokenizer, model, embedding_dir, prompt:str):
     word_score_pairs = _compute_prompt_score(prompt)
     retval = generate_clip_embeddings(tokenizer,
@@ -270,6 +320,15 @@ def generate_clip_embeddings_from_prompt(tokenizer, model, embedding_dir, prompt
                              embedding_dir,
                              word_score_pairs)
     return retval
+
+def generate_open_clip_embeddings_from_prompt(model, embedding_dir, prompt:str):
+    word_score_pairs = _compute_prompt_score(prompt)
+    retval, eos_index_list = generate_open_clip_embeddings(
+                             model,
+                             embedding_dir,
+                             word_score_pairs)
+    return retval, eos_index_list
+
 
 if __name__ == "__main__":
     model_id = "openai/clip-vit-large-patch14"
@@ -284,7 +343,7 @@ if __name__ == "__main__":
     enjoy panoramic views of Manhattan from an outdoor balcony.
     """
     prompt = ""
-    retval = generate_clip_embeddings_from_prompt(tokenizer,
+    retval, eos_index_list = generate_clip_embeddings_from_prompt(tokenizer,
                              model,
                              "/media/pup/ssd2/recoverable_data/sd_models/embeddings",
                              prompt)

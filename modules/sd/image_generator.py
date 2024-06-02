@@ -56,6 +56,7 @@ from cremage.utils.generation_status_updater import StatusUpdater
 from cremage.utils.sampler_utils import instantiate_sampler
 from cremage.utils.hires_fix_upscaler_utils import hires_fix_upscaler_name_list
 from cremage.utils.ml_utils import scale_pytorch_images
+from cremage.utils.misc_utils import extract_embedding_filenames
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -66,7 +67,7 @@ if os.environ.get("ENABLE_HF_INTERNET_CONNECTION") == "1":
     local_files_only_value=False
 else:
     local_files_only_value=True
-logger.info(f"AutoFeatureExtractor and StableDiffusionSafetyChecker connection to internet disabled : {local_files_only_value}")
+logger.debug(f"AutoFeatureExtractor and StableDiffusionSafetyChecker connection to internet disabled : {local_files_only_value}")
 
 def load_img(path,
              height=None,
@@ -184,13 +185,13 @@ def img2img_sampling(
                                     callback=status_update_func)
             
         else:  # K-diffusion sampler with ControlNet
-            logger.info("Adding noise using k-diffusion sampler")
+            logger.debug("Adding noise using k-diffusion sampler")
             z_enc = sampler.stochastic_encode(
                 init_latent,
                 torch.tensor([t_enc]*batch_size).to(device),
                 sampling_steps=full_denoising_sampling_steps
                 )
-            logger.info("Denoising for img2img using k-diffusion sampler")
+            logger.debug("Denoising for img2img using k-diffusion sampler")
             samples, intermediates = sampler.sample(
                                         full_denoising_sampling_steps,
                                         batch_size,
@@ -219,13 +220,13 @@ def img2img_sampling(
                                     unconditional_conditioning=uc,
                                     callback=status_update_func)
         else:  # K-diffusion sampler, no ControlNet
-                    logger.info("Adding noise using k-diffusion sampler")
+                    logger.debug("Adding noise using k-diffusion sampler")
                     z_enc = sampler.stochastic_encode(
                         init_latent,
                         torch.tensor([t_enc]*batch_size).to(device),
                         sampling_steps=full_denoising_sampling_steps
                         )
-                    logger.info("Denoising for img2img using k-diffusion sampler")
+                    logger.debug("Denoising for img2img using k-diffusion sampler")
                     samples, intermediates = sampler.sample(S=full_denoising_sampling_steps,  # denoising steps
                                         conditioning=c,  # positive prompt
                                         batch_size=batch_size,
@@ -323,7 +324,7 @@ def load_model_from_config(config, opt, verbose=False, inpainting=False):
 
     # Load ControlNet model
     if opt.control_models and os.path.exists(opt.control_models):
-        logger.info(f"Loading ControlNet model from {opt.control_models}")
+        logger.debug(f"Loading ControlNet model from {opt.control_models}")
         missing_keys, unexpected_keys = model.load_state_dict(
             load_state_dict(opt.control_models, location=os.environ.get("GPU_DEVICE", "cpu")),
             strict=False)
@@ -382,7 +383,7 @@ def load_model_from_config(config, opt, verbose=False, inpainting=False):
                 logger.debug(f"Removed {unwanted_key} from the custom vae model before updating the main VAE")
 
         model.first_stage_model.load_state_dict(vae_model)
-        logger.info(f"Overrode VAE model parameters from the custom model {os.path.basename(opt.vae_ckpt)}")
+        logger.debug(f"Overrode VAE model parameters from the custom model {os.path.basename(opt.vae_ckpt)}")
 
     # Load LORA weight
     # Name mapping
@@ -394,7 +395,7 @@ def load_model_from_config(config, opt, verbose=False, inpainting=False):
     for i, lora in enumerate(loras):
         if lora is None:
             if load_face_id:
-                logger.info("Skipping LoRA weight mapping for Face ID as this is loaded separately.")
+                logger.debug("Skipping LoRA weight mapping for Face ID as this is loaded separately.")
                 continue
             else:
                 raise ValueError("LoRA weight is none despite the valid LoRA path.")
@@ -459,7 +460,7 @@ def load_model_from_config(config, opt, verbose=False, inpainting=False):
     if load_face_id:
         ldm_model_sd = model.state_dict() 
         face_id_weights = load_model(opt.face_model)
-        logger.info("Loaded face model weight file.")
+        logger.debug("Loaded face model weight file.")
         for k, v in face_id_weights["ip_adapter"].items():
             sdw = face_id_model_weight_to_sd_15_model_weight(k)
             
@@ -482,7 +483,7 @@ def load_model_from_config(config, opt, verbose=False, inpainting=False):
     before_half_usage = model_memory_usage_in_bytes(model, include_gradients=True)
     model.half()  # Convert to float16
     after_half_usage = model_memory_usage_in_bytes(model, include_gradients=True)
-    logger.info(f"GPU Memory usage. Before float16 conversion: {before_half_usage}. After: {after_half_usage}")
+    logger.debug(f"GPU Memory usage. Before float16 conversion: {before_half_usage}. After: {after_half_usage}")
 
     model.to(os.environ.get("GPU_DEVICE", "cpu"))
     model.eval()
@@ -514,7 +515,7 @@ def load_replacement(x):
         try:
             font = ImageFont.truetype("arial.ttf", 14)
         except IOError:
-            logger.info("arial.ttf not found. Using default font.")
+            logger.debug("arial.ttf not found. Using default font.")
             font = ImageFont.load_default()
 
         bbox = draw.multiline_textbbox((0, 0), text, font=font, align="left")
@@ -583,7 +584,7 @@ def generate(opt,
         padding_used = False
 
     # Hires fix
-    hires_fix_upscale_factor = 2
+    hires_fix_upscale_factor = opt.hires_fix_scale_factor
     if opt.hires_fix_upscaler and \
        opt.hires_fix_upscaler.lower() != "none" and \
        opt.hires_fix_upscaler in hires_fix_upscaler_name_list:
@@ -614,12 +615,12 @@ def generate(opt,
     # Process FaceID
     load_face_id = False
     if os.path.exists(opt.face_input_img) and os.path.exists(opt.face_model):
-        logger.info("Face input image is specified and the face model is found. Generating face embedding")
+        logger.debug("Face input image is specified and the face model is found. Generating face embedding")
         face_embedding, uc_face_embedding = generate_face_embedding_from_image(
             opt.face_input_img,
             opt.face_model,
             batch_size=opt.n_samples)
-        logger.info(f"Generated face_embedding. Shape: {face_embedding.shape}")
+        logger.debug(f"Generated face_embedding. Shape: {face_embedding.shape}")
         load_face_id = True
 
         # # FIXME
@@ -627,7 +628,7 @@ def generate(opt,
         # uc_face_embedding = torch.tensor(np.load("unc.npy"), dtype=torch.float16).to("cuda")
 
     elif os.path.exists(opt.face_input_img) and os.path(opt.face_model) is False:
-        logger.info("Face input image is specified but the face model is not found. Ignoring face image")
+        logger.debug("Face input image is specified but the face model is not found. Ignoring face image")
 
     # Load the main LDM model
     logger.debug("Instantiating the main model ...")
@@ -643,7 +644,7 @@ def generate(opt,
     # Instantiate sampler
     if generation_type != "txt2img":
         opt.sampler = "DDIM"
-        logger.info("Swiching the sampler to DDIM as image quality may not be optimum on Cremage with other samplers.")
+        logger.debug("Swiching the sampler to DDIM as image quality may not be optimum on Cremage with other samplers.")
     sampler = instantiate_sampler(opt.sampler, model, use_control_net)
 
     os.makedirs(opt.outdir, exist_ok=True)
@@ -767,7 +768,7 @@ def generate(opt,
                             model.low_vram_shift(is_diffusing=True)
 
                         if use_control_net:
-                            logger.info("Calling sampler with control image")
+                            logger.debug("Calling sampler with control image")
                             guess_mode = False 
                             num_samples = opt.n_samples
                             H = opt.H
@@ -1028,6 +1029,7 @@ def generate(opt,
 
                         if opt.safety_check:
                             x_samples = x_samples.cpu().permute(0, 2, 3, 1).numpy()
+                            # Pass B, H, W, C numpy image data to check_safety
                             x_checked_image, has_nsfw_concept = check_safety(x_samples)
                             x_checked_image_torch = torch.from_numpy(x_checked_image).permute(0, 3, 1, 2)
                         else:
@@ -1071,9 +1073,10 @@ def generate(opt,
                                     generation_parameters["face_image"] = os.path.basename(opt.face_input_img)
                                     generation_parameters["face_strength"] = opt.face_strength
                                 if use_hires_fix:
-                                    generation_parameters["hires_fix"] = opt.hires_fix_upscaler
-                                    generation_parameters["upscale width"] = opt.W * hires_fix_upscale_factor
-                                    generation_parameters["upscale height"] = opt.H * hires_fix_upscale_factor
+                                    generation_parameters["hires_fix_upscaler"] = opt.hires_fix_upscaler
+                                    generation_parameters["hires_fix_scale_factor"] = opt.hires_fix_scale_factor
+                                    generation_parameters["upscale_width"] = opt.W * hires_fix_upscale_factor
+                                    generation_parameters["upscale_height"] = opt.H * hires_fix_upscale_factor
 
                                 x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
                                 img = Image.fromarray(x_sample.astype(np.uint8))
@@ -1088,21 +1091,42 @@ def generate(opt,
                                 # Remove padding
                                 if padding_used and bbox_to_crop:
                                     img = img.crop(bbox_to_crop)
-                                    
 
                                 # Extra processing start
                                 if opt.auto_face_fix:
                                     from face_fixer import FaceFixer
-                                    logger.info("Applying face fix")
+                                    logger.debug("Applying face fix")
+                                    status_queue.put("Applying face fix")
                                     app = load_user_config()
-                                    face_fixer = FaceFixer(preferences=app)
+                                    face_fixer = FaceFixer(
+                                        preferences=app,
+                                        positive_prompt=opt.prompt,
+                                        negative_prompt=opt.negative_prompt,
+                                        procedural=True,
+                                        status_queue=status_queue)
                                     img = face_fixer.fix_with_insight_face(img)
                                 # Extra processing end
-
+                                file_name = f"{base_count:05}_{time_str}.png"
                                 img.save(
-                                    os.path.join(sample_path,
-                                                 f"{base_count:05}_{time_str}.png"),
+                                    os.path.join(sample_path, file_name),
                                     pnginfo=metadata)
+
+                                if status_queue:
+                                    status_queue.put(f"Saved {file_name}")
+
+                                # Save image as a sample image for the embeddings used
+                                # Extract embedding file name if any
+                                embedding_images_dir = opt.embedding_images_dir
+                                if embedding_images_dir:
+                                    if os.path.exists(embedding_images_dir) is False:
+                                        os.makedirs(embedding_images_dir)
+                                for prompt in [opt.prompt, opt.negative_prompt]:
+                                    embedding_file_names = extract_embedding_filenames(prompt)
+                                    for file_name in embedding_file_names:
+                                        img.save(
+                                            os.path.join(embedding_images_dir,
+                                                 f"{file_name}.png"),
+                                            pnginfo=metadata)
 
                                 # Pass img (PIL Image) to the main thread here!
                                 if ui_thread_instance:

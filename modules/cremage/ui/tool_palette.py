@@ -14,18 +14,21 @@ from gi.repository import Gtk
 
 PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
-MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
+MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 sys.path = [TOOLS_ROOT, MODULE_ROOT] + sys.path
-from tools.image_cropper import ImageCropper
-from tools.image_scaler import ImageScaler
-from tools.spot_inpainter import SpotInpainter
-from tools.face_fixer import FaceFixer
-from tools.graffiti_editor import GraffitiEditor
-from tools.image_segmenter import ImageSegmenter
+from image_cropper import ImageCropper
+from image_scaler import ImageScaler
+from spot_inpainter import SpotInpainter
+from face_fixer import FaceFixer
+from graffiti_editor import GraffitiEditor
+from image_segmenter import ImageSegmenter
+from prompt_builder import PromptBuilder
+
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
+PROMPT_BUILDER_INPUT_DIRECTORY = os.path.join(PROJECT_ROOT, "data", "prompt_builder")  # FIXME. Read from config
 ITEMS_PER_ROW = 8
 
 class ToolPaletteArea():
@@ -40,11 +43,13 @@ class ToolPaletteArea():
                  positive_prompt=None,
                  negative_prompt=None,
                  get_current_face_image_call_back=None,
-                 face_model_full_path=None):
+                 face_model_full_path=None,
+                 app=None):
         """
         Args:        
             get_tool_processed_file_path_call_back: Call this method to get the output path.
         """
+        self.app = app
         self.get_current_image_call_back = get_current_image_call_back
         self.get_tool_processed_file_path_call_back = get_tool_processed_file_path_call_back
         self.save_call_back = save_call_back
@@ -60,8 +65,16 @@ class ToolPaletteArea():
                             self.on_spot_inpaint_clicked,
                             self.on_face_fix_clicked,
                             self.on_graffiti_editor_clicked,
-                            self.on_image_segmenter_clicked]
-        tool_names = ["Crop", "Scale", "Spot inpainting", "Face fix", "Graffiti editor", "Segmentation inpainting"]
+                            self.on_image_segmenter_clicked,
+                            self.on_prompt_builder_clicked]
+        tool_names = [
+            "Crop",
+            "Scale",
+            "Spot inpainting",
+            "Face fix",
+            "Graffiti editor",
+            "Segmentation inpainting",
+            "Visual prompt builder"]
 
         grid = Gtk.Grid()
         # Set margins for the grid
@@ -84,14 +97,18 @@ class ToolPaletteArea():
         self.face_fixer = None
         self.graffiti_editor = None
         self.image_segmenter = None
+        self.prompt_builder = None
 
         parent_box.pack_start(grid, True, True, 0)
+
+
+        self.prompt_build_input_directory = PROMPT_BUILDER_INPUT_DIRECTORY
 
     def on_crop_clicked(self, widget, event):
         """
         Event handler for the crop button click
         """
-        logger.info("Crop clicked")
+        logger.debug("Crop clicked")
 
         # Tool window
         if self.image_cropper is None:
@@ -112,7 +129,7 @@ class ToolPaletteArea():
         """
         Event handler for the scale button click
         """
-        logger.info("Scale clicked")
+        logger.debug("Scale clicked")
 
         if self.image_scaler is None:
             if self.get_current_image_call_back is not None and \
@@ -132,7 +149,7 @@ class ToolPaletteArea():
         """
         Event handler for the face detect button click
         """
-        logger.info("Spot inpainter clicked")
+        logger.debug("Spot inpainter clicked")
 
         if self.spot_inpainter is None:
             if self.get_current_image_call_back is not None and \
@@ -154,7 +171,7 @@ class ToolPaletteArea():
         """
         Event handler for the face fix button click
         """
-        logger.info("Face fix clicked")
+        logger.debug("Face fix clicked")
 
         if self.face_fixer is None:
             if self.get_current_image_call_back is not None and \
@@ -195,7 +212,7 @@ class ToolPaletteArea():
         """
         Event handler for the face detect button click
         """
-        logger.info("Spot inpainter clicked")
+        logger.debug("Spot inpainter clicked")
 
         if self.image_segmenter is None:
             if self.get_current_image_call_back is not None and \
@@ -211,32 +228,42 @@ class ToolPaletteArea():
             self.image_segmenter.connect("delete-event", self.on_image_segmenter_delete)
         self.image_segmenter.show_all()        
 
-
-
-
-
-
+    def on_prompt_builder_clicked(self, widget, event):
+        """
+        Event handler for Visual Prompt Builder
+        """
+        logger.debug("Prompt builder clicked")
+        self.prompt_builder = PromptBuilder(
+            app=self.app,
+            input_directory=self.prompt_build_input_directory
+        )
+        self.prompt_builder.window.connect("delete-event", self.on_prompt_builder_delete)
+        self.prompt_builder.window.show_all()
 
     def on_image_cropper_delete(self, widget, event):
-        logger.info("Image cropper is destroyed")
+        logger.debug("Image cropper is destroyed")
         self.image_cropper = None 
 
     def on_image_scaler_delete(self, widget, event):
-        logger.info("Image scaler is destroyed")
+        logger.debug("Image scaler is destroyed")
         self.image_scaler = None 
 
     def on_spot_inpainter_delete(self, widget, event):
-        logger.info("Spot inpainter is destroyed")
+        logger.debug("Spot inpainter is destroyed")
         self.spot_inpainter = None 
 
     def on_face_fixer_delete(self, widget, event):
-        logger.info("Face fixer is destroyed")
+        logger.debug("Face fixer is destroyed")
         self.face_fixer = None 
 
     def on_graffiti_editor_delete(self, widget, event):
-        logger.info("Graffiti editor is destroyed")
+        logger.debug("Graffiti editor is destroyed")
         self.graffiti_editor = None 
 
     def on_image_segmenter_delete(self, widget, event):
-        logger.info("Image segmenter is destroyed")
+        logger.debug("Image segmenter is destroyed")
         self.image_segmenter = None 
+
+    def on_prompt_builder_delete(self, widget, event):
+        logger.debug("Prompt builder is destroyed")
+        self.prompt_builder = None 

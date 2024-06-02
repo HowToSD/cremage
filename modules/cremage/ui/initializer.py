@@ -18,7 +18,8 @@ sys.path = [MODULE_ROOT] + sys.path
 from cremage.configs.preferences import load_user_config
 from cremage.ui.ui_definition import main_ui_definition
 from cremage.ui.window_realized_handler import window_realized_handler
-
+from cremage.ui.generator_model_type_change_handler import toggle_genenator_model_type_ui
+from cremage.ui.sdxl_use_refiner_check_box_handler import toggle_use_refiner_ui
 from cremage.const.const import *
 
 BLANK_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "blank_image_control_net.png")
@@ -72,7 +73,10 @@ def first_init(app:Gtk.Window):
         os.makedirs(app.data_dir, exist_ok=True)       
     app.face_dir = os.path.join(app.data_dir, "faces")
     if os.path.exists(app.face_dir) is False:
-        os.makedirs(app.face_dir, exist_ok=True)       
+        os.makedirs(app.face_dir, exist_ok=True)
+    app.embedding_images_dir = os.path.join(app.data_dir, "embedding_images")
+    if os.path.exists( app.embedding_images_dir) is False:
+        os.makedirs(app.embedding_images_dir, exist_ok=True)
 
     # Preferences
     app.preferences = load_user_config()
@@ -97,3 +101,11 @@ def first_init(app:Gtk.Window):
 def final_init(app:Gtk.Window):
     # Connect to the realize signal
     app.connect("realize", lambda widget, app=app: window_realized_handler(app, widget))
+
+def setup_field_visibility(app:Gtk.Window):
+    generator_model_type = "SDXL" if app.preferences["generator_model_type"] == "SDXL" else "SD 1.5"
+    toggle_genenator_model_type_ui(app, generator_model_type)
+    
+    use_refiner = True if app.preferences["sdxl_use_refiner"] else False
+    toggle_use_refiner_ui(app, use_refiner)
+

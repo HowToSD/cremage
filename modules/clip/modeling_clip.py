@@ -959,7 +959,7 @@ class CLIPTextTransformer(nn.Module):
             else:  # FIXME
                 pooled_output = last_hidden_state[
                     torch.arange(last_hidden_state.shape[0], device=last_hidden_state.device),
-                    # We need to get the first position of `eos_token_id` value (`pad_token_ids` might equal to `eos_token_id`)
+                    # Cremage TODO: We need to get the first position of `eos_token_id` value (`pad_token_ids` might equal to `eos_token_id`)
                     torch.tensor(0, dtype=torch.int64).to(dtype=torch.int, device=last_hidden_state.device).int(),
                 ]                
 
@@ -989,9 +989,13 @@ class CLIPTextModel(CLIPPreTrainedModel):
     _no_split_modules = ["CLIPTextEmbeddings", "CLIPEncoderLayer"]
 
     def __init__(self, config: CLIPTextConfig,
-                 lora_ranks:List[int]=None, lora_weights:List[float]=None):
+                 lora_ranks:List[int]=None, lora_weights:List[float]=None,
+                 normalize_hidden_states=False):
         """
-        
+        Cremage note: normalize_hidden_states parameter was added
+        to the sdxl version of CLIP, and it's added here to maintain
+        the API signature the same. It's a placeholder.
+
         Example of config value when no config was specified and
         the model gets instantiated from a pretrained model
         using a factory method: CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")

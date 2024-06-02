@@ -59,6 +59,30 @@ def control_image_drag_data_received(app,
     logger.info(f"Updated ControlNet image path to {app.control_net_image_file_path}")
 
 
+def main_image_drag_data_received(app, 
+                                     widget, 
+                                     drag_context, 
+                                     x, 
+                                     y, 
+                                     data, 
+                                     info, 
+                                     time):
+    """
+    Drag and Drop handler for image to main image view.
+
+    Args:
+        data: Contains info for the dragged file name
+    """
+    file_path = _extract_file_path(data)
+    if file_path is None:
+        return
+    app.current_image = Image.open(file_path)
+
+    # Update the UI for input image
+    resized_pil_image = resize_pil_image(app.current_image, THUMBNAIL_IMAGE_EDGE_LENGTH)
+    set_pil_image_to_gtk_image(resized_pil_image, app.image)
+
+
 def input_image_drag_data_received(app, 
                                      widget, 
                                      drag_context, 
