@@ -150,6 +150,13 @@ conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvi
 ```
 For more information, refer to the installation section at https://pytorch.org/.
 
+## Install xformers
+Type:
+```
+pip3 install -U xformers --index-url https://download.pytorch.org/whl/cu121
+```
+For more information, refer to https://github.com/facebookresearch/xformers
+
 ## Install GTK
 This step requires the GTK/PyGObject have been successfully built in an earlier step.
 Type:
