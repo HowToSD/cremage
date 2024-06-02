@@ -955,8 +955,8 @@ def generate(opt,
 
                             # Scale image in pixel space
                             scaled_samples = scale_pytorch_images(x_samples,
-                                                                    width=opt.W * hires_fix_upscale_factor,
-                                                                    height=opt.H * hires_fix_upscale_factor,
+                                                                    width=int(opt.W * hires_fix_upscale_factor),
+                                                                    height=int(opt.H * hires_fix_upscale_factor),
                                                                     interpolation=cv2.INTER_LANCZOS4)
                             scaled_samples = scaled_samples * 2.0 - 1.0  # [0, 1] to [0, 2] to [-1, -1]
 
