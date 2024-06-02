@@ -369,7 +369,7 @@ def generate(opt,
     use_refiner = False
 
     # Hires fix
-    hires_fix_upscale_factor = 2
+    hires_fix_upscale_factor = opt.hires_fix_scale_factor
     if opt.hires_fix_upscaler and \
        opt.hires_fix_upscaler.lower() != "none" and \
        opt.hires_fix_upscaler in hires_fix_upscaler_name_list:
