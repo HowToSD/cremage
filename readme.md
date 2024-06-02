@@ -1,4 +1,9 @@
-Welcome to Cremage.
+
+## Updates
+June 2, 2024: Cremage now supports SDXL. Check out [Using SDXL with Cremage](docs/users_guide/ug_sdxl.md "View the SDXL Guide")
+
+---
+# Welcome to Cremage.
 
 Cremage is designed with the following goals in mind:
 
