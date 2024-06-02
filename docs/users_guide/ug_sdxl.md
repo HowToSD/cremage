@@ -1,5 +1,5 @@
 # How to use SDXL
-Please follow the instructions in the installation guide if you haven't. Below steps assumes that cremage has been already installed and the UI of the app comes up.
+Please follow the instructions in the installation guide and/or upgrade guide if you haven't. Below steps assumes that cremage has been already installed and the UI of the app comes up.
 
 ## Setting up
 1. Put your SDXL model files (safetensors files) in models/ldm_model under the Cremage installation directory.

@@ -39,8 +39,8 @@ Below is an example where the original image was processed in Cremage to reduce 
 
 ![Example of digital makeup](docs/images/digital_makeup.jpg "Digital makeup")
 
-# Installation
-Refer to [Installation Guide](docs/installation_guide.md "View the Installation Guide")
+# Installation & Upgrade
+Refer to [Installation & Upgrade Guide](docs/installation_guide.md "View the Installation & Upgrade Guide")
 
 # System requirements
 * Linux with NVIDIA GPU with at least 8GB of GPU memory
