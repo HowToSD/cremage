@@ -73,8 +73,6 @@ class MaskImageEditor(Gtk.Window):
 
         self.translation = [0, 0]
         self.scale_factor = 1.0
-        self.transform_matrix = cairo.Matrix()
-        self.update_transform_matrix()
 
         # Layout
         # App window
@@ -180,13 +178,39 @@ class MaskImageEditor(Gtk.Window):
         # End UI layout
         self._adjust_matrix_redraw_canvas()
 
-    def update_transform_matrix(self):
+    def update_transform_matrix(self, cr):
         """
         Update the transformation matrix with translation and scaling.
         """
-        self.transform_matrix = cairo.Matrix()  # Create an identity matrix
+        # This is to convert mouse click pos to Cairo conversion
+        self.transform_matrix_1 = cairo.Matrix()  # Create an identity matrix
+        self.transform_matrix_1.translate(self.translation[0], self.translation[1])
+        self.transform_matrix_1.scale(self.scale_factor, self.scale_factor)
+        
+        # this is used by Cairo to draw
+        # This incorporates menu and other offsets
+        self.transform_matrix = cr.get_matrix()
         self.transform_matrix.translate(self.translation[0], self.translation[1])
         self.transform_matrix.scale(self.scale_factor, self.scale_factor)
+
+
+    def screen_to_cairo_coord(self, x, y) -> Tuple[int, int]:
+        """
+        Converts screen coordinates to Cairo coordinates.
+
+        Screen coordinates are physical coordinates used in mouse events.
+        Cairo coordinates are logical coordinate used for Cairo drawing.
+
+        Args:
+            x (int): x in screen coordinates
+            y (int): y in screen coordinates
+        Returns:
+            Tuple of x, y in Cairo coordinates
+        """
+        inv_transform = cairo.Matrix(*self.transform_matrix_1)
+        inv_transform.invert()  # screen coordinates to cairo logical coordinates
+        x_logical, y_logical = inv_transform.transform_point(x, y)
+        return x_logical, y_logical
 
     def redraw_mask(self, cr):
         """
@@ -234,6 +258,8 @@ class MaskImageEditor(Gtk.Window):
         cr_save.paint()
 
     def on_draw(self, widget, cr):
+        # Compute the transform matrix
+        self.update_transform_matrix(cr)  # update transform_matrix
         cr.set_matrix(self.transform_matrix)
         Gdk.cairo_set_source_pixbuf(cr, self.pixbuf_with_base_image, 0, 0)
         cr.paint()  # render the content of pixbuf in the source buffer on the canvas
@@ -406,7 +432,6 @@ class MaskImageEditor(Gtk.Window):
         self.is_eraser = checkbox.get_active()
 
     def _adjust_matrix_redraw_canvas(self):
-        self.update_transform_matrix()
         self.drawing_area.queue_draw()
         self.update_slider_ranges()        
 
@@ -443,12 +468,10 @@ class MaskImageEditor(Gtk.Window):
 
     def on_hscroll(self, adjustment):
         self.translation[0] = -adjustment.get_value()
-        self.update_transform_matrix()
         self.drawing_area.queue_draw()
 
     def on_vscroll(self, adjustment):
         self.translation[1] = -adjustment.get_value()
-        self.update_transform_matrix()
         self.drawing_area.queue_draw()
 
 
