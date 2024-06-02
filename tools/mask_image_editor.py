@@ -265,25 +265,7 @@ class MaskImageEditor(Gtk.Window):
         cr.paint()  # render the content of pixbuf in the source buffer on the canvas
 
         self.redraw_mask(cr)
-
-    def screen_to_cairo_coord(self, x, y) -> Tuple[int, int]:
-        """
-        Converts screen coordinates to Cairo coordinates.
-
-        Screen coordinates are physical coordinates used in mouse events.
-        Cairo coordinates are logical coordinate used for Cairo drawing.
-
-        Args:
-            x (int): x in screen coordinates
-            y (int): y in screen coordinates
-        Returns:
-            Tuple of x, y in Cairo coordinates
-        """
-        inv_transform = cairo.Matrix(*self.transform_matrix)
-        inv_transform.invert()  # screen coordinates to cairo logical coordinates
-        x_logical, y_logical = inv_transform.transform_point(x, y)
-        return x_logical, y_logical
-    
+ 
     def on_button_press(self, widget, event):
         """
         Handles the LMB press event.

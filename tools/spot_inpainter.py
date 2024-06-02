@@ -388,7 +388,6 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         self.transform_matrix.translate(self.translation[0], self.translation[1])
         self.transform_matrix.scale(self.scale_factor, self.scale_factor)
 
-
     def screen_to_cairo_coord(self, x, y) -> Tuple[int, int]:
         """
         Converts screen coordinates to Cairo coordinates.
