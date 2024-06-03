@@ -58,6 +58,18 @@ Since different models require different sets of prompts, Cremage also maintains
 Generating images using information from previously generated images helps create similar images. By selecting the "Use generation info" checkbox, the same prompts as the previous image will be used. You can also edit the Generation Information field to tweak the settings.
 
 
+
+## Building a Prompt Using Tagged Images
+
+For some models, tags are essential in generating the image that you want, and you have to use the ones that the model was trained with. However, since it is difficult to memorize tags, Cremage offers a fully customizable visual prompt builder.
+
+To use this feature, just put an image file with the tag as the file name under the Cremage data directory. The category of the tag will be the directory name of the image files.
+
+Cremage includes women's clothing tags as a starting point, which you can expand with your own tags.
+
+![Prompt builder](docs/images/prompt_builder_ss.jpg "Prompt builder")
+
+
 # Installation & Upgrade
 Refer to [Installation & Upgrade Guide](docs/installation_guide.md "View the Installation & Upgrade Guide")
 
