@@ -62,3 +62,10 @@ Currently, only systems with NVIDIA GPU and CUDA are supported.
 7. Copy model files
 
    See [Setting up model files](setting_up_model_files.md).
+
+8. Start Cremage
+   Type:
+   ```
+   python cremage_main.py
+   ```
+   This should start Cremage.

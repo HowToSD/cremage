@@ -174,3 +174,9 @@ pip install -r requirements_win.txt
 ## Copy model files
 See [Setting up model files](setting_up_model_files.md).
 
+## Start Cremage
+   Type:
+   ```
+   python cremage_main.py
+   ```
+   This should start Cremage.
