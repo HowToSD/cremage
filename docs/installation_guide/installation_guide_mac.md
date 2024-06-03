@@ -54,5 +54,6 @@
    This should start Cremage.
 
 8. Change Mac's screen resolution
+
    Currently Cremage's tools are designed to work with a high resolution display.
    Therefore, if you are using a laptop that has a lower default resolution (e.g. 1440 x 900), some of the tools will not work.  It is recommended to switch to a higher resolution (e.g. 2048 x 1280) using the Displays setting screen in System Settings on your Mac.
