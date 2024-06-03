@@ -39,6 +39,25 @@ Below is an example where the original image was processed in Cremage to reduce 
 
 ![Example of digital makeup](docs/images/digital_makeup.jpg "Digital makeup")
 
+## Free Yourself from Tedious Prompt Re-Typing
+
+One of the most time-consuming aspects of image generation is typing prompts. To make it easier, Cremage offers:
+
+* Prompt history
+* Prompt expansion
+* Generation using prompts from previously generated images
+
+Cremage remembers your prompts each time you generate an image using a different prompt. You can search and select a previous prompt from the history screen by pressing an icon next to the prompt field.
+
+Prompt expansion allows you to define parts of a prompt to be prepended and/or appended to your main prompt. This is particularly helpful when you need to add a long prompt, such as "score_9, score_8_up, score_7_up, rating_safe," before your main prompt.
+
+![Prompt expansion](docs/images/prompt_expansion_ss.jpg "Prompt expansion")
+
+Since different models require different sets of prompts, Cremage also maintains a history for each expansion, allowing you to search and choose as needed. You can easily turn prompt expansion on or off.
+
+Generating images using information from previously generated images helps create similar images. By selecting the "Use generation info" checkbox, the same prompts as the previous image will be used. You can also edit the Generation Information field to tweak the settings.
+
+
 # Installation & Upgrade
 Refer to [Installation & Upgrade Guide](docs/installation_guide.md "View the Installation & Upgrade Guide")
 
@@ -70,7 +89,7 @@ By choosing to use **Cremage**, users acknowledge and accept the risks associate
 
 Users are reminded that **Cremage** must be used only for lawful and ethical purposes. This includes refraining from using the software to generate images of any real person without the explicit consent of the individuals whose likenesses are to be used. Users assume full responsibility for ensuring their use of the software complies with all applicable laws and ethical standards.
 
-# Updates
+# Previous Updates
 May 4, 2024: Experimental segmentation inpainting was added.
 [Watch the demo video](docs/videos/segmentation_inpainting_4x_speed.mp4)
 (Note the video is 4x speed of the actual).
