@@ -10,11 +10,13 @@ For example, consider this prompt:
 A photo of a cute __pet__.
 ```
 
-If you define:
-* dog
-* cat
+If you define the following in pet.txt:
+```
+dog
+cat
+```
 
-The word __pet__ will be replaced by "dog" or "cat" during image generation.
+The word \_\_pet\_\_ will be replaced by "dog" or "cat" during image generation.
 
 To use wildcards, follow these steps:
 1. Define a set of words in a text file and place the file under `data/wildcards` in your Cremage installation directory. The file name should be the word that represents the wildcard followed by the ".txt" file extension (e.g., `data/wildcards/pet.txt`).
@@ -25,11 +27,14 @@ A photo of a cute __pet__.
 ```
 
 Nested wildcards are also supported. If `pet.txt` contains:
-* __dog__
-* cat
-
+```
+__dog__
+cat
+```
 and `dog.txt` contains:
-* St. Bernard
-* Golden Retriever
+```
+St. Bernard
+Golden Retriever
+```
 
-Then, __pet__ can resolve to St. Bernard, Golden Retriever, or cat.
+Then, \_\_pet\_\_ can resolve to St. Bernard, Golden Retriever, or cat.
