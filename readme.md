@@ -1,4 +1,12 @@
 ## Updates
+June 4, 2024: The wildcards feature support has been added to randomly replace a part of the prompt with a predefined set of words. Check out [How to Use Wildcards](docs/users_guide/ug_wildcards.md "Wildcards") for details.  If you have already installed Cremage, this update requires an extra step to manually update your configuration after pulling the latest code from GitHub.
+1. Open your text editor.
+2. Edit the config.yaml file located in the installation directory of Cremage.
+3. Add the following line at the end of the file:
+```
+wildcards_path: data/wildcards
+```
+
 June 3, 2024: Model mixer tool has been added to mix models. This tool works for both SD 1.5 and SDXL.
 The tool is available on the Tools tab.
 

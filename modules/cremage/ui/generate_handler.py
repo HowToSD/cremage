@@ -24,6 +24,7 @@ from cremage.utils.misc_utils import override_args_list, generate_lora_params
 from cremage.utils.misc_utils import join_directory_and_file_name
 from cremage.utils.prompt_history import update_prompt_history
 from cremage.ui.ui_to_preferences import copy_ui_field_values_to_preferences
+from cremage.utils.wildcards import resolve_wildcards
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -70,6 +71,10 @@ def generate_handler(app, widget, event) -> None:
     if app.preferences["enable_negative_prompt_expansion"]:
         negative_prompt += " " + app.preferences["negative_prompt_expansion"]
         logger.debug(f"Negative prompt after expansion: {negative_prompt}")
+
+    # Resolve wildcards
+    positive_prompt = resolve_wildcards(positive_prompt, wildcards_dir=app.preferences["wildcards_path"])
+    negative_prompt = resolve_wildcards(negative_prompt, wildcards_dir=app.preferences["wildcards_path"])
 
     # Read generation preference from UI
     generator_model_type = app.preferences["generator_model_type"]

@@ -10,3 +10,4 @@
 * [Hires fix](users_guide/ug_hires_fix.md "Hires fix")
 * [Textual inversion embedding](users_guide/ug_embedding.md "Textual inversion embedding")
 * [Prompt weight](users_guide/ug_prompt_weight.md "Prompt weight")
+* [Wildcards](users_guide/ug_wildcards.md "Wildcards")

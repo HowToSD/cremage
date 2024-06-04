@@ -102,6 +102,7 @@ class Config:
     hide_k_diffusion_samplers: bool
     face_strength: float
     generator_model_type: str
+    wildcards_path: str
 
 def load_user_config():
 
@@ -200,7 +201,8 @@ def load_user_config():
             "auto_face_fix": False,
             "hide_k_diffusion_samplers": True,
             "face_strength": 1.0,
-            "generator_model_type": "SD 1.5"
+            "generator_model_type": "SD 1.5",
+            "wildcards_path": "data/wildcards"
         }
         OmegaConf.save(config, CONFIG_FILE_PATH)
 
