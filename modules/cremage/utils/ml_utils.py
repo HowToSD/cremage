@@ -7,7 +7,7 @@ from typing import List, Tuple
 
 import torch
 import einops
-from safetensors.torch import load_file
+from safetensors.torch import load_file, save_file
 import numpy as np
 import cv2
 
@@ -19,6 +19,9 @@ from .safetensors_utils import MODEL_TYPE_SDXL
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
+
+def save_model(sd: dict, path: str) -> None:
+    save_file(sd, path)
 
 
 def scale_pytorch_images(samples:torch.tensor,

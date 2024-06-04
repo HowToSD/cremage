@@ -23,13 +23,15 @@ from face_fixer import FaceFixer
 from graffiti_editor import GraffitiEditor
 from image_segmenter import ImageSegmenter
 from prompt_builder import PromptBuilder
-
+from cremage.ui.model_path_update_handler import update_ldm_model_name_value_from_ldm_model_dir
+from cremage.ui.model_path_update_handler import update_sdxl_ldm_model_name_value_from_sdxl_ldm_model_dir
+from cremage.utils.gtk_utils import update_combo_box
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
 PROMPT_BUILDER_INPUT_DIRECTORY = os.path.join(PROJECT_ROOT, "data", "prompt_builder")  # FIXME. Read from config
-ITEMS_PER_ROW = 8
+ITEMS_PER_ROW = 4
 
 class ToolPaletteArea():
     
@@ -66,7 +68,8 @@ class ToolPaletteArea():
                             self.on_face_fix_clicked,
                             self.on_graffiti_editor_clicked,
                             self.on_image_segmenter_clicked,
-                            self.on_prompt_builder_clicked]
+                            self.on_prompt_builder_clicked,
+                            self.on_model_mixer_clicked]
         tool_names = [
             "Crop",
             "Scale",
@@ -74,7 +77,8 @@ class ToolPaletteArea():
             "Face fix",
             "Graffiti editor",
             "Segmentation inpainting",
-            "Visual prompt builder"]
+            "Visual prompt builder",
+            "Model mixer"]
 
         grid = Gtk.Grid()
         # Set margins for the grid
@@ -98,9 +102,8 @@ class ToolPaletteArea():
         self.graffiti_editor = None
         self.image_segmenter = None
         self.prompt_builder = None
-
+        self.model_mixer = None
         parent_box.pack_start(grid, True, True, 0)
-
 
         self.prompt_build_input_directory = PROMPT_BUILDER_INPUT_DIRECTORY
 
@@ -240,6 +243,40 @@ class ToolPaletteArea():
         self.prompt_builder.window.connect("delete-event", self.on_prompt_builder_delete)
         self.prompt_builder.window.show_all()
 
+    def on_model_mixer_clicked(self, widget, event):
+        """
+        Event handler for model mixer
+        """
+        logger.debug("Model mixer clicked")
+        # Do not move this to to the top as we want to lazy import
+        from model_mixer import ModelMixer
+
+        def update_model_names():
+            # Rescan directory to update the list
+            update_ldm_model_name_value_from_ldm_model_dir(self.app)
+            update_sdxl_ldm_model_name_value_from_sdxl_ldm_model_dir(self.app)
+
+            # Update the UI
+            update_combo_box(
+                self.app.fields["ldm_model"],
+                self.app.ldm_model_names,
+                self.app.ldm_model_names.index(self.app.preferences["ldm_model"]))
+
+            update_combo_box(
+                self.app.fields["sdxl_ldm_model"],
+                self.app.sdxl_ldm_model_names,
+                self.app.sdxl_ldm_model_names.index(self.app.preferences["sdxl_ldm_model"]))
+
+        self.model_mixer = ModelMixer(
+            ldm_model_dir=self.app.preferences["ldm_model_path"],
+            sdxl_ldm_model_dir=self.app.preferences["sdxl_ldm_model_path"],
+            vae_model_dir=self.app.preferences["vae_model_path"],
+            sdxl_vae_model_dir=self.app.preferences["sdxl_vae_model_path"],
+            callback=update_model_names
+        )
+        self.model_mixer.connect("delete-event", self.on_model_mixer_delete)
+        self.model_mixer.show_all()
+
     def on_image_cropper_delete(self, widget, event):
         logger.debug("Image cropper is destroyed")
         self.image_cropper = None 
@@ -267,3 +304,7 @@ class ToolPaletteArea():
     def on_prompt_builder_delete(self, widget, event):
         logger.debug("Prompt builder is destroyed")
         self.prompt_builder = None 
+
+    def on_model_mixer_delete(self, widget, event):
+        logger.debug("Model mixer is destroyed")
+        self.model_mixer = None 

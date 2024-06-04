@@ -1,5 +1,8 @@
 
 ## Updates
+June 3, 2024: Model mixer tool has been added to mix models. This tool works for both SD 1.5 and SDXL.
+The tool is available on the Tools tab.
+
 June 2, 2024: Cremage now supports SDXL. Check out [Using SDXL with Cremage](docs/users_guide/ug_sdxl.md "View the SDXL Guide")
 
 ---

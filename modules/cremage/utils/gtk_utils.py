@@ -18,6 +18,36 @@ sys.path = [MODULE_ROOT] + sys.path
 from cremage.utils.image_utils import resize_with_padding, pil_image_to_gtk_image, pil_image_to_pixbuf
 from cremage.utils.image_utils import resize_pil_image
 
+def create_center_aligned_button(label=""):
+    """
+    Creates a center-aligned button.
+
+    Args:
+        label(str): The button label.
+    Returns:
+        Tuple of the button object and button wrapper object.
+        Use the button wrapper object to add to the container.
+    """
+    button_wrapper = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    hbox1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    hbox2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    button = Gtk.Button(label=label)
+
+    button_wrapper.pack_start(hbox1,  
+                    True,  # Expand
+                    True,  # Takes up the space
+                    0)  # No padding
+    button_wrapper.pack_start(button,
+                    False,  # Do not expand
+                    False,  # Do not takes up the space
+                    0)  # No padding
+    button_wrapper.pack_start(hbox2,
+                    True,  # Expand
+                    True,  # Takes up the space
+                    0)  # No padding
+    return button, button_wrapper
+
+
 def create_surface_from_pil(pil_image: Image):
     # Convert PIL image to GdkPixbuf
     width, height = pil_image.size
@@ -44,6 +74,20 @@ def create_surface_from_pil(pil_image: Image):
     cairo_context.paint()
     
     return image_surface
+
+
+def show_info_dialog(win: Gtk.Window, message: str) -> None:
+    """
+    Displays an information message.
+
+    Args:
+        win (Gtk.Window): The parent window.
+        message (str): The message to display.
+    """
+    dialog = Gtk.MessageDialog(win, 0, Gtk.MessageType.INFO,
+                                Gtk.ButtonsType.CLOSE, message)
+    dialog.run()
+    dialog.destroy()
 
 
 def show_error_dialog(win: Gtk.Window, message: str) -> None:
