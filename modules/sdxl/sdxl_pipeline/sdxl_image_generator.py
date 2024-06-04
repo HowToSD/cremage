@@ -38,6 +38,7 @@ from cremage.utils.hires_fix_upscaler_utils import hires_fix_upscaler_name_list
 from cremage.utils.ml_utils import scale_pytorch_images
 from cremage.utils.cuda_utils import gpu_memory_info
 from cremage.configs.preferences import load_user_config
+from cremage.utils.wildcards import resolve_wildcards
 
 # SD_XL_BASE_RATIOS = {
 #     "0.5": (704, 1408),
@@ -380,6 +381,11 @@ def generate(opt,
     # Parse some parameters
     positive_prompt = opt.prompt
     negative_prompt = opt.negative_prompt
+    # Make a copy of prompts. This is needed as the original
+    # contains unresolved wildcards which we
+    # need to use for each batch
+    positive_prompt_original = positive_prompt
+    negative_prompt_original = negative_prompt
 
     base_count = len(os.listdir(opt.outdir))
     wm_encoder = None
@@ -562,6 +568,14 @@ def generate(opt,
         if status_queue:
             status_queue.put(f"Generating images (Batch {n+1}/{opt.n_iter})")
 
+        # Restore prompts with unresolved wildcards
+        positive_prompt = positive_prompt_original
+        negative_prompt = negative_prompt_original
+
+        # Resolve wildcards
+        positive_prompt = resolve_wildcards(positive_prompt, wildcards_dir=opt.wildcards_path)
+        negative_prompt = resolve_wildcards(negative_prompt, wildcards_dir=opt.wildcards_path)
+
         if mode == "txt2img":
             out = run_txt2img(
                 positive_prompt,
@@ -623,8 +637,8 @@ def generate(opt,
                 app = load_user_config()
                 face_fixer = FaceFixer(
                     preferences=app,
-                    positive_prompt=opt.prompt,
-                    negative_prompt=opt.negative_prompt,
+                    positive_prompt=positive_prompt,
+                    negative_prompt=negative_prompt,
                     procedural=True,
                     status_queue=status_queue)
                 
@@ -636,8 +650,8 @@ def generate(opt,
 
             generation_parameters = {
                 "time": time.time(),
-                "positive_prompt": opt.prompt,
-                "negative_prompt": opt.negative_prompt,
+                "positive_prompt": positive_prompt,
+                "negative_prompt": negative_prompt,
                 "ldm_model": os.path.basename(opt.ckpt),
                 "vae_model": os.path.basename(opt.vae_ckpt),
                 "lora_models": opt.lora_models,

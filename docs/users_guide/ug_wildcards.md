@@ -38,3 +38,6 @@ Golden Retriever
 ```
 
 Then, \_\_pet\_\_ can resolve to St. Bernard, Golden Retriever, or cat.
+
+## Limitation
+Currently, wildcards are applied at the batch level instead of the sample level. Therefore, if you want to use different prompts when you generate multiple images, set batch size to 1, and set the number of batches to the number of images that you want to generate.

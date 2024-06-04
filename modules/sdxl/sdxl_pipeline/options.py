@@ -70,6 +70,12 @@ def parse_options(arguments=None):
         help="Directory name of the text embedding files",
     )
     parser.add_argument(
+        "--wildcards_path",
+        type=str,
+        default="data/wildcards",
+        help="Directory name of wildcards files",
+    )
+    parser.add_argument(
         "--clip_skip",
         type=int,
         default=1,

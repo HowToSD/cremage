@@ -24,7 +24,6 @@ from cremage.utils.misc_utils import override_args_list, generate_lora_params
 from cremage.utils.misc_utils import join_directory_and_file_name
 from cremage.utils.prompt_history import update_prompt_history
 from cremage.ui.ui_to_preferences import copy_ui_field_values_to_preferences
-from cremage.utils.wildcards import resolve_wildcards
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -72,10 +71,6 @@ def generate_handler(app, widget, event) -> None:
         negative_prompt += " " + app.preferences["negative_prompt_expansion"]
         logger.debug(f"Negative prompt after expansion: {negative_prompt}")
 
-    # Resolve wildcards
-    positive_prompt = resolve_wildcards(positive_prompt, wildcards_dir=app.preferences["wildcards_path"])
-    negative_prompt = resolve_wildcards(negative_prompt, wildcards_dir=app.preferences["wildcards_path"])
-
     # Read generation preference from UI
     generator_model_type = app.preferences["generator_model_type"]
     sampling_steps = str(app.preferences["sampling_steps"])
@@ -95,6 +90,8 @@ def generate_handler(app, widget, event) -> None:
 
     hires_fix_upscaler = app.preferences["hires_fix_upscaler"]
     hires_fix_scale_factor = app.preferences["hires_fix_scale_factor"]
+
+    wildcards_path = app.preferences["wildcards_path"]
 
     if app.preferences["generator_model_type"] == "SD 1.5":
         embedding_path = app.preferences["embedding_path"]
@@ -169,6 +166,7 @@ def generate_handler(app, widget, event) -> None:
                     "--n_iter", number_of_batches,
                     "--ckpt", ldm_path,
                     "--embedding_path", embedding_path,
+                    "--wildcards_path", wildcards_path,
                     "--vae_ckpt", vae_path,
                     "--hires_fix_upscaler", hires_fix_upscaler,
                     "--hires_fix_scale_factor", str(hires_fix_scale_factor),

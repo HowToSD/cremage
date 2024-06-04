@@ -1,6 +1,7 @@
 import os
 import sys
 import gc
+import copy
 import logging
 import random
 import json
@@ -57,6 +58,7 @@ from cremage.utils.sampler_utils import instantiate_sampler
 from cremage.utils.hires_fix_upscaler_utils import hires_fix_upscaler_name_list
 from cremage.utils.ml_utils import scale_pytorch_images
 from cremage.utils.misc_utils import extract_embedding_filenames
+from cremage.utils.wildcards import resolve_wildcards
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -667,7 +669,9 @@ def generate(opt,
 
     data = [batch_size * [prompt]]  # "banana" becomes [["banana", "banana"]]
     data_negative = [batch_size * [negative_prompt]]
-    
+    data_original = copy.deepcopy(data)
+    data_negative_original = copy.deepcopy(data_negative)
+
     sample_path = outpath
     os.makedirs(sample_path, exist_ok=True)
     base_count = len(os.listdir(sample_path))
@@ -723,7 +727,23 @@ def generate(opt,
             with model.ema_scope():
                 tic = time.time()
                 all_samples = list()
-                for n in trange(opt.n_iter, desc="Number of batches"):
+                for batch_index, n in enumerate(trange(opt.n_iter, desc="Number of batches")):
+
+                    # Resolve wildcards
+                    # Copy the original prompt with wildcards
+                    data = copy.deepcopy(data_original)
+                    data_negative = copy.deepcopy(data_negative_original)
+                    # Cremage note:
+                    # Use the same prompt within the same batch.
+                    # This is due to current limitation because of the way
+                    # we process in our custom CLIP code
+                    resolved_prompt = resolve_wildcards(data[0][0], wildcards_dir=opt.wildcards_path)
+                    resolved_prompt_negative = resolve_wildcards(data_negative[0][0], wildcards_dir=opt.wildcards_path)
+
+                    for sample_index in range(opt.n_samples):
+                        data[0][sample_index] = resolved_prompt
+                        data_negative[0][sample_index] = resolved_prompt_negative
+
                     for prompts in tqdm(data, desc="data"):  # Batch size
                         # 1. Generate CLIP Text Embedding
                         uc = None
@@ -1050,8 +1070,8 @@ def generate(opt,
 
                                 generation_parameters = {
                                     "time": time.time(),
-                                    "positive_prompt": opt.prompt,
-                                    "negative_prompt": opt.negative_prompt,
+                                    "positive_prompt": data[0][0],  # Note, currently, same prompt is used within the same batch
+                                    "negative_prompt": data_negative[0][0],
                                     "ldm_model": os.path.basename(opt.ckpt),
                                     "vae_model": os.path.basename(opt.vae_ckpt),
                                     "lora_models": lora_models,
