@@ -1,4 +1,3 @@
-
 ## Updates
 June 3, 2024: Model mixer tool has been added to mix models. This tool works for both SD 1.5 and SDXL.
 The tool is available on the Tools tab.
@@ -19,7 +18,7 @@ You can also go back to any of the previously generated image and tweak as Crema
 
 # High quality face generation
 ## Bad face fix
-Even using a high-quality fine-tuned model, Stable Diffusion can still generate a bad face when the size of the face is relatively small. Cremage offers face fix capability which is inpired by a feature pioneered by Adetailer for Automatic1111. Cremage allows you to improve face during and after image generation, resulting in high quality face images.
+Even using a high-quality fine-tuned model, Stable Diffusion can still generate a bad face when the size of the face is relatively small. Cremage offers face fix capability which is inspired by a feature pioneered by Adetailer for Automatic1111. Cremage allows you to improve face during and after image generation, resulting in high quality face images.
 
 <figure>
   <img src="docs/images/bad_faces.png" alt="Example of bad faces">
@@ -32,7 +31,7 @@ Even using a high-quality fine-tuned model, Stable Diffusion can still generate 
 </figure>
 
 ## Consistent face generation
-In addition, with fully integrated IP-Adapter-FaceID, you can effortlessly generate the face of a same person consistently across multiple images. This feature is designed to be easy to use and all you have to do is specifying the a source face image and the desired prompt.  Check out a demo video on X by clicking the image below:
+In addition, with fully integrated IP-Adapter-FaceID, you can effortlessly generate the face of a same person consistently across multiple images. This feature is designed to be easy to use and all you have to do is specify a source face image and the desired prompt. Check out a demo video on X by clicking the image below:
 
 [![Watch the demo on X video](docs/images/face_generation_demo.jpg)](https://twitter.com/i/status/1787696937124475046)
 
@@ -85,7 +84,7 @@ Refer to [Installation & Upgrade Guide](docs/installation_guide.md "View the Ins
 If you have not used any Stable Diffusion software, check out [Getting Started](docs/getting_started.md "View Getting Started") first.
 
 # User's guide
-Cremage is designed to make it intuitive to use, but there are still things that are not obvious.  I recommend you have a quick look at [User's Guide](docs/users_guide.md "View the User's Guide")
+Cremage is designed to make it intuitive to use, but there are still things that are not obvious. I recommend you have a quick look at [User's Guide](docs/users_guide.md "View the User's Guide")
 
 # Usage Restrictions
 
@@ -109,7 +108,7 @@ May 4, 2024: Experimental segmentation inpainting was added.
 [Watch the demo video](docs/videos/segmentation_inpainting_4x_speed.mp4)
 (Note the video is 4x speed of the actual).
 
-May 6, 2024: *BREAKING CHANGE*  Made face strength of FaceID configurable. Using a text editor, add the following line at the bottom of config.yaml in the Cremage installation directory.
+May 6, 2024: *BREAKING CHANGE* Made face strength of FaceID configurable. Using a text editor, add the following line at the bottom of config.yaml in the Cremage installation directory.
 
 ```
 face_strength: 0.7
@@ -118,6 +117,6 @@ face_strength: 0.7
 Existing Cremage installation will fail to start without making this change.
 
 # Reporting bugs
-The best way to report a bug is to create an issue on github.
+The best way to report a bug is to create an issue on GitHub.
 
 I hope you will enjoy generating artwork!
