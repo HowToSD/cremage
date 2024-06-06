@@ -260,30 +260,53 @@ def resize_with_padding(image: Image,
 
 def get_single_bounding_box_from_grayscale_image(cv_img: np.ndarray):
     """
-    Detects a single bounding box that surrounds all connected regions in the input grayscale image.
+    Detects a single bounding box that encloses all connected regions in the input grayscale image.
+
+    Threshold is applied in this method to each pixel to ensure that the value only contains either:
+    0:   Not masked (not to be inpainted)
+    255: Masked (to be inpainted)
+    If pixel value <= 127: 0
+    else:                 255
 
     Args:
         cv_img (numpy.ndarray): Rank 2 OpenCV image. Each pixel can contain 0-255 in uint8.
     Returns:
-        Tuple (left, top, width, height) of the bounding box. If no region is found,
-        returns None.
+        A tuple of coordinates for the single bounding box (left, top, width, height).
+        If no region is found, None is returned.
     """
-    bounding_boxes = get_bounding_boxes_from_grayscale_image(cv_img)
+    if len(cv_img.shape) != 2:
+        raise ValueError("Invalid image format. The input has to be a rank 2 OpenCV image or numpy array")
+
+    _, binary_mask = cv.threshold(cv_img, 127, 255, cv.THRESH_BINARY)
+
+    # Find contours
+    contours, _ = cv.findContours(binary_mask,
+                                  cv.RETR_EXTERNAL,  # Grab the outside contour if nested. Ignore contour inside
+                                  cv.CHAIN_APPROX_SIMPLE)
     
-    if not bounding_boxes:
+    if not contours:
         return None
-    
-    # Get the coordinates of the top-left and bottom-right corners of the union of all bounding boxes
-    x_min = min(box[0] for box in bounding_boxes)
-    y_min = min(box[1] for box in bounding_boxes)
-    x_max = max(box[0] + box[2] for box in bounding_boxes)
-    y_max = max(box[1] + box[3] for box in bounding_boxes)
-    
-    # Calculate the width and height of the combined bounding box
+
+    # Calculate the combined bounding box that covers all contours
+    x_min = float('inf')
+    y_min = float('inf')
+    x_max = float('-inf')
+    y_max = float('-inf')
+
+    for contour in contours:
+        x, y, w, h = cv.boundingRect(contour)
+        x_min = min(x_min, x)
+        y_min = min(y_min, y)
+        x_max = max(x_max, x + w)
+        y_max = max(y_max, y + h)
+
+    if x_min == float('inf') or y_min == float('inf') or x_max == float('-inf') or y_max == float('-inf'):
+        return None
+
     width = x_max - x_min
     height = y_max - y_min
-    
-    return x_min, y_min, width, height
+
+    return (x_min, y_min, width, height)
 
 
 def get_bounding_boxes_from_grayscale_image(cv_img: np.ndarray):
@@ -360,7 +383,9 @@ def get_png_paths(image_dir: str) -> List[str]:
     image_paths = os.listdir(image_dir)
     
     # Select png only
-    image_paths = [os.path.join(image_dir, f) for f in image_paths if f.endswith(".png")]
+    # image_paths = [os.path.join(image_dir, f) for f in image_paths if f.endswith(".png")]
+    image_paths = [os.path.join(image_dir, f) for f in image_paths 
+                   if f.endswith(".png") or f.endswith(".webp") or f.endswith(".jpg")]
 
     # Sort the files by creation time (newest first)
     image_paths.sort(key=lambda x: os.path.getctime(x), reverse=True)

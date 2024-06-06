@@ -1,4 +1,6 @@
 ## Updates
+June 6, 2024: Spot inpainter now supports inpaint models in addition to regular SD 1.5 models. Inpaint models have been supported in the main UI, but fixing seams required switching between Spot inpainter and the main UI in the past. Now, you can inpaint using both models within Spot inpainter. This will make seam fixing much easier. Also, for inpainting using an inpaint model, Spot inpainter extracts a 512x512 region surrounding the mask to inpaint instead of processing the entire image, allowing you to touch up a large image.
+
 June 4, 2024: The wildcards feature support has been added to randomly replace a part of the prompt with a predefined set of words. Check out [How to Use Wildcards](docs/users_guide/ug_wildcards.md "Wildcards") for details.  If you have already installed Cremage, this update requires an extra step to manually update your configuration after pulling the latest code from GitHub.
 1. Open your text editor.
 2. Edit the config.yaml file located in the installation directory of Cremage.

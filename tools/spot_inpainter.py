@@ -1,7 +1,7 @@
 """
 Copyright (C) 2024, Hideyuki Inada. All rights reserved.
 
-Algorithm
+Spot inpainting algorithm
 1 Identify masked regions
 2 For each region,
 2.1 resize so that the longest edge is the target edge length
@@ -17,6 +17,15 @@ Mask editor produces connected regions in RGBA PIL image format:
 (255, 255, 255, 255): Masked
 
 The goal is to identify the bounding box for each mask which is a connected region.
+
+Spot inpainting algorithm using inpainting
+1 Identify masked regions
+2 Identify the bounding box that contains all masked regions.
+  If the size is greater than 512 wide x512 high px, display an error
+  message that the area is too big.
+  Extend evenly to make the region 512x512
+3 Send to inpainting
+4 Paste the updated image in the original image.
 """
 import os
 import sys
@@ -42,13 +51,15 @@ TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODELS_ROOT = os.path.join(PROJECT_ROOT, "models")
 sys.path = [MODULE_ROOT, TOOLS_ROOT] + sys.path
 from sd.img2img import img2img_parse_options_and_generate
+from sd.inpaint import inpaint_parse_options_and_generate
 from cremage.utils.image_utils import pil_image_to_pixbuf, get_bounding_boxes_from_grayscale_image
+from cremage.utils.image_utils import get_single_bounding_box_from_grayscale_image
 from cremage.utils.gtk_utils import show_alert_dialog
 from cremage.utils.gtk_utils import text_view_get_text, create_combo_box_typeahead
 from cremage.utils.misc_utils import generate_lora_params
 from cremage.utils.misc_utils import get_tmp_dir
 from cremage.ui.model_path_update_handler import update_ldm_model_name_value_from_ldm_model_dir
-
+from cremage.ui.model_path_update_handler import update_ldm_inpaint_model_name_value_from_ldm_model_dir
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
@@ -102,6 +113,7 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         """
         super().__init__(title="Spot inpainting")
 
+        self.use_inpainting_model = True
         self.show_mask = True  # To display mask (area to be inpainted) on canvas
         self.show_bounding_box = False  # To display a bounding box around the mask
         self.bounding_boxes = []
@@ -119,9 +131,10 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         self.pil_image = pil_image  # PIL format image
         self.status_queue = status_queue
         self.ldm_model_names = None # This is populated in update_ldm_model_name_value_from_ldm_model_dir
+        self.ldm_inpaint_model_names = None # This is populated in update_ldm_inpaint_model_name_value_from_ldm_model_dir
         self.enable_lora = False
         update_ldm_model_name_value_from_ldm_model_dir(self)
-
+        update_ldm_inpaint_model_name_value_from_ldm_model_dir(self)
         self.generation_information = dict()
         if self.generation_information_call_back is not None:
             d = self.generation_information_call_back()
@@ -266,9 +279,15 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         controls_box.pack_start(self.show_mask_checkbox, False, False, 0)
         self.show_mask_checkbox.set_active(True)
 
+        # Use inpainting checkbox
+        self.use_inpainting_checkbox = Gtk.CheckButton(label="Use inpainting model")
+        self.use_inpainting_checkbox.connect("toggled", self.on_use_inpainting_toggled)
+        controls_box.pack_start(self.use_inpainting_checkbox, False, False, 0)
+        self.use_inpainting_checkbox.set_active(self.use_inpainting_model)
+
         # LDM model
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-        root_box.pack_start(box, False, False, 0)
+        self.ldm_model_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        root_box.pack_start(self.ldm_model_box, False, False, 0)
         model_name = self.preferences["ldm_model"]
         # Check to see if we have generation info to override
         if "ldm_model" in self.generation_information:
@@ -276,7 +295,7 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         ldm_label = Gtk.Label()
         ldm_label.set_text("Model")
         ldm_label.set_halign(Gtk.Align.START)  # Align label to the left
-        box.pack_start(ldm_label, False, False, 0)
+        self.ldm_model_box.pack_start(ldm_label, False, False, 0)
         
         if model_name in self.ldm_model_names:
             ind = self.ldm_model_names.index(model_name)
@@ -289,8 +308,7 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         self.ldm_model_cb = create_combo_box_typeahead(
             self.ldm_model_names,
             ind)
-        box.pack_start(self.ldm_model_cb, False, False, 0)
-
+        self.ldm_model_box.pack_start(self.ldm_model_cb, False, False, 0)
 
         #
         # Denoise entry
@@ -299,10 +317,34 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         denoise_label = Gtk.Label()
         denoise_label.set_text("Denoising strength")
         denoise_label.set_halign(Gtk.Align.START)  # Align label to the left
-        box.pack_start(denoise_label, False, False, 0)
+        self.ldm_model_box.pack_start(denoise_label, False, False, 0)
     
         self.denoise_text = Gtk.Entry(text=self.preferences["denoising_strength"])
-        box.pack_start(self.denoise_text, False, True, 0)
+        self.ldm_model_box.pack_start(self.denoise_text, False, True, 0)
+
+        # Inpainting model
+        self.ldm_inpaint_model_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        root_box.pack_start(self.ldm_inpaint_model_box, False, False, 0)
+        model_name = self.preferences["ldm_inpaint_model"]
+        # Check to see if we have generation info to override
+        if "ldm_inpaint_model" in self.generation_information:
+            model_name = self.generation_information["ldm_inpaint_model"]
+        ldm_inpaint_label = Gtk.Label()
+        ldm_inpaint_label.set_text("Inpaint Model")
+        ldm_inpaint_label.set_halign(Gtk.Align.START)  # Align label to the left
+        self.ldm_inpaint_model_box.pack_start(ldm_inpaint_label, False, False, 0)
+        
+        if model_name in self.ldm_inpaint_model_names:
+            ind = self.ldm_inpaint_model_names.index(model_name)
+            self.enable_lora = True
+        else:
+            model_name = self.preferences["ldm_inpaint_model"]
+            ind = self.ldm_inpaint_model_names.index(model_name)
+
+        self.ldm_inpaint_model_cb = create_combo_box_typeahead(
+            self.ldm_inpaint_model_names,
+            ind)
+        self.ldm_inpaint_model_box.pack_start(self.ldm_inpaint_model_cb, False, False, 0)
 
         # Slider for pen width
         pen_width_label = Gtk.Label()
@@ -456,6 +498,23 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
             self.show_mask = False
         self.drawing_area.queue_draw()
 
+    def toggle_inpainting_model_fields(self, show):
+        if show:
+            self.use_inpainting_model = True
+            self.ldm_model_box.hide()
+            self.ldm_inpaint_model_box.show()
+        else:
+            self.use_inpainting_model = False
+            self.ldm_model_box.show()
+            self.ldm_inpaint_model_box.hide()
+
+    def on_use_inpainting_toggled(self, checkbox):
+        if hasattr(self, "ldm_model_box"):
+            self.toggle_inpainting_model_fields(checkbox.get_active())
+
+    def set_visibility(self):
+        self.toggle_inpainting_model_fields(self.use_inpainting_model)
+
     def on_show_bounding_box_toggled(self, checkbox):
         if checkbox.get_active():
             self.show_bounding_box = True
@@ -463,6 +522,47 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         else:
             self.show_bounding_box = False
         self.drawing_area.queue_draw()
+
+
+    def detect_a_single_bounding_box(self):
+        """
+        Detect a single bounding box that encloses all masked regions.
+        """
+        # Create a new off-screen canvas to mirror drawing area
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32,
+                                     self.image_width,
+                                     self.image_height)
+        cr = cairo.Context(surface)
+
+        # Fill background with black
+        black_background_image = Image.new('RGBA',
+                                           (self.image_width, self.image_height),
+                                           "black")
+        pixbuf = pil_image_to_pixbuf(black_background_image)   
+        Gdk.cairo_set_source_pixbuf(cr, pixbuf, 0, 0)
+        cr.paint()       
+
+        # Paint masked regions on canvas
+        self.redraw_mask(cr)
+
+        # Convert the surface to a PIL Image
+        width, height = surface.get_width(), surface.get_height()
+        data = surface.get_data().tobytes()  # Convert memoryview to bytes
+
+        # FIXME: Check to see if we need to convert ARGB to RGBA
+        # Convert CR to a PIL Image
+        img = Image.frombuffer("RGBA", (width, height), data, "raw", "BGRA", 0, 1)
+
+        # Detect bounding boxes
+        cv_img = np.array(img)
+        cv_img = cv.cvtColor(cv_img, cv.COLOR_RGBA2GRAY)
+        box = get_single_bounding_box_from_grayscale_image(cv_img)  # marker
+        logger.info(box)
+        if box:
+            self.parse_face_data([box])  # Add to self.bounding_boxes
+        else:
+            self.bounding_boxes.clear()
+        logger.info(self.bounding_boxes)
 
     def detect_bounding_boxes(self):
         # Create a new off-screen canvas to mirror drawing area
@@ -681,32 +781,111 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
         return dialog
 
     def on_apply_inpainting_clicked(self, widget):
-        self.detect_bounding_boxes()
-        boxes = self.bounding_boxes
 
-        pil_image = self.pil_image
-        cv_mask_image = self.get_current_mask()
+        if self.use_inpainting_checkbox.get_active():
+            logger.info("Using an inpaint model.")
+            self.detect_a_single_bounding_box()
+            boxes = self.bounding_boxes
 
-        if boxes is not None:
-            for face_rect in boxes:
-                box = (face_rect.left,
-                       face_rect.top,
-                       face_rect.right - face_rect.left,
-                       face_rect.bottom - face_rect.top)
-                pil_image = self.process_box(pil_image, cv_mask_image, box)
+            pil_image = self.pil_image
+            cv_mask_image = self.get_current_mask()
 
-        self.pil_image = pil_image
-        if self.output_file_path:
-            self.pil_image.save(self.output_file_path)
+            if boxes is None:
+                show_alert_dialog("Masked region is not found.")
+                return
+            
+            assert len(boxes) == 1
+            box_mask = boxes[0]
+            x = box_mask.left
+            y = box_mask.top
+            w = box_mask.right - x
+            h = box_mask.bottom - y
 
-        self.show_bounding_box_checkbox.set_active(False)
-        self.show_mask_checkbox.set_active(False)
-        
-        self.pixbuf_with_base_image = pil_image_to_pixbuf(self.pil_image)
-        self.drawing_area.queue_draw()  # refresh image canvas
+            if w > 512 or h > 512:
+                show_alert_dialog(f"Masked region is Width:{w}, Height:{h} which exceeds the max 512 w x 512 h. Select a region to fit.")
+                return
 
-        if self.save_call_back:
-            self.save_call_back(self.pil_image, self.generation_information_call_back())
+            pil_w, pil_h = self.pil_image.size
+            if pil_w == 512 and pil_h == 512:
+                box = (0, 0, 512, 512)
+                logger.info("Using the entire image as the mask area as the image is 512x512")
+            else: # Expand the mask to fit 512 w x 512 h
+                pad_w = 512 - w
+                pad_h = 512 - h
+                x = max(int(x - (pad_w/2)), 0)
+                y = max(int(y - (pad_h/2)), 0)
+                x2 = min(x + 512, pil_w)
+                y2 = min(y + 512, pil_h)
+
+                # One more pass to use up left and upper side of the
+                # masked area.
+                # This is needed when there is a lot of space
+                # on left and upper side of the masked area (see below),
+                # but there is no space to the right and below the masked
+                # area.
+                # +----------------------+
+                # |                      |
+                # |                      |
+                # |                      |
+                # |                      |
+                # |              +=====+ |
+                # |              |     | |
+                # |              +=====+ |
+                # +----------------------+
+                # In this case, expansion should have happened toward
+                # the upper and left side, but only 1/2 was allocated
+                # initially.
+                # The second pass will do this expansion.
+                x = max(x2 - 512, 0)
+                y = max(y2 - 512, 0)
+
+                w = x2 - x
+                h = y2 - y
+                logger.info(f"Mask area: x:{x}, y:{y}, w:{w}, h:{h}")
+            box = (x, y, w, h)
+            pil_image = self.process_box_for_inpainting(pil_image, cv_mask_image, box)
+
+            self.pil_image = pil_image
+            if self.output_file_path:
+                self.pil_image.save(self.output_file_path)
+
+            self.show_bounding_box_checkbox.set_active(False)
+            self.show_mask_checkbox.set_active(False)
+            
+            self.pixbuf_with_base_image = pil_image_to_pixbuf(self.pil_image)
+            self.drawing_area.queue_draw()  # refresh image canvas
+
+            if self.save_call_back:
+                self.save_call_back(self.pil_image, self.generation_information_call_back())
+
+        else:
+            logger.info("Using a regular LDM model.")
+            self.detect_bounding_boxes()
+            boxes = self.bounding_boxes
+
+            pil_image = self.pil_image
+            cv_mask_image = self.get_current_mask()
+
+            if boxes is not None:
+                for face_rect in boxes:
+                    box = (face_rect.left,
+                        face_rect.top,
+                        face_rect.right - face_rect.left,
+                        face_rect.bottom - face_rect.top)
+                    pil_image = self.process_box(pil_image, cv_mask_image, box)
+
+            self.pil_image = pil_image
+            if self.output_file_path:
+                self.pil_image.save(self.output_file_path)
+
+            self.show_bounding_box_checkbox.set_active(False)
+            self.show_mask_checkbox.set_active(False)
+            
+            self.pixbuf_with_base_image = pil_image_to_pixbuf(self.pil_image)
+            self.drawing_area.queue_draw()  # refresh image canvas
+
+            if self.save_call_back:
+                self.save_call_back(self.pil_image, self.generation_information_call_back())
 
     def on_clear_marks_clicked(self, widget):
         self.bounding_boxes.clear()
@@ -860,6 +1039,224 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
             # pil_image = Image.fromarray(cv.cvtColor(result_image, cv.COLOR_BGR2RGB))
             return pil_image
         
+
+    def process_box_for_inpainting(self, pil_image, cv_mask_image, face) -> Image:
+        """
+
+        Args:
+            face (tuple): x, y, w, h of the box which is a sub-region in both
+                pil_image and cv_mask_image
+        """
+        input_image = pil_image
+        pil_mask_image = Image.fromarray(cv_mask_image)
+        # input_image.save("tmp_input_image.png")  # FIXME
+        # cv.imwrite("tmp_mask_image.png", cv_mask_image)  # FIXME
+
+        # Create a temporary directory using the tempfile module
+        with tempfile.TemporaryDirectory() as temp_dir:
+            print(f"Temporary directory created at {temp_dir}")
+            x = int(face[0])
+            y = int(face[1])
+            w = int(face[2])
+            h = int(face[3])
+            print(f"{x}, {y}, {w}, {h}")
+            right = x + w
+            bottom = y + h
+
+            crop_rectangle = (x, y, right, bottom)
+            pil_cropped_image = pil_image.crop(crop_rectangle)
+            pil_cropped_mask_image = pil_mask_image.crop(crop_rectangle)
+            print(pil_cropped_image.size)
+     
+            # 2.3 Send to image to image
+            updated_pil_image = self.inpainting(
+                input_image=pil_cropped_image.convert('RGBA'),
+                mask_image = pil_cropped_mask_image)
+            # updated_pil_image.save("tmpface.jpg")
+
+            # 2.6 Paste the updated image in the original image.
+            inpainted_image = input_image.copy()
+            inpainted_image.paste(updated_pil_image, (x, y))
+            pil_image = inpainted_image
+
+            # inpainted_image_cv = np.array(inpainted_image)
+            # inpainted_image_cv = cv.cvtColor(np.array(inpainted_image_cv), cv.COLOR_RGB2BGR)
+            # # cv.imwrite("tmp_inpainted_image_cv.png", inpainted_image_cv, )  # FIXME
+            
+            # # Convert both base and face to CV2 BGR
+            # cv_image = cv.cvtColor(np.array(pil_image), cv.COLOR_RGB2BGR)
+
+            # updated_face_cv_image = cv.cvtColor(
+            #     np.array(updated_pil_image), 
+            #     cv.COLOR_RGB2BGR)
+
+            # # Apply Gaussian blur to the mask
+            # blurred_mask = cv.GaussianBlur(cv_mask_image, (11, 11), 0)  # Change to (21, 21)
+
+            # # Normalize the blurred mask to ensure it's in the 0-255 range
+            # blurred_mask = np.clip(blurred_mask, 0, 255)
+
+            # # Instead of using bitwise operations, manually interpolate between the images
+            # # Convert mask to float
+            # blurred_mask_float = blurred_mask.astype(np.float32) / 255.0
+            # inverse_mask_float = 1.0 - blurred_mask_float
+
+            # # Convert images to float
+            # original_float = cv_image.astype(np.float32)
+            # inpainted_float = inpainted_image_cv.astype(np.float32)
+
+            # # Interpolate
+            # combined_float = (inpainted_float * blurred_mask_float[..., np.newaxis]) + (original_float * inverse_mask_float[..., np.newaxis])
+
+            # # Convert back to an 8-bit image
+            # combined_image_cv = np.clip(combined_float, 0, 255).astype(np.uint8)
+
+            # # Convert the combined image back to PIL format
+            # pil_image = Image.fromarray(cv.cvtColor(combined_image_cv, cv.COLOR_BGR2RGB))
+            
+            # Convert the result back to a PIL image
+            # pil_image = Image.fromarray(cv.cvtColor(result_image, cv.COLOR_BGR2RGB))
+            return pil_image
+
+    def inpainting(self,
+                   input_image=None,
+                   mask_image=None,
+                   meta_prompt=None,
+                   output_dir=SPOT_FIX_TMP_DIR):
+        """
+        Event handler for the Generation button click
+
+        Args:
+            input_image: PIL format image.
+            mask_image: PIL format image.
+            meta_prompt (str): Gender string of the face detected by the gender ML model
+        """
+        logger.info("inpainting called.")
+
+        if self.generation_information_call_back is not None:
+            generation_info = self.generation_information_call_back()
+            if generation_info is None:  # The original image may not have generation info
+                generation_info = dict()              
+        else:
+            generation_info = dict()
+
+        # Prompt handling
+        self.positive_prompt = text_view_get_text(self.positive_prompt_field)
+        self.denoising_strength = self.denoise_text.get_text()
+        
+        if self.positive_prompt:
+            positive_prompt = self.positive_prompt
+            if self.preferences["enable_positive_prompt_expansion"]:
+                positive_prompt += self.preferences["positive_prompt_expansion"]
+        elif generation_info is not None and "positive_prompt" in generation_info: # Priority 2. Generation
+           positive_prompt = generation_info["positive_prompt"]
+        else:  # use blank
+            positive_prompt = ""
+            if self.preferences["enable_positive_prompt_expansion"]:
+                positive_prompt += self.preferences["positive_prompt_expansion"]
+
+        # Prepend meta_prompt
+        if meta_prompt:
+            positive_prompt = meta_prompt + ", " + positive_prompt
+
+        # Negative prompt
+        if self.negative_prompt:
+            negative_prompt = self.negative_prompt
+            if self.preferences["enable_negative_prompt_expansion"]:
+                negative_prompt += self.preferences["negative_prompt_expansion"]
+        elif generation_info is not None and "negative_prompt" in generation_info: # Priority 2. Generation
+            negative_prompt = generation_info["negative_prompt"]
+        else:  # use blank
+            negative_prompt = ""
+            if self.preferences["enable_negative_prompt_expansion"]:
+                negative_prompt += self.preferences["negative_prompt_expansion"]
+
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
+            
+        vae_path = "None" if self.preferences["vae_model"] == "None" \
+            else os.path.join(
+                    self.preferences["vae_model_path"], 
+                    self.preferences["vae_model"])
+        
+        model_name = self.ldm_inpaint_model_cb.get_child().get_text() # Use the model on UI
+        # model_name = self.preferences["ldm_model"]
+        clip_skip = str(self.preferences["clip_skip"])
+        lora_models, lora_weights = generate_lora_params(self.preferences)
+
+        # # Check to see if we have generation info to override
+        # if "ldm_model" in generation_info:
+        #     model_name = generation_info["ldm_model"]
+        #     logger.info(f"Overriding preference model name with generation model: {model_name}")
+        if "clip_skip" in generation_info:
+            clip_skip = str(generation_info["clip_skip"])
+        
+        model_path = os.path.join(self.preferences["ldm_model_path"],
+                                  model_name)
+        
+        if "lora_models" in generation_info:
+            if generation_info["lora_models"] and len(generation_info["lora_models"]) > 0:
+                l = generation_info["lora_models"].split(",")
+
+                # if image was generated in SD1.5, enable LoRA
+                if self.enable_lora:
+                    model_name = self.generation_information["ldm_model"]
+                    l = [os.path.join(
+                        self.preferences["lora_model_path"], e.strip()) for e in l if len(e.strip()) > 0]
+                    l = ",".join(l)
+                else:  # if SDXL, disable LoRA for now
+                    l = ""
+            else:
+                l = ""
+            lora_models = l
+            lora_weights = generation_info["lora_weights"]
+
+        args_list = ["--prompt", positive_prompt,
+                     "--negative_prompt", negative_prompt,
+                     "--H", str(TARGET_EDGE_LEN),
+                     "--W", str(TARGET_EDGE_LEN),
+                     "--clip_skip", clip_skip,
+                     "--seed", str(self.preferences["seed"]),
+                     "--n_samples", str(1),
+                     "--n_iter",str(1),
+                     "--ckpt", model_path,
+                     "--embedding_path", self.preferences["embedding_path"],
+                     "--vae_ckpt", vae_path,
+                     "--lora_models", lora_models,
+                     "--lora_weights", lora_weights,                                            
+                     "--outdir", output_dir]
+        if self.preferences["safety_check"]:
+            args_list.append("--safety_check")
+        input_image_path = os.path.join(get_tmp_dir(), "input_image.png")
+        input_image.save(input_image_path)
+        mask_image_path = os.path.join(get_tmp_dir(), "mask_image.png")
+        mask_image = mask_image.convert("RGBA")  # Save as RGBA instead of grayscale
+        mask_image.save(mask_image_path)
+
+        args_list += [
+            "--init-img", input_image_path,
+            "--mask-img", mask_image_path,
+            "--inpaint_ckpt", model_path
+        ]
+
+        generate_func=inpaint_parse_options_and_generate
+        
+        # Start the image generation thread
+        thread = threading.Thread(
+            target=generate_func,
+            kwargs={'args': args_list,
+                    'ui_thread_instance': None})  # FIXME
+        thread.start()
+
+        thread.join()  # Wait until img2img is done.
+
+        # Get the name of the output image
+        files = os.listdir(output_dir)
+        assert len(files) == 1
+        file_name = os.path.join(output_dir, files[0])
+        return Image.open(file_name)
+
     def face_image_to_image(self, input_image=None, meta_prompt=None,
                             output_dir=SPOT_FIX_TMP_DIR):
         """
@@ -1094,7 +1491,7 @@ def main():
         "seed": "0"
     }
 
-    pil_image = Image.open("../cremage_resources/512x512_human_couple.png")   # FIXME
+    pil_image = Image.open("../cremage_resources/1024x1024_puppy.png")   # FIXME
     app = SpotInpainter(
         pil_image=pil_image, 
         output_file_path="tmp_face_fix.png",
@@ -1103,8 +1500,21 @@ def main():
         preferences=preferences)
     app.connect('destroy', Gtk.main_quit)
     app.show_all()
+    app.set_visibility()
     Gtk.main()
 
 
 if __name__ == '__main__':
+
+    import os
+    import sys
+    import platform
+
+    os_name = platform.system()
+    if os_name == 'Darwin':  # macOS
+        gpu_device = "mps"
+    else:
+        gpu_device = "cuda"
+    os.environ["GPU_DEVICE"] = gpu_device
+
     main()

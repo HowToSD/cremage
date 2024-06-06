@@ -168,7 +168,8 @@ class ToolPaletteArea():
             else:
                 self.spot_inpainter = SpotInpainter()
             self.spot_inpainter.connect("delete-event", self.on_spot_inpainter_delete)
-        self.spot_inpainter.show_all()        
+        self.spot_inpainter.show_all()
+        self.spot_inpainter.set_visibility()
 
     def on_face_fix_clicked(self, widget, event):
         """
