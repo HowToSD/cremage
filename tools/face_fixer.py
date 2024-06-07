@@ -844,7 +844,7 @@ class FaceFixer(Gtk.Window):
             bottom = y + h
             crop_rectangle = (x, y, right, bottom)
             cropped_image = pil_image.crop(crop_rectangle)
-
+            cropped_image = cropped_image.convert("RGB")  # RGBA causes a problem with processor
             # TODO: Detect race and age
             inputs = processor(images=cropped_image, return_tensors="pt")
             outputs = model(**inputs)
@@ -1206,7 +1206,7 @@ def main():
         "seed": "0"
     }
 
-    pil_image = Image.open("../cremage_resources/512x512_human_couple.png")   # FIXME
+    pil_image = Image.open("../cremage_resources/check.png")   # FIXME
     app = FaceFixer(
         pil_image=pil_image,
         output_file_path=os.path.join(get_tmp_dir(), "tmp_face_fix.png"),
