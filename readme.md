@@ -1,5 +1,5 @@
 ## Updates
-June 11, 2024: Video generation using Stable Video Diffusion (SVD) 1.1 is now supported. For more information, check out [Creating a video using SVD](users_guide/ug_video.md "Video").
+June 11, 2024: Video generation using Stable Video Diffusion (SVD) 1.1 is now supported. For more information, check out [Creating a video using SVD](docs/users_guide/ug_video.md "Video").
 
 At this point, this feature is only available for machines running Ubuntu with 24GB GPU RAM. However, if you want to use it on a host with less RAM, please file a ticket so that I can review and prioritize.
 
