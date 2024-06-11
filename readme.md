@@ -1,18 +1,7 @@
 ## Updates
-June 6, 2024: Spot inpainter now supports inpaint models in addition to regular SD 1.5 models. Inpaint models have been supported in the main UI, but fixing seams required switching between Spot inpainter and the main UI in the past. Now, you can inpaint using both models within Spot inpainter. This will make seam fixing much easier. Also, for inpainting using an inpaint model, Spot inpainter extracts a 512x512 region surrounding the mask to inpaint instead of processing the entire image, allowing you to touch up a large image.
+June 11, 2024: Video generation using Stable Video Diffusion (SVD) 1.1 is now supported. For more information, check out [Creating a video using SVD](users_guide/ug_video.md "Video").
 
-June 4, 2024: The wildcards feature support has been added to randomly replace a part of the prompt with a predefined set of words. Check out [How to Use Wildcards](docs/users_guide/ug_wildcards.md "Wildcards") for details.  If you have already installed Cremage, this update requires an extra step to manually update your configuration after pulling the latest code from GitHub.
-1. Open your text editor.
-2. Edit the config.yaml file located in the installation directory of Cremage.
-3. Add the following line at the end of the file:
-```
-wildcards_path: data/wildcards
-```
-
-June 3, 2024: Model mixer tool has been added to mix models. This tool works for both SD 1.5 and SDXL.
-The tool is available on the Tools tab.
-
-June 2, 2024: Cremage now supports SDXL. Check out [Using SDXL with Cremage](docs/users_guide/ug_sdxl.md "View the SDXL Guide")
+At this point, this feature is only available for machines running Ubuntu with 24GB GPU RAM. However, if you want to use it on a host with less RAM, please file a ticket so that I can review and prioritize.
 
 ---
 # Welcome to Cremage.
@@ -114,6 +103,21 @@ By choosing to use **Cremage**, users acknowledge and accept the risks associate
 Users are reminded that **Cremage** must be used only for lawful and ethical purposes. This includes refraining from using the software to generate images of any real person without the explicit consent of the individuals whose likenesses are to be used. Users assume full responsibility for ensuring their use of the software complies with all applicable laws and ethical standards.
 
 # Previous Updates
+June 6, 2024: Spot inpainter now supports inpaint models in addition to regular SD 1.5 models. Inpaint models have been supported in the main UI, but fixing seams required switching between Spot inpainter and the main UI in the past. Now, you can inpaint using both models within Spot inpainter. This will make seam fixing much easier. Also, for inpainting using an inpaint model, Spot inpainter extracts a 512x512 region surrounding the mask to inpaint instead of processing the entire image, allowing you to touch up a large image.
+
+June 4, 2024: The wildcards feature support has been added to randomly replace a part of the prompt with a predefined set of words. Check out [How to Use Wildcards](docs/users_guide/ug_wildcards.md "Wildcards") for details.  If you have already installed Cremage, this update requires an extra step to manually update your configuration after pulling the latest code from GitHub.
+1. Open your text editor.
+2. Edit the config.yaml file located in the installation directory of Cremage.
+3. Add the following line at the end of the file:
+```
+wildcards_path: data/wildcards
+```
+
+June 3, 2024: Model mixer tool has been added to mix models. This tool works for both SD 1.5 and SDXL.
+The tool is available on the Tools tab.
+
+June 2, 2024: Cremage now supports SDXL. Check out [Using SDXL with Cremage](docs/users_guide/ug_sdxl.md "View the SDXL Guide")
+
 May 4, 2024: Experimental segmentation inpainting was added.
 [Watch the demo video](docs/videos/segmentation_inpainting_4x_speed.mp4)
 (Note the video is 4x speed of the actual).

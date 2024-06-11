@@ -25,3 +25,4 @@ tqdm==4.65.0
 transformers==4.40.0
 torchdiffeq==0.2.3
 ftfy==6.2.0
+rembg==2.0.56

@@ -11,3 +11,4 @@
 * [Textual inversion embedding](users_guide/ug_embedding.md "Textual inversion embedding")
 * [Prompt weight](users_guide/ug_prompt_weight.md "Prompt weight")
 * [Wildcards](users_guide/ug_wildcards.md "Wildcards")
+* [Creating a video using SVD](users_guide/ug_video.md "Video")
