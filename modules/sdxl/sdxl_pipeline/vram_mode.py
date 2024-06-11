@@ -29,6 +29,16 @@ def initial_model_load(model):
         torch.cuda.synchronize()  # Cremage added
     return model
 
+def initial_svd_model_load(model):
+    global lowvram_mode
+    if lowvram_mode:
+        # model.half()
+        pass
+    else:
+        model.to(os.environ.get("GPU_DEVICE", "cpu"))
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()  # Cremage added
+    return model
 
 def unload_model(model):
     global lowvram_mode

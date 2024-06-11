@@ -39,6 +39,7 @@ class ToolPaletteArea():
                  parent_box: Gtk.Box,
                  get_current_image_call_back=None,
                  get_tool_processed_file_path_call_back=None,
+                 get_tool_processed_video_call_back=None,
                  save_call_back=None,
                  generation_information_call_back=None,
                  preferences=None,
@@ -54,6 +55,7 @@ class ToolPaletteArea():
         self.app = app
         self.get_current_image_call_back = get_current_image_call_back
         self.get_tool_processed_file_path_call_back = get_tool_processed_file_path_call_back
+        self.get_tool_processed_video_call_back = get_tool_processed_video_call_back
         self.save_call_back = save_call_back
         self.generation_information_call_back = generation_information_call_back
         self.preferences = preferences
@@ -69,7 +71,8 @@ class ToolPaletteArea():
                             self.on_graffiti_editor_clicked,
                             self.on_image_segmenter_clicked,
                             self.on_prompt_builder_clicked,
-                            self.on_model_mixer_clicked]
+                            self.on_model_mixer_clicked,
+                            self.on_video_generator_clicked]
         tool_names = [
             "Crop",
             "Scale",
@@ -78,7 +81,8 @@ class ToolPaletteArea():
             "Graffiti editor",
             "Segmentation inpainting",
             "Visual prompt builder",
-            "Model mixer"]
+            "Model mixer",
+            "Video generator"]
 
         grid = Gtk.Grid()
         # Set margins for the grid
@@ -103,6 +107,7 @@ class ToolPaletteArea():
         self.image_segmenter = None
         self.prompt_builder = None
         self.model_mixer = None
+        self.video_generator = None
         parent_box.pack_start(grid, True, True, 0)
 
         self.prompt_build_input_directory = PROMPT_BUILDER_INPUT_DIRECTORY
@@ -278,6 +283,25 @@ class ToolPaletteArea():
         self.model_mixer.connect("delete-event", self.on_model_mixer_delete)
         self.model_mixer.show_all()
 
+    def on_video_generator_clicked(self, widget, event):
+        """
+        Event handler for video generator
+        """
+        logger.debug("Video generator clicked")
+        # Do not move this to to the top as we want to lazy import
+        from video_generator import VideoGenerator
+        
+        self.video_generator = VideoGenerator(
+            pil_image=self.get_current_image_call_back(),
+            output_file_path=self.get_tool_processed_video_call_back(),
+            positive_prompt=None,
+            negative_prompt=None,
+            preferences=self.app.preferences,
+            checkpoint_path=os.path.join(
+                self.app.preferences["svd_model_path"], "svd_xt_1_1.safetensors"))
+        self.video_generator.connect("delete-event", self.on_model_mixer_delete)
+        self.video_generator.show_all()
+
     def on_image_cropper_delete(self, widget, event):
         logger.debug("Image cropper is destroyed")
         self.image_cropper = None 
@@ -309,3 +333,7 @@ class ToolPaletteArea():
     def on_model_mixer_delete(self, widget, event):
         logger.debug("Model mixer is destroyed")
         self.model_mixer = None 
+
+    def on_video_generator_delete(self, widget, event):
+        logger.debug("Video generator is destroyed")
+        self.video_generator = None 

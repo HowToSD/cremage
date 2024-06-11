@@ -20,6 +20,58 @@ import cv2 as cv
 
 from .misc_utils import extract_embedding_filenames
 
+
+def resize_crop_pil_image(input_image: Image.Image, target_width=1024, target_height=576) -> Image.Image:
+    # Get the original dimensions of the input image
+    original_width, original_height = input_image.size
+
+    # Check if the input image is already the target dimensions
+    if original_width == target_width and original_height == target_height:
+        return input_image
+
+    # Calculate the aspect ratios
+    original_aspect = original_width / original_height
+    target_aspect = target_width / target_height
+
+    # Determine the scaling factor
+    if original_aspect > target_aspect:
+        # Input image is wider than target aspect ratio
+        scale_factor = target_height / original_height
+    else:
+        # Input image is taller than target aspect ratio or equal
+        scale_factor = target_width / original_width
+
+    # Calculate the new size after scaling
+    new_width = int(original_width * scale_factor)
+    new_height = int(original_height * scale_factor)
+
+    # Resize the input image
+    scaled_image = input_image.resize((new_width, new_height), Image.LANCZOS)
+
+    # Calculate the coordinates for cropping to the target size
+    left = (new_width - target_width) / 2
+    top = (new_height - target_height) / 2
+    right = (new_width + target_width) / 2
+    bottom = (new_height + target_height) / 2
+
+    # Crop the image to the target size
+    cropped_image = scaled_image.crop((left, top, right, bottom))
+
+    return cropped_image
+
+
+def frame_files_to_mp4(image_dir_path, output_path):
+    image_files = sorted([os.path.join(image_dir_path, img) for img in os.listdir(image_dir_path) if img.endswith(('.png', '.jpg', '.jpeg'))])
+    # Read the first image to get the dimensions
+    first_image = cv.imread(image_files[0])
+    height, width, layers = first_image.shape
+    fourcc = cv.VideoWriter_fourcc(*'mp4v')  # 'mp4v' for .mp4 file
+    video = cv.VideoWriter(output_path, fourcc, 24, (width, height))
+    for image_file in image_files:
+        img = cv.imread(image_file)
+        video.write(img)
+    video.release()
+
 def tensor_to_pil_image(tzo_image: torch.tensor):
     """
 

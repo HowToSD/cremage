@@ -4,7 +4,6 @@ Defines drag and drop handlers
 import os
 import logging
 import sys
-import shutil
 
 from PIL import Image
 import gi
@@ -16,11 +15,12 @@ MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path = [MODULE_ROOT] + sys.path
 
 from cremage.configs.preferences import save_user_config
-from tools.graffiti_editor import GraffitiEditor
 from cremage.const.const import *
 from cremage.utils.image_utils import resize_pil_image
+from cremage.utils.gtk_utils import resized_gtk_image_from_pil_image
+from cremage.utils.image_utils import resize_crop_pil_image
 from cremage.utils.misc_utils import get_tmp_dir, get_tmp_image_file_name
-from cremage.utils.gtk_utils import set_pil_image_to_gtk_image
+from cremage.utils.gtk_utils import set_pil_image_to_gtk_image, resize_with_padding
 from cremage.utils.app_misc_utils import copy_face_file_to_face_storage
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
@@ -139,3 +139,36 @@ def face_input_image_drag_data_received(app,
     resized_pil_image = resize_pil_image(app.face_input_image_original_size, THUMBNAIL_IMAGE_EDGE_LENGTH)
     set_pil_image_to_gtk_image(resized_pil_image, app.face_image_input)
 
+def video_generator_input_image_drag_data_received(app, 
+                                     widget, 
+                                     drag_context, 
+                                     x, 
+                                     y, 
+                                     data, 
+                                     info, 
+                                     time):
+    """
+    Drag and Drop handler for image to image input thumbnail view.
+
+    Args:
+        data: Contains info for the dragged file name
+    """
+    file_path = _extract_file_path(data)
+    if file_path is None:
+        return
+    # Update the input image representation. Do not resize this yet.
+    app.pil_image_original = Image.open(file_path)
+    app.pil_image_resized =  resize_crop_pil_image(app.pil_image_original)
+
+    # Update the UI for input image
+    resized_pil_image = resize_with_padding(
+            app.pil_image_original,
+            target_width=VIDEO_GENERATOR_THUMBNAIL_IMAGE_WIDTH,
+            target_height=VIDEO_GENERATOR_THUMBNAIL_IMAGE_HEIGHT)
+    set_pil_image_to_gtk_image(resized_pil_image, app.video_generator_input_image_thumbnail)
+
+    resized_pil_image = resize_with_padding(
+            app.pil_image_resized,
+            target_width=VIDEO_GENERATOR_THUMBNAIL_IMAGE_WIDTH,
+            target_height=VIDEO_GENERATOR_THUMBNAIL_IMAGE_HEIGHT)
+    set_pil_image_to_gtk_image(resized_pil_image, app.cropped_image_view)

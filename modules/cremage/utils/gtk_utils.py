@@ -198,6 +198,13 @@ def get_full_path_from_combo_box(dir_path: str, combobox: Gtk.ComboBoxText):
     return "None" if cb_text == "None" or cb_text == "" else os.path.join(dir_path, cb_text)  
 
 
+def resized_gtk_image_from_pil_image(
+                                pil_image:Image.Image,
+                                target_width:int=None,
+                                target_height:int=None) -> Gtk.Image:
+    return pil_image_to_gtk_image(
+        resize_with_padding(pil_image, target_width=target_width, target_height=target_height))
+
 def resized_gtk_image_from_file(*,
                                 file_path:str= None,
                                 target_width:int=None,

@@ -88,6 +88,8 @@ logger = logging.getLogger(__name__)
 def _get_tool_processed_file_path_call_back(app):
     return os.path.join(app.output_dir, str(time.time()) + "_processed.png")
 
+def _get_tool_processed_video_call_back(app):
+    return os.path.join(app.output_dir, str(time.time()) + "_video.mp4")
 
 def _generation_information_call_back(app):
     """Call back to get current generation information"""
@@ -923,6 +925,8 @@ def main_ui_definition(app) -> None:
     # Start of page 4
     update_image_wrapper = partial(update_image, app)
     get_tool_processed_file_path_call_back_wrapper = partial(_get_tool_processed_file_path_call_back, app)
+    get_tool_processed_video_call_back_wrapper = partial(_get_tool_processed_video_call_back, app)
+
     generation_information_call_back_wrapper = partial(_generation_information_call_back, app)
 
     vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -930,6 +934,7 @@ def main_ui_definition(app) -> None:
     tools_area = ToolPaletteArea(vbox,
         get_current_image_call_back=app.get_current_image_call_back,
         get_tool_processed_file_path_call_back=get_tool_processed_file_path_call_back_wrapper,
+        get_tool_processed_video_call_back=get_tool_processed_video_call_back_wrapper,
         save_call_back=update_image_wrapper,
         generation_information_call_back=generation_information_call_back_wrapper,
         preferences=app.preferences,

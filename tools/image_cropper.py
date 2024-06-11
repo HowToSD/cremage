@@ -96,9 +96,15 @@ class ImageCropper(ToolBase):  # Subclass Window object
     def __init__(
             self,
             title:str = "Image cropper",
+            callback=None,
+            aspect_ratio_w=None,
+            aspect_ratio_h=None,
             **kwargs):
         super().__init__(title="Crop Tool", **kwargs)
-
+        self.callback = callback
+        self.aspect_ratio_w = aspect_ratio_w  # int
+        self.aspect_ratio_h = aspect_ratio_h  # int
+        
     def set_up_ui(self):
         """
         This method is called at the end of __init__ in ToolBase.
@@ -273,14 +279,24 @@ class ImageCropper(ToolBase):  # Subclass Window object
         self.crop_end_w = None
         print(self.crop_start_w)
 
+    def adjust_end_y_pos(self):
+        if self.aspect_ratio_h and self.aspect_ratio_w:
+            width = self.crop_end_w[0] - self.crop_start_w[0]
+            height = int(width * self.aspect_ratio_h / self.aspect_ratio_w)
+            y_pos = self.crop_start_w[1] + height
+            self.crop_end_w = (self.crop_end_w[0], y_pos)
     def on_button_release(self, widget, event):
         self.crop_end_w = (event.x, event.y)
+        print(self.crop_end_w)
+        self.adjust_end_y_pos()
+
         self.drawing_area.queue_draw()  # invalidate
 
     def on_motion_notify(self, widget, event):
         # If LMB drag
         if self.crop_start_w and (event.state & Gdk.ModifierType.BUTTON1_MASK):
             self.crop_end_w = (event.x, event.y)
+            self.adjust_end_y_pos()
             self.drawing_area.queue_draw()  # invalidate
 
     # drag & drop handlers
@@ -324,7 +340,10 @@ class ImageCropper(ToolBase):  # Subclass Window object
                 if self.output_pil_image:
                     super().on_update_clicked(widget)
         else:
-            self.on_save_clicked(widget)
+            if self.callback:
+                self.callback(self.get_cropped_pil_image())
+            else:
+                self.on_save_clicked(widget)
 
     def on_update_clicked(self, widget):
         """
@@ -386,9 +405,23 @@ class ImageCropper(ToolBase):  # Subclass Window object
 
         # Compute the width and height
         width, height = int(abs(crop_end_x - crop_start_x)), int(abs(crop_end_y - crop_start_y))
-        
         # Crop the image using ipb.new_subpixbuf. Note use pixbuf to mean image
         # new_subimage
+        # cropped = self.image_pixbuf.new_subpixbuf(x, y, width, height)
+
+        # Get the dimensions of the current image
+        image_width = self.image_pixbuf.get_width()
+        image_height = self.image_pixbuf.get_height()
+
+        # Ensure x and y are within bounds
+        x = max(0, min(x, image_width - 1))
+        y = max(0, min(y, image_height - 1))
+
+        # Ensure width and height do not exceed the dimensions of the image
+        width = min(width, image_width - x)
+        height = min(height, image_height - y)
+
+        # Create the subpixbuf with the adjusted dimensions
         cropped = self.image_pixbuf.new_subpixbuf(x, y, width, height)
 
         cropped_pil_image = pil_image_from_pixbuf(cropped)

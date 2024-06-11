@@ -31,6 +31,7 @@ class Config:
     sdxl_vae_model_path: str
     sdxl_vae_model: str
     refiner_sdxl_vae_model: str
+    svd_model_path: str
     discretization: str
     discretization_sigma_min: float
     discretization_sigma_max: float
@@ -133,6 +134,7 @@ def load_user_config():
             "sdxl_vae_model_path": "models/vae",
             "sdxl_vae_model": "None",
             "refiner_sdxl_vae_model": "None",
+            "svd_model_path": "models/svd",
             "discretization": "LegacyDDPMDiscretization",
             "discretization_sigma_min": 0.0292,
             "discretization_sigma_max": 14.6146,

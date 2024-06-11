@@ -2,6 +2,7 @@
     Partially ported from https://github.com/crowsonkb/k-diffusion/blob/master/k_diffusion/sampling.py
 """
 import os
+import sys
 import logging
 from typing import Dict, Union
 
@@ -16,6 +17,11 @@ from ...modules.diffusionmodules.sampling_utils import (get_ancestral_step,
 from ...util import append_dims, default, instantiate_from_config
 
 DEFAULT_GUIDER = {"target": "sgm.modules.diffusionmodules.guiders.IdentityGuider"}
+
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..","..", ".."))
+MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
+sys.path = [MODULE_ROOT] + sys.path
+from cremage.status_queues.denoising_status_queue import denoising_status_queue
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -119,6 +125,8 @@ class EDMSampler(SingleStepDiffusionSampler):
                 if self.s_tmin <= sigmas[i] <= self.s_tmax
                 else 0.0
             )
+            denoising_status_queue.put(f"Sampling {i+1} / {num_sigmas}")
+            print(f"Sampling {i+1} / {num_sigmas}")
             x = self.sampler_step(
                 s_in * sigmas[i],
                 s_in * sigmas[i + 1],
@@ -128,7 +136,7 @@ class EDMSampler(SingleStepDiffusionSampler):
                 uc,
                 gamma,
             )
-
+        denoising_status_queue.put(f"Sampling completed")
         return x
 
 

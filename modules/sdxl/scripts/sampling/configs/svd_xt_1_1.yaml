@@ -39,30 +39,30 @@ model:
         emb_models:
         - is_trainable: False
           input_key: cond_frames_without_noise
-          target: sgm.modules.encoders.modules.FrozenOpenCLIPImagePredictionEmbedder
+          target: sgm.modules.encoders.modules_svd.FrozenOpenCLIPImagePredictionEmbedderFullClip
           params:
             n_cond_frames: 1
             n_copies: 1
             open_clip_embedding_config:
-              target: sgm.modules.encoders.modules.FrozenOpenCLIPImageEmbedder
+              target: sgm.modules.encoders.modules_svd.FrozenOpenCLIPImageEmbedderFullClip
               params:
                 freeze: True
 
         - input_key: fps_id
           is_trainable: False
-          target: sgm.modules.encoders.modules.ConcatTimestepEmbedderND
+          target: sgm.modules.encoders.modules_svd.ConcatTimestepEmbedderND
           params:
             outdim: 256
 
         - input_key: motion_bucket_id
           is_trainable: False
-          target: sgm.modules.encoders.modules.ConcatTimestepEmbedderND
+          target: sgm.modules.encoders.modules_svd.ConcatTimestepEmbedderND
           params:
             outdim: 256
 
         - input_key: cond_frames
           is_trainable: False
-          target: sgm.modules.encoders.modules.VideoPredictionEmbedderWithEncoder
+          target: sgm.modules.encoders.modules_svd.VideoPredictionEmbedderWithEncoder
           params:
             disable_encoder_autocast: True
             n_cond_frames: 1
@@ -90,7 +90,7 @@ model:
 
         - input_key: cond_aug
           is_trainable: False
-          target: sgm.modules.encoders.modules.ConcatTimestepEmbedderND
+          target: sgm.modules.encoders.modules_svd.ConcatTimestepEmbedderND
           params:
             outdim: 256
 
