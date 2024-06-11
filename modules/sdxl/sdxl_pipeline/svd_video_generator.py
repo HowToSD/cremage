@@ -70,7 +70,8 @@ def sample(
     verbose: Optional[bool] = False,
     checkpoint_path=None,
     apply_filter=True,
-    apply_watermark=False
+    apply_watermark=False,
+    loop_video=False
 ):
     """
     Generates a single sample conditioned on an image `input_path` or
@@ -81,6 +82,13 @@ def sample(
 
     For motion bucket id discussion, see https://www.reddit.com/r/StableDiffusion/comments/1azn2lx/stable_video_diffusion_v11_is_pretty_good_at/
     It is switched to 75 from 127.
+
+    Args:
+        apply_filter (bool): Checks for NSFW material in the video and
+          set the frame to black if such material is detected.
+          within the frame.
+        apply_watermark (bool): Applies watermark to the video.
+        loop_video (bool): Includes reverse frames in the generated video.
     """
     if version == "svd_xt_1_1":
         num_frames = default(num_frames, 25)
@@ -182,7 +190,7 @@ def sample(
                 batch, batch_uc = get_batch(
                     get_unique_embedder_keys_from_conditioner(model.conditioner),
                     value_dict,
-                    [1, num_frames],  # num_frames is set to 14: Cremage
+                    [1, num_frames],
                     T=num_frames,
                     device=device,
                 )
@@ -264,6 +272,18 @@ def sample(
                     img = Image.fromarray(img)
                     img.save(os.path.join(output_path, f"frame_{i:06d}.jpg"))
 
+                frame_count = i + 1
+                frame_index = frame_count
+                if loop_video:
+                    # 25 frames
+                    # frame_count-1 = 24
+                    # vid[24] is the last frame
+                    # 0, ..., 23
+                    for i in range(frame_count-2, 0, -1):  # Skip the last and first frames
+                        img = Image.fromarray(vid[i])
+                        img.save(os.path.join(output_path, f"frame_{frame_index:06d}.jpg"))
+                        frame_index = frame_index + 1  # Continuation of the forward saving
+                    assert(i == 1)
                 video_generation_status_queue.put(f"Video frames generated.")
 
 

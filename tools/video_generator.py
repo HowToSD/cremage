@@ -238,6 +238,10 @@ class VideoGenerator(Gtk.Window):
         self.play_button.set_sensitive(False)  # Gray out the button
         hbox.pack_start(self.play_button, False, True, 0)
 
+        # Button to play the video
+        self.loop_checkbox = Gtk.CheckButton(label="Include Reverse Loop")
+        hbox.pack_start(self.loop_checkbox, False, True, 0)
+
         # Filler on the right
         filler_right = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         hbox.pack_start(filler_right, True, True, 0)
@@ -393,35 +397,31 @@ def generate_func(app=None,
     start_time = time.perf_counter()
     print(f"Processing {INPUT_FILE_NAME}")
 
+    # Set up paths
     tmp_dir = get_tmp_dir()
     tmp_input_file_path = os.path.join(tmp_dir, "video_generator_tmp_input.png")
     app.pil_image_resized.save(tmp_input_file_path)
+    frame_output_path =os.path.expanduser("~/.cremage/tmp/svd/frames")
+
+    # Remove old tmp frame files
+    logger.info(f"Cleaning up old temporary frame files in {frame_output_path}")
+    old_files = os.listdir(frame_output_path)
+    for f in old_files:
+        p = os.path.join(frame_output_path, f)
+        if os.path.isfile(p):
+            os.remove(p)
 
     print(f"Generating video frames")
-    frame_output_path =os.path.expanduser("~/.cremage/tmp/svd/frames")
     sample(
         input_path=tmp_input_file_path,
         checkpoint_path=app.checkpoint_path,
         output_path=frame_output_path,
         apply_watermark=app.preferences["watermark"],
         apply_filter=app.preferences["safety_check"],
+        loop_video=app.loop_checkbox.get_active()
     )
     sample_time = time.perf_counter() - start_time
     print(f"Sample time: {sample_time}")
-    
-    # # Remove tmp files
-    # old_files = os.listdir(film_input_path)
-    # for f in old_files:
-    #     p = os.path.join(film_input_path, f)
-    #     if os.path.isfile(p):
-    #         os.remove(p)
-
-    # files = os.listdir(output_path)
-    # for f in files:
-    #     p = os.path.join(output_path, f)
-    #     shutil.copy(p, film_input_path)
-    # time.perf_counter()
-    # os.system("film_interpolate.sh")
 
     video_generation_status_queue.put("Interpolating between frames")
     inference_multiple_frames(
