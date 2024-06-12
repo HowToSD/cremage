@@ -1,5 +1,10 @@
 import hashlib
 import os
+import os
+if os.environ.get("ENABLE_HF_INTERNET_CONNECTION") == "1":
+    local_files_only_value=False
+else:
+    local_files_only_value=True
 import urllib
 import warnings
 from functools import partial
@@ -549,7 +554,16 @@ def download_pretrained_from_hf(
         cache_dir: Union[str, None] = None,
 ):
     has_hf_hub(True)
-    cached_file = hf_hub_download(model_id, filename, revision=revision, cache_dir=cache_dir)
+    # Cremage note
+    # https://github.com/huggingface/diffusers/issues/6168
+    # cached_file = hf_hub_download(model_id, filename, revision=revision, cache_dir=cache_dir)
+    cached_file = hf_hub_download(
+        model_id, 
+        filename, 
+        revision=revision, 
+        cache_dir=cache_dir,
+        local_files_only=local_files_only_value
+    )
     return cached_file
 
 
