@@ -213,6 +213,43 @@ class VideoGenerator(Gtk.Window):
         filler_right = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         hbox.pack_start(filler_right, True, True, 0)
 
+        # Preferences
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        vbox.pack_start(hbox, True, True, 0)
+        
+        # Filler on the left
+        filler_left = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hbox.pack_start(filler_left, True, True, 0)        
+
+        # Include reverse frames in generated video
+        self.loop_checkbox = Gtk.CheckButton(label="Include Reverse Loop")
+        hbox.pack_start(self.loop_checkbox, False, True, 0)
+
+        label = Gtk.Label(label="Number of Frames to include:")
+        hbox.pack_start(label, False, True, 0)
+
+        self.frames_to_include = Gtk.Entry(text="25")
+        self.frames_to_include.set_width_chars(3)
+        hbox.pack_start(self.frames_to_include, False, False, 0)
+
+        label = Gtk.Label(label="Motion bucket ID :")
+        hbox.pack_start(label, False, True, 0)
+
+        self.motion_bucket_id = Gtk.Entry(text="75")
+        self.motion_bucket_id.set_width_chars(3)
+        hbox.pack_start(self.motion_bucket_id, False, True, 0)
+
+        label = Gtk.Label(label="Cond. aug :")
+        hbox.pack_start(label, False, True, 0)
+
+        self.cond_aug = Gtk.Entry(text="0.0")
+        self.cond_aug.set_width_chars(5)
+        hbox.pack_start(self.cond_aug, False, True, 0)
+
+        # Filler on the right
+        filler_right = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hbox.pack_start(filler_right, True, True, 0)
+
         # Buttons
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         vbox.pack_start(hbox, True, True, 0)
@@ -237,10 +274,6 @@ class VideoGenerator(Gtk.Window):
         self.play_button.connect('button-press-event', self.play_handler)
         self.play_button.set_sensitive(False)  # Gray out the button
         hbox.pack_start(self.play_button, False, True, 0)
-
-        # Button to play the video
-        self.loop_checkbox = Gtk.CheckButton(label="Include Reverse Loop")
-        hbox.pack_start(self.loop_checkbox, False, True, 0)
 
         # Filler on the right
         filler_right = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -403,6 +436,9 @@ def generate_func(app=None,
     app.pil_image_resized.save(tmp_input_file_path)
     frame_output_path =os.path.expanduser("~/.cremage/tmp/svd/frames")
 
+    if os.path.exists(frame_output_path) is False:
+        os.makedirs(frame_output_path)
+
     # Remove old tmp frame files
     logger.info(f"Cleaning up old temporary frame files in {frame_output_path}")
     old_files = os.listdir(frame_output_path)
@@ -418,6 +454,9 @@ def generate_func(app=None,
         output_path=frame_output_path,
         apply_watermark=app.preferences["watermark"],
         apply_filter=app.preferences["safety_check"],
+        motion_bucket_id = int(app.motion_bucket_id.get_text()),
+        cond_aug = float(app.cond_aug.get_text()),
+        frames_to_include=int(app.frames_to_include.get_text()),
         loop_video=app.loop_checkbox.get_active()
     )
     sample_time = time.perf_counter() - start_time

@@ -71,7 +71,8 @@ def sample(
     checkpoint_path=None,
     apply_filter=True,
     apply_watermark=False,
-    loop_video=False
+    loop_video=False,
+    frames_to_include=25,
 ):
     """
     Generates a single sample conditioned on an image `input_path` or
@@ -89,6 +90,8 @@ def sample(
           within the frame.
         apply_watermark (bool): Applies watermark to the video.
         loop_video (bool): Includes reverse frames in the generated video.
+        frames_to_include (int): Number of frames to include. This is used to not include
+         frames toward the end of the video which may not have the optimal quality.
     """
     if version == "svd_xt_1_1":
         num_frames = default(num_frames, 25)
@@ -271,6 +274,8 @@ def sample(
                 for i, img in enumerate(vid):
                     img = Image.fromarray(img)
                     img.save(os.path.join(output_path, f"frame_{i:06d}.jpg"))
+                    if i + 1 >= frames_to_include:
+                        break
 
                 frame_count = i + 1
                 frame_index = frame_count
