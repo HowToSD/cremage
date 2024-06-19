@@ -968,8 +968,18 @@ def generate(opt,
                             model.low_vram_shift(is_diffusing=False)
 
                         # 3. Convert image from latent space to pixel space using VAE
-                        x_samples = model.decode_first_stage(samples)
-                        x_samples = torch.clamp((x_samples + 1.0) / 2.0, min=0.0, max=1.0)
+                        if opt.save_memory:
+                            logging.info("Processing one image at a time in VAE")
+                            x_samples = list()
+                            for sample in samples:
+                                sample = torch.unsqueeze(sample, dim=0)
+                                x_sample = model.decode_first_stage(sample)
+                                x_sample = torch.clamp((x_sample + 1.0) / 2.0, min=0.0, max=1.0)
+                                x_samples.append(x_sample)
+                            x_samples = torch.concat(x_samples, dim=0)
+                        else:
+                            x_samples = model.decode_first_stage(samples)
+                            x_samples = torch.clamp((x_samples + 1.0) / 2.0, min=0.0, max=1.0)
 
                         if use_hires_fix and opt.hires_fix_upscaler.lower() == "lanczos":
 
