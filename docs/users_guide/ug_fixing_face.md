@@ -38,14 +38,43 @@ Sometimes you may see an artifact around the face after the fix. The best way to
 See the section below Fixing an artifact using inpainting.
 
 # Fixing an artifact in an image using Inpainting
-To fix an artifact (e.g. seams in the image or some parts of the image not matching the rest after face fix), take the following steps:
+To fix an artifact (e.g. seams in the image or some parts of the image not matching the rest after face fix), there are two ways to do so:
+* Inpainting in Inpainting mode
+* Spot inpainting tool
+
+## Spot inpainting tool
+1. Select an image on the image list box.
+2. On the right side of the UI, select Tools tab | Spot inpainting.
+3. Make sure Use inpainting model is selected. If not, select it.
+4. Paint on the seam with some margins on both sides of the seam.  Note that currently, the maximum area that you can apply inpainting with the inpaint model is 512x512 px.
+5. In the prompt, put a generic prompt such as "skin", "hair" based on the area where the seam is located.
+6. Click Apply inpainting. This should fix the seam. Repeat these steps if you have multiple seams.
+
+## Inpainting in Inpainting mode
+Inpainting mode is available only in SD 1.5, so if you are using SDXL, you need to switch to SD 1.5 on the Basic tab first. Then take the following steps:
 
 1. Select an image on the image list box.
-1. Select inpainting radio button
-1. Click Copy from main image area. This will copy the image to the left box below the main image area.
-1. Now you see a gray box to the right of the copied image. The right box says: "Click to open the mask editor". Click this box. This will bring up the mask editor.
-1. In mask image editor, paint on the seam with some margins on both sides of the seam.
-1. Click Save and close the editor by clicking the x on the top right of the window.
-1. You should see the mask reflected in the right box.
-1. In the prompt, put a generic prompt such as "skin", "hair" based on the area where the seam is located.
-1. Click Generate. This should fix the seam. Repeat these steps if you have multiple seams.
+2. Select inpainting radio button
+3. Click Copy from main image area. This will copy the image to the left box below the main image area.
+4. Now you see a gray box to the right of the copied image. The right box says: "Click to open the mask editor". Click this box. This will bring up the mask editor.
+5. In mask image editor, paint on the seam with some margins on both sides of the seam.
+6. Click Save and close the editor by clicking the x on the top right of the window.
+7. You should see the mask reflected in the right box.
+8. In the prompt, put a generic prompt such as "skin", "hair" based on the area where the seam is located.
+9. Click Generate. This should fix the seam. Repeat these steps if you have multiple seams.
+
+# Face Unblur
+
+Face Unblur is an experimental feature designed to increase the sharpness of slightly blurred faces. To use this feature, simply click "Unblur Face" in the Face Fix window. 
+This feature is only available for a machine with an NVIDIA GPU. As this feature is still a work-in-progress, two types of post-editing are required:
+
+- Removing artifacts around the face
+- Removing artifacts on the forehead
+
+## Removing Artifacts Around the Face
+
+Face Unblur works by extracting a rectangle containing the face from the original image and enhancing it using a different machine learning model. This process affects the entire region that was processed, and when the enhanced region is pasted back into the original image, it may create a visible seam. You can apply the same seam-fixing technique as described above to remove the seam.
+
+## Removing Artifacts on the Forehead
+
+Currently, an artifact may appear on the forehead after processing. You can use inpainting steps to remove this artifact.
