@@ -93,6 +93,7 @@ from cremage.utils.gtk_utils import text_view_get_text, create_combo_box_typeahe
 from cremage.utils.misc_utils import generate_lora_params
 from cremage.utils.misc_utils import get_tmp_dir
 from cremage.ui.model_path_update_handler import update_ldm_model_name_value_from_ldm_model_dir
+from unblur_face.face_unblur import unblur_face_image
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -358,6 +359,13 @@ class FaceFixer(Gtk.Window):
         clear_marks_button = Gtk.Button(label="Clear marks")
         controls_box.pack_start(clear_marks_button, False, True, 0)
         clear_marks_button.connect("clicked", self.on_clear_marks_clicked)
+
+        #
+        # Unblur face button
+        #
+        unblur_button = Gtk.Button(label="Unblur face (experimental)")
+        controls_box.pack_start(unblur_button, False, True, 0)
+        unblur_button.connect("clicked", self.on_unblur_clicked)
 
         # Disable face input
         self.disable_face_input_checkbox = Gtk.CheckButton(label="Disable face input")
@@ -709,6 +717,11 @@ class FaceFixer(Gtk.Window):
         self.face_rects.clear()
         self.selected_face_rect_index = None
         self.drawing_area.queue_draw()  # refresh image canvas
+
+    def on_unblur_clicked(self, widget):
+        pil_image = self.pil_image
+        self.pil_image = unblur_face_image(pil_image)
+        self._post_process_after_image_generation()
 
     def on_save_activate(self, widget):
         """
