@@ -63,17 +63,17 @@ Inpainting mode is available only in SD 1.5, so if you are using SDXL, you need 
 8. In the prompt, put a generic prompt such as "skin", "hair" based on the area where the seam is located.
 9. Click Generate. This should fix the seam. Repeat these steps if you have multiple seams.
 
-# Face Unblur
+# Face Unblur and Face Colorize
 
-Face Unblur is an experimental feature designed to increase the sharpness of slightly blurred faces. To use this feature, simply click "Unblur Face" in the Face Fix window. 
-This feature is only available for a machine with an NVIDIA GPU. As this feature is still a work-in-progress, two types of post-editing are required:
+Face Unblur is an experimental features designed to increase the sharpness of slightly blurred faces. Face colorize is an experimental feature to colorize the face found in a black and white photorealistic image. To use these features, simply click "Unblur Face" or "Colorize Face" in the Face Fix window. 
+These features are only available for a machine with an NVIDIA GPU, and are still a work-in-progress, two types of post-editing are required:
 
 - Removing artifacts around the face
 - Removing artifacts on the forehead
 
 ## Removing Artifacts Around the Face
 
-Face Unblur works by extracting a rectangle containing the face from the original image and enhancing it using a different machine learning model. This process affects the entire region that was processed, and when the enhanced region is pasted back into the original image, it may create a visible seam. You can apply the same seam-fixing technique as described above to remove the seam.
+Bothe features work by extracting a rectangle containing the face from the original image and enhancing it using a different machine learning model. This process affects the entire region that was processed, and when the enhanced region is pasted back into the original image, it may create a visible seam. You can apply the same seam-fixing technique as described above to remove the seam.
 
 ## Removing Artifacts on the Forehead
 
