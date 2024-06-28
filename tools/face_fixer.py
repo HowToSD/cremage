@@ -94,6 +94,7 @@ from cremage.utils.misc_utils import generate_lora_params
 from cremage.utils.misc_utils import get_tmp_dir
 from cremage.ui.model_path_update_handler import update_ldm_model_name_value_from_ldm_model_dir
 from unblur_face.face_unblur import unblur_face_image
+from unblur_face.face_unblur import colorize_face_image
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -366,6 +367,13 @@ class FaceFixer(Gtk.Window):
         unblur_button = Gtk.Button(label="Unblur face (experimental)")
         controls_box.pack_start(unblur_button, False, True, 0)
         unblur_button.connect("clicked", self.on_unblur_clicked)
+
+        #
+        # Colorize face button
+        #
+        colorize_button = Gtk.Button(label="Colorize face (experimental)")
+        controls_box.pack_start(colorize_button, False, True, 0)
+        colorize_button.connect("clicked", self.on_colorize_clicked)
 
         # Disable face input
         self.disable_face_input_checkbox = Gtk.CheckButton(label="Disable face input")
@@ -721,6 +729,11 @@ class FaceFixer(Gtk.Window):
     def on_unblur_clicked(self, widget):
         pil_image = self.pil_image
         self.pil_image = unblur_face_image(pil_image)
+        self._post_process_after_image_generation()
+
+    def on_colorize_clicked(self, widget):
+        pil_image = self.pil_image
+        self.pil_image = colorize_face_image(pil_image)
         self._post_process_after_image_generation()
 
     def on_save_activate(self, widget):

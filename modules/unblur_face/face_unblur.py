@@ -50,11 +50,39 @@ def infer_unblurred_face(pil_image: Image) -> Image:
     Returns:
         Image: Unblurred PIL image.
     """
+    model_name = "face_unblur_v11_epoch51.pth"
+    return infer_processed_face(pil_image, model_name=model_name)
+
+
+def infer_colorized_face(pil_image: Image) -> Image:
+    """
+    Infers the colorized face from a 256x256x3 black and white PIL image.
+
+    Args:
+        pil_image (Image): Input PIL image of size 256x256.
+
+    Returns:
+        Image: Colorized PIL face image.
+    """
+    model_name = "face_bw_to_color_v1.pth"
+    return infer_processed_face(pil_image, model_name=model_name)
+
+
+def infer_processed_face(pil_image: Image, model_name=None) -> Image:
+    """
+    Infers an unblurred face from a 256x256x3 PIL image.
+
+    Args:
+        pil_image (Image): Input PIL image of size 256x256.
+        model_name (str): Model file name
+
+    Returns:
+        Image: Unblurred PIL image.
+    """
     # Download the face unblur model if not already downloaded
     model_dir = os.path.join(MODELS_ROOT, "face_unblur")
     if os.path.exists(model_dir) is False:
         os.makedirs(model_dir)
-    model_name = "face_unblur_v11_epoch51.pth"
     model_path = download_model_if_not_exist(
         model_dir,
         "HowToSD/face_unblur",
@@ -180,6 +208,33 @@ def unblur_face_image(pil_image: Image) -> Image:
     Returns:
         Image: Output PIL image with unblurred faces.
     """
+    return process_face_image(pil_image, infer_unblurred_face)
+
+
+def colorize_face_image(pil_image: Image) -> Image:
+    """
+    Colorize faces detected in an black and white image.
+
+    Args:
+        pil_image (Image): Input PIL image.
+
+    Returns:
+        Image: Output PIL image with unblurred faces.
+    """
+    return process_face_image(pil_image, infer_colorized_face)
+
+
+def process_face_image(pil_image: Image, process_proc=None) -> Image:
+    """
+    Unblurs faces detected in an image.
+
+    Args:
+        pil_image (Image): Input PIL image.
+        process_proc: Function to process the face.
+
+    Returns:
+        Image: Output PIL image with unblurred faces.
+    """
     # Detect faces in the image
     cv_img, face_data = mark_face_with_opencv(pil_image)
 
@@ -190,7 +245,7 @@ def unblur_face_image(pil_image: Image) -> Image:
         aligned_faces, transform_matrices = align_face(cv_img, face_data)
         for i, (img, transform_matrix) in enumerate(zip(aligned_faces, transform_matrices)):
             pil_image = Image.fromarray(img[:,:,::-1])
-            sharpened_face = infer_unblurred_face(pil_image)
+            sharpened_face = process_proc(pil_image)
             sharpened_face = np.asarray(sharpened_face)[:,:,::-1]
             # Compute the inverse transformation matrix
             inverse_transform_matrix = cv.invertAffineTransform(transform_matrix)
