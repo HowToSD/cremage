@@ -274,9 +274,6 @@ class ResnetTransposeBlock(nn.Module):
         """
         Forward pass for the ResNet transpose block.
 
-        ArgsContinuing from the previous part, here's the rest of the implementation with added docstrings for each method and argument:
-        Forward pass for the ResNet transpose block.
-
         Args:
             inputs (torch.Tensor): Input tensor of shape (batch_size, in_channels, height, width).
 
