@@ -30,6 +30,7 @@ You can also go back to any of the previously generated image and tweak as Crema
 * Inpainting
 * Video generation using SVD including frame interpolation
 * Local LLM interaction using Llava-Mistral
+* Face fix
 * ControlNet
 * LoRA
 * IP-Adapter-FaceID
