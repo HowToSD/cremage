@@ -24,6 +24,28 @@ For example, if you are starting out with AI image generation, you can just ente
 
 You can also go back to any of the previously generated image and tweak as Cremage provides the same image editing capability irrespective of whether it's newly generated or images generated months ago.
 
+# Major Features
+* Text to image
+* Image to image
+* Inpainting
+* Video generation using SVD including frame interpolation
+* Local LLM interaction using Llava-Mistral
+* ControlNet
+* LoRA
+* IP-Adapter-FaceID
+* Colorization of face
+* Hires fix
+* Textual inversion embedding
+* Prompt weight
+* Wildcards in prompt
+* Segmentation inpainting
+* Prompt history
+* Prompt pre and post expansion (e.g. helpful for PONY models)
+* Prompt builder using visual tags
+* GFPGAN/RealESRGAN support
+* Meta data saving in image file and generating a new image from that
+* Model mixing to create a new model from existing models
+
 # High quality face generation
 ## Bad face fix
 Even using a high-quality fine-tuned model, Stable Diffusion can still generate a bad face when the size of the face is relatively small. Cremage offers face fix capability which is inspired by a feature pioneered by Adetailer for Automatic1111. Cremage allows you to improve face during and after image generation, resulting in high quality face images.
@@ -87,6 +109,8 @@ Refer to [Installation & Upgrade Guide](docs/installation_guide.md "View the Ins
 * Linux with NVIDIA GPU with at least 8GB of GPU memory
 * Microsoft Windows with NVIDIA GPU with at least 8GB of GPU memory
 * Silicon Mac
+
+Please note that some of the features require more GPU memory and are only available and or have been tested on Linux with CUDA.
 
 # Getting Started
 If you have not used any Stable Diffusion software, check out [Getting Started](docs/getting_started.md "View Getting Started") first.
