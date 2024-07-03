@@ -1,4 +1,9 @@
 ## Updates
+July 2, 2024: Added LLM interactor to have a discussion about images with an LLM locally. This can be used to analyze any images including ones generated in Cremage as well as generated externally.
+Currently, "llava-hf/llava-v1.6-mistral-7b-hf" is used as the LLM model for this feature.
+This model is automatically downloaded, so there is no need for you to manually download.
+To use, select an image on the image list, and click LLM interactor on the Tools palette.
+
 June 27, 2024: Experimental face colorize feature has been added. This feature is still work in progress and requires some post editing after using the feature. Checkout the [documentation for fixing a face](docs/users_guide/ug_fixing_face.md "Fixing a face") for more information.
 
 June 26, 2024: Experimental face unblur feature has been added. This feature is still work in progress and requires some post editing after using the feature. Checkout the [documentation for fixing a face](docs/users_guide/ug_fixing_face.md "Fixing a face") for more information.
