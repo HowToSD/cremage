@@ -26,7 +26,7 @@ from cremage.utils.app_misc_utils import copy_face_file_to_face_storage
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
-def _extract_file_path(data):
+def extract_file_path(data):
     file_path = data.get_text().strip()
     if file_path.startswith('file://'):
         file_path = file_path[7:]
@@ -49,7 +49,7 @@ def control_image_drag_data_received(app,
     Args:
         data: Contains info for the dragged file name
     """
-    file_path = _extract_file_path(data)
+    file_path = extract_file_path(data)
     if file_path is None:
         return
     pil_image = Image.open(file_path)
@@ -73,7 +73,7 @@ def main_image_drag_data_received(app,
     Args:
         data: Contains info for the dragged file name
     """
-    file_path = _extract_file_path(data)
+    file_path = extract_file_path(data)
     if file_path is None:
         return
     app.current_image = Image.open(file_path)
@@ -97,7 +97,7 @@ def input_image_drag_data_received(app,
     Args:
         data: Contains info for the dragged file name
     """
-    file_path = _extract_file_path(data)
+    file_path = extract_file_path(data)
     if file_path is None:
         return
     # Update the input image representation. Do not resize this yet.
@@ -122,7 +122,7 @@ def face_input_image_drag_data_received(app,
     Args:
         data: Contains info for the dragged file name
     """
-    file_path = _extract_file_path(data)
+    file_path = extract_file_path(data)
     if file_path is None:
         return
     
@@ -153,7 +153,7 @@ def video_generator_input_image_drag_data_received(app,
     Args:
         data: Contains info for the dragged file name
     """
-    file_path = _extract_file_path(data)
+    file_path = extract_file_path(data)
     if file_path is None:
         return
     # Update the input image representation. Do not resize this yet.

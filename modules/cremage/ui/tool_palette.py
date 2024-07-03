@@ -72,7 +72,8 @@ class ToolPaletteArea():
                             self.on_image_segmenter_clicked,
                             self.on_prompt_builder_clicked,
                             self.on_model_mixer_clicked,
-                            self.on_video_generator_clicked]
+                            self.on_video_generator_clicked,
+                            self.on_llm_interactor_clicked]
         tool_names = [
             "Crop",
             "Scale",
@@ -82,7 +83,8 @@ class ToolPaletteArea():
             "Segmentation inpainting",
             "Visual prompt builder",
             "Model mixer",
-            "Video generator"]
+            "Video generator",
+            "LLM interactor"]
 
         grid = Gtk.Grid()
         # Set margins for the grid
@@ -108,6 +110,7 @@ class ToolPaletteArea():
         self.prompt_builder = None
         self.model_mixer = None
         self.video_generator = None
+        self.llm_interactor = None
         parent_box.pack_start(grid, True, True, 0)
 
         self.prompt_build_input_directory = PROMPT_BUILDER_INPUT_DIRECTORY
@@ -299,8 +302,22 @@ class ToolPaletteArea():
             preferences=self.app.preferences,
             checkpoint_path=os.path.join(
                 self.app.preferences["svd_model_path"], "svd_xt_1_1.safetensors"))
-        self.video_generator.connect("delete-event", self.on_model_mixer_delete)
+        self.video_generator.connect("delete-event", self.on_video_generator_delete)
         self.video_generator.show_all()
+
+    def on_llm_interactor_clicked(self, widget, event):
+        """
+        Event handler for LLM interactor
+        """
+        logger.debug("LLM interactor clicked")
+        # Do not move this to to the top as we want to lazy import
+        from llm_interactor import LLMInteractor
+        
+        self.llm_interactor = LLMInteractor(
+            pil_image=self.get_current_image_call_back(),
+            preferences=self.app.preferences)
+        self.llm_interactor.connect("delete-event", self.on_llm_interactor_delete)
+        self.llm_interactor.show_all()
 
     def on_image_cropper_delete(self, widget, event):
         logger.debug("Image cropper is destroyed")
@@ -337,3 +354,7 @@ class ToolPaletteArea():
     def on_video_generator_delete(self, widget, event):
         logger.debug("Video generator is destroyed")
         self.video_generator = None 
+
+    def on_llm_interactor_delete(self, widget, event):
+        logger.debug("LLM interactor is destroyed")
+        self.llm_interactor = None 
