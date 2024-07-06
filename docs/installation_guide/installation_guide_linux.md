@@ -42,6 +42,13 @@ Currently, only systems with NVIDIA GPU and CUDA are supported.
     conda install xformers -c xformers
     ```
 
+    If this command fails, you may need to try:
+
+    ```
+    pip3 install -U xformers --index-url https://download.pytorch.org/whl/cu121
+    ```
+    For more information, refer to https://github.com/facebookresearch/xformers.
+
 5. Install GTK
 
     Cremage uses PyGObject/GTK3 for UI. Follow the installation instructions at https://gnome.pages.gitlab.gnome.org/pygobject/getting_started.html to set up on your platform.
