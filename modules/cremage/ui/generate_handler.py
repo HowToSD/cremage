@@ -19,11 +19,12 @@ from sd.img2img import img2img_parse_options_and_generate
 from sd.inpaint import inpaint_parse_options_and_generate
 
 from cremage.const.const import *
-from cremage.utils.gtk_utils import text_view_get_text
+from cremage.utils.gtk_utils import text_view_get_text, show_error_dialog
 from cremage.utils.misc_utils import override_args_list, generate_lora_params
 from cremage.utils.misc_utils import join_directory_and_file_name
 from cremage.utils.prompt_history import update_prompt_history
 from cremage.ui.ui_to_preferences import copy_ui_field_values_to_preferences
+from text_prompt_safety_checker.infer_v2 import predict as text_prompt_safety_check
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -70,6 +71,14 @@ def generate_handler(app, widget, event) -> None:
     if app.preferences["enable_negative_prompt_expansion"]:
         negative_prompt += " " + app.preferences["negative_prompt_expansion"]
         logger.debug(f"Negative prompt after expansion: {negative_prompt}")
+
+    # Prompt safety check
+    if app.preferences["safety_check"] == True:
+        proba = text_prompt_safety_check(positive_prompt)
+        if proba > 0.8:
+            show_error_dialog(app, """Safety check detected potentially sensitive word(s) in prompt.
+    To disable safety check, go to Preferences menu.""")
+            return None
 
     # Read generation preference from UI
     generator_model_type = app.preferences["generator_model_type"]
