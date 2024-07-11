@@ -12,3 +12,4 @@
 * [Prompt weight](users_guide/ug_prompt_weight.md "Prompt weight")
 * [Wildcards](users_guide/ug_wildcards.md "Wildcards")
 * [Creating a video using SVD](users_guide/ug_video.md "Video")
+* [Safety checker](users_guide/ug_safety_checker.md "Safety checker")

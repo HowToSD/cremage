@@ -1,4 +1,7 @@
 ## Updates
+July 11, 2024: Added text prompt safety checker to detect NSFW word(s).
+This uses fine-tuned BERT-based classifier model. For details, refer to [documentation for safety checker](docs/users_guide/ug_safety_checker.md "Safety checker").
+
 July 2, 2024: Added LLM interactor to have a discussion about images with an LLM locally. This can be used to analyze any images including ones generated in Cremage as well as generated externally.
 Currently, "llava-hf/llava-v1.6-mistral-7b-hf" is used as the LLM model for this feature.
 This model is automatically downloaded, so there is no need for you to manually download.
