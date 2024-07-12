@@ -842,7 +842,7 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
                 w = x2 - x
                 h = y2 - y
                 logger.info(f"Mask area: x:{x}, y:{y}, w:{w}, h:{h}")
-            box = (x, y, w, h)
+                box = (x, y, w, h)
             pil_image = self.process_box_for_inpainting(pil_image, cv_mask_image, box)
 
             self.pil_image = pil_image
