@@ -1,4 +1,12 @@
 ## Updates
+July 11, 2024:
+Made maximum paint area size configurable for spot inpainting with an inpaint model.
+This is a breaking change and requires your action if you have already installed Cremage. Please add the following line in config.yaml:
+```
+inpaint_max_edge_len: 512
+```
+Previously, a 512x512 box was selected to wrap your masked region when you spot-inpaint using an inpaint model, but changing this value will allow you to cover the larger area.  However, please be aware that inpainting quality may go down as you increase the size if the inpainting model was not trained with larger image size.
+
 July 11, 2024: Added text prompt safety checker to detect NSFW word(s).
 This uses fine-tuned BERT-based classifier model. For details, refer to [documentation for safety checker](docs/users_guide/ug_safety_checker.md "Safety checker").
 

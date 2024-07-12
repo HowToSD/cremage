@@ -104,6 +104,7 @@ class Config:
     face_strength: float
     generator_model_type: str
     wildcards_path: str
+    inpaint_max_edge_len: int
 
 def load_user_config():
 
@@ -204,7 +205,8 @@ def load_user_config():
             "hide_k_diffusion_samplers": True,
             "face_strength": 1.0,
             "generator_model_type": "SD 1.5",
-            "wildcards_path": "data/wildcards"
+            "wildcards_path": "data/wildcards",
+            "inpaint_max_edge_len": 512
         }
         OmegaConf.save(config, CONFIG_FILE_PATH)
 

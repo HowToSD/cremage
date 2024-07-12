@@ -12,7 +12,7 @@ from cremage.configs.preferences import save_user_config
 from cremage.utils.gtk_utils import create_combo_box
 
 TRUE_FALSE_LIST = ["True", "False"]
-INT_FIELDS = []
+INT_FIELDS = ["inpaint_max_edge_len"]
 FLOAT_FIELDS = []
 
 class PreferencesWindow(Gtk.Window):
@@ -45,6 +45,7 @@ class PreferencesWindow(Gtk.Window):
             "safety_check": create_combo_box(TRUE_FALSE_LIST, int(not preferences["safety_check"])),
             "watermark": create_combo_box(TRUE_FALSE_LIST, int(not preferences["watermark"])),
             "enable_hf_internet_connection": create_combo_box(TRUE_FALSE_LIST, int(not preferences["enable_hf_internet_connection"])),
+            "inpaint_max_edge_len":  Gtk.Entry(text=preferences["inpaint_max_edge_len"])
         }
 
         # Add fields to the grid

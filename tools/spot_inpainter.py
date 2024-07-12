@@ -21,9 +21,9 @@ The goal is to identify the bounding box for each mask which is a connected regi
 Spot inpainting algorithm using inpainting
 1 Identify masked regions
 2 Identify the bounding box that contains all masked regions.
-  If the size is greater than 512 wide x512 high px, display an error
+  If the size is greater than max w x max high px, display an error
   message that the area is too big.
-  Extend evenly to make the region 512x512
+  Extend evenly to make the region max w x max h
 3 Send to inpainting
 4 Paste the updated image in the original image.
 """
@@ -140,6 +140,11 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
             d = self.generation_information_call_back()
             if d:  # The original image may not have generation info
                 self.generation_information = d
+
+        if "inpaint_max_edge_len" in self.preferences:
+            self.inpaint_max_edge_len = self.preferences["inpaint_max_edge_len"]
+        else:
+            self.inpaint_max_edge_len = 768
 
         # Create an Image widget
         if pil_image is None:
@@ -801,21 +806,21 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
             w = box_mask.right - x
             h = box_mask.bottom - y
 
-            if w > 512 or h > 512:
-                show_alert_dialog(f"Masked region is Width:{w}, Height:{h} which exceeds the max 512 w x 512 h. Select a region to fit.")
+            if w > self.inpaint_max_edge_len or h > self.inpaint_max_edge_len:
+                show_alert_dialog(f"Masked region is Width:{w}, Height:{h} which exceeds the max {self.inpaint_max_edge_len} w x {self.inpaint_max_edge_len} h. Select a region to fit.")
                 return
 
             pil_w, pil_h = self.pil_image.size
-            if pil_w == 512 and pil_h == 512:
-                box = (0, 0, 512, 512)
-                logger.info("Using the entire image as the mask area as the image is 512x512")
-            else: # Expand the mask to fit 512 w x 512 h
-                pad_w = 512 - w
-                pad_h = 512 - h
+            if pil_w == self.inpaint_max_edge_len and pil_h == self.inpaint_max_edge_len:
+                box = (0, 0, self.inpaint_max_edge_len, self.inpaint_max_edge_len)
+                logger.info(f"Using the entire image as the mask area as the image is {self.inpaint_max_edge_len}x{self.inpaint_max_edge_len}")
+            else: # Expand the mask to fit max edge length for inpainting
+                pad_w = self.inpaint_max_edge_len - w
+                pad_h = self.inpaint_max_edge_len - h
                 x = max(int(x - (pad_w/2)), 0)
                 y = max(int(y - (pad_h/2)), 0)
-                x2 = min(x + 512, pil_w)
-                y2 = min(y + 512, pil_h)
+                x2 = min(x + self.inpaint_max_edge_len, pil_w)
+                y2 = min(y + self.inpaint_max_edge_len, pil_h)
 
                 # One more pass to use up left and upper side of the
                 # masked area.
@@ -836,8 +841,8 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
                 # the upper and left side, but only 1/2 was allocated
                 # initially.
                 # The second pass will do this expansion.
-                x = max(x2 - 512, 0)
-                y = max(y2 - 512, 0)
+                x = max(x2 - self.inpaint_max_edge_len, 0)
+                y = max(y2 - self.inpaint_max_edge_len, 0)
 
                 w = x2 - x
                 h = y2 - y
@@ -1071,7 +1076,8 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
             # 2.3 Send to image to image
             updated_pil_image = self.inpainting(
                 input_image=pil_cropped_image.convert('RGBA'),
-                mask_image = pil_cropped_mask_image)
+                mask_image = pil_cropped_mask_image,
+                edge_len=self.inpaint_max_edge_len)
             # updated_pil_image.save("tmpface.jpg")
 
             # 2.6 Paste the updated image in the original image.
@@ -1122,7 +1128,8 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
                    input_image=None,
                    mask_image=None,
                    meta_prompt=None,
-                   output_dir=SPOT_FIX_TMP_DIR):
+                   output_dir=SPOT_FIX_TMP_DIR,
+                   edge_len=TARGET_EDGE_LEN):
         """
         Event handler for the Generation button click
 
@@ -1214,8 +1221,8 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
 
         args_list = ["--prompt", positive_prompt,
                      "--negative_prompt", negative_prompt,
-                     "--H", str(TARGET_EDGE_LEN),
-                     "--W", str(TARGET_EDGE_LEN),
+                     "--H", str(edge_len),
+                     "--W", str(edge_len),
                      "--clip_skip", clip_skip,
                      "--seed", str(self.preferences["seed"]),
                      "--n_samples", str(1),
