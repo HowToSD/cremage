@@ -16,6 +16,7 @@ from gi.repository import Gtk, GdkPixbuf
 import PIL
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
+from PIL import UnidentifiedImageError
 import cv2 as cv
 
 from .misc_utils import extract_embedding_filenames
@@ -578,8 +579,15 @@ def load_resized_pil_image(image_path:str, target_size:int=128) -> Image:
     Returns:
         Image: A PIL Image object of the resized image.
     """    
-    pil_image = Image.open(image_path)
-    w, h = pil_image.size 
+    try:
+        pil_image = Image.open(image_path)
+        w, h = pil_image.size 
+    except UnidentifiedImageError:
+        # This is to guard against a race condition that may be the
+        # reason for the image display error during generation of images in multiple batches
+        w = 1024
+        h = 1024
+        pil_image = Image.new("RGB", (w, h), color="black")
 
     # Resize the image maintaining aspect ratio
     if h > w:

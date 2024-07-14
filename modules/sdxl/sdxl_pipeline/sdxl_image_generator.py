@@ -390,6 +390,7 @@ def generate(opt,
     base_count = len(os.listdir(opt.outdir))
     wm_encoder = None
     if opt.watermark:
+        from imwatermark import WatermarkEncoder
         wm = "Cremage"
         wm_encoder = WatermarkEncoder()
         wm_encoder.set_watermark('bytes', wm.encode('utf-8'))
@@ -663,8 +664,8 @@ def generate(opt,
                 "image_width": opt.W,
                 #  "clip_skip": opt.clip_skip,  # Cremage. Commenting out as CLIP skip for SDXL creates confusion
                 "seed": seed + i,
-                "watermark": False,
-                "safety_check": False
+                "watermark": opt.watermark,
+                "safety_check": opt.safety_check
             }
 
             if use_hires_fix:

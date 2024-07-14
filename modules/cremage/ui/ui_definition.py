@@ -536,9 +536,9 @@ def main_ui_definition(app) -> None:
     
     fields1 = {
         "generator_model_type": create_combo_box_typeahead(generator_model_type_list, generator_model_type_list.index(app.preferences["generator_model_type"])),
+        "sampling_steps": Gtk.Entry(text=str(app.preferences["sampling_steps"])),
         "sampler": create_combo_box_typeahead(sampler_list, sampler_list.index(app.preferences["sampler"])),
         "sdxl_sampler": create_combo_box_typeahead(sdxl_sampler_list, sdxl_sampler_list.index(app.preferences["sdxl_sampler"])),
-        "sampling_steps": Gtk.Entry(text=str(app.preferences["sampling_steps"])),
         "image_width": Gtk.Entry(text=str(app.preferences["image_width"])),
         "image_height": Gtk.Entry(text=str(app.preferences["image_height"])),
         "sdxl_image_resolution":  create_combo_box_typeahead(sdxl_resolution_str_list, resolution_index),
@@ -600,9 +600,9 @@ def main_ui_definition(app) -> None:
 
     # Place both samplers at the Same position as display is toggled
     # by the generator type combobox
-    fields1_pos["sampler"] = ((0, row, 1, 1), (1, row, 1, 1))
-    fields1_pos["sdxl_sampler"] = ((0, row, 1, 1), (1, row, 1, 1))
-    fields1_pos["sampling_steps"] = ((2, row, 1, 1), (3, row, 1, 1))
+    fields1_pos["sampling_steps"] = ((0, row, 1, 1), (1, row, 1, 1))
+    fields1_pos["sampler"] = ((2, row, 1, 1), (3, row, 1, 1))
+    fields1_pos["sdxl_sampler"] = ((2, row, 1, 1), (3, row, 1, 1))
     row += 1
 
     fields1_pos["image_width"] = ((0, row, 1, 1), (1, row, 1, 1))

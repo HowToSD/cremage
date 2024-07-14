@@ -17,10 +17,12 @@ sys.path = [PROJECT_ROOT, MODULE_ROOT] + sys.path
 from sd.txt2img import parse_options_and_generate
 from sd.img2img import img2img_parse_options_and_generate
 from sd.inpaint import inpaint_parse_options_and_generate
+from sd3.txt2img import generate as sd3_txt2image_generate
 
 from cremage.const.const import *
 from cremage.utils.gtk_utils import text_view_get_text, show_error_dialog
 from cremage.utils.misc_utils import override_args_list, generate_lora_params
+from cremage.utils.misc_utils import override_kwargs
 from cremage.utils.misc_utils import join_directory_and_file_name
 from cremage.utils.prompt_history import update_prompt_history
 from cremage.ui.ui_to_preferences import copy_ui_field_values_to_preferences
@@ -102,7 +104,7 @@ def generate_handler(app, widget, event) -> None:
 
     wildcards_path = app.preferences["wildcards_path"]
 
-    if app.preferences["generator_model_type"] == "SD 1.5":
+    if generator_model_type == "SD 1.5":
         embedding_path = app.preferences["embedding_path"]
         sampler = app.preferences["sampler"]
         ldm_path = join_directory_and_file_name(app.preferences["ldm_model_path"], app.preferences["ldm_model"])
@@ -122,7 +124,7 @@ def generate_handler(app, widget, event) -> None:
         # e.g. "model/loras/foo.safetensors,model/loras/bar.safetensors"
         #      "1.0,0.9"
         lora_models, lora_weights = generate_lora_params(lora_dict)
-    elif app.preferences["generator_model_type"] == "SDXL":
+    elif generator_model_type == "SDXL":
         embedding_path = app.preferences["sdxl_embedding_path"]
         sampler = app.preferences["sdxl_sampler"]+"Sampler"
         ldm_path = join_directory_and_file_name(app.preferences["sdxl_ldm_model_path"], app.preferences["sdxl_ldm_model"])
@@ -161,6 +163,13 @@ def generate_handler(app, widget, event) -> None:
         else:
             refiner_strength = 0.0
 
+    elif generator_model_type == "SD 3":
+        ldm_path = join_directory_and_file_name(app.preferences["sd3_ldm_model_path"], app.preferences["sd3_ldm_model"])
+        sampler = ""   # FIXME
+        embedding_path = ""  # FIXME
+        vae_path = ""  # FIXME
+        lora_models = ""  # FIXME
+        lora_weights = ""
     # Common for both sd1.5 and sdxl
     args_list = ["--prompt", positive_prompt,
                     "--negative_prompt", negative_prompt,
@@ -334,6 +343,53 @@ def generate_handler(app, widget, event) -> None:
                     'ui_thread_instance': app,
                     'status_queue': status_queue})
     # end if sdxl
+
+    elif generator_model_type == "SD 3":
+
+        update_prompt_history(
+            positive_prompt_before_expansion,
+            negative_prompt_before_expansion,
+            positive_prompt_expansion,
+            negative_prompt_expansion,
+            positive_prompt_pre_expansion,
+            negative_prompt_pre_expansion)
+
+        kwargs = {'positive_prompt': positive_prompt,
+                'negative_prompt': negative_prompt,
+                'checkpoint_dir': app.preferences["sd3_ldm_model_path"],
+                'out_dir': app.output_dir,
+                "steps": app.preferences["sampling_steps"],
+                'guidance_scale': app.preferences["cfg"], # 7
+                'height': int(image_height),
+                'width': int(image_width),
+                "number_of_batches": int(number_of_batches),
+                "batch_size": int(batch_size),
+                "seed": int(seed),
+                "safety_check": app.preferences["safety_check"],
+                "watermark": app.preferences["watermark"],
+                "auto_face_fix": auto_face_fix}
+        
+        # Override args_list if override checkbox is checked
+        if app.override_checkbox.get_active():
+            info = text_view_get_text(app.generation_information)
+            logger.info(f"Using the generation settings from the image instead of UI")
+            kwargs = override_kwargs(kwargs, info)
+
+        status_queue = queue.Queue()
+        # Start the image generation thread
+        image_height = int(image_height) // 8 * 8
+        image_width = int(image_width) // 8 * 8
+        
+        # In-place update. Note this returns None, so do not try to optimize by putting this
+        # as the argument for kw= below.
+        kwargs.update({
+                'ui_thread_instance': app,
+                'status_queue': status_queue})
+
+        thread = threading.Thread(
+            target=sd3_txt2image_generate,
+            kwargs=kwargs
+        )
 
     thread.start()
 

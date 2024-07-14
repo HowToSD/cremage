@@ -103,8 +103,7 @@ def final_init(app:Gtk.Window):
     app.connect("realize", lambda widget, app=app: window_realized_handler(app, widget))
 
 def setup_field_visibility(app:Gtk.Window):
-    generator_model_type = "SDXL" if app.preferences["generator_model_type"] == "SDXL" else "SD 1.5"
-    toggle_genenator_model_type_ui(app, generator_model_type)
+    toggle_genenator_model_type_ui(app, app.preferences["generator_model_type"])
     
     use_refiner = True if app.preferences["sdxl_use_refiner"] else False
     toggle_use_refiner_ui(app, use_refiner)

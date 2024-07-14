@@ -262,6 +262,59 @@ def override_args_list(args_list: List[str],
 
     return retval
 
+# marker
+def override_kwargs(kwargs: Dict[str, Any],
+                       generation_string: str):
+    """
+    Example dict reconstructed from generation_string:
+    {
+        "time": 1711483882.8759885,
+        "positive_prompt": "cute puppy",
+        "negative_prompt": "scary",
+        "ldm_model": "foo.safetensors",
+        "vae_model": "vae-ft-mse-840000-ema-pruned.ckpt", 
+        "sampler": "DDIM", 
+        "sampling_iterations": 50, 
+        "image_height": 768, 
+        "image_width": 512, 
+        "clip_skip": 1,
+        "seed": 1462286278}
+    """
+    skip_keys = ["seed", "time", "generator_model_type"]  # Do not copy seed
+
+    change_keys = {
+        "sd3_ldm_model_path": "checkpoint_dir",
+        'image_height': "height",
+        "image_width": "width",
+        "sampling_iterations": "steps",
+        "cfg": "guidance_scale"
+    }
+
+    # Post-conversion keys
+    cast_keys = {
+        'height': int,
+        "width": int
+    }
+
+    retval = kwargs.copy()
+    try:
+        print(generation_string)
+        override_dict = json.loads(generation_string)
+    except:
+        logging.warn("Failed to parse generation_string. Override ignored")
+        return retval
+
+    for k, v in override_dict.items():
+        if k in change_keys:
+            k = change_keys[k]
+
+        if k in cast_keys:  # e.g. height datatype change from "896" to 896
+            v = cast_keys[k](v)
+
+        if k not in skip_keys:
+            retval[k] = v
+
+    return retval
 
 def generate_lora_params(preferences: Dict[str, Any],
                          sdxl=False,

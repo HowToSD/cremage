@@ -40,6 +40,7 @@ class PreferencesWindow(Gtk.Window):
             "sdxl_ldm_model_path": Gtk.Entry(text=preferences["sdxl_ldm_model_path"]),
             "sdxl_vae_model_path": Gtk.Entry(text=preferences["sdxl_vae_model_path"]),
             "sdxl_lora_model_path": Gtk.Entry(text=preferences["sdxl_lora_model_path"]),
+            "sd3_ldm_model_path": Gtk.Entry(text=preferences["sd3_ldm_model_path"]),
             "svd_model_path": Gtk.Entry(text=preferences["svd_model_path"]),
             "wildcards_path": Gtk.Entry(text=preferences["wildcards_path"]),
             "safety_check": create_combo_box(TRUE_FALSE_LIST, int(not preferences["safety_check"])),
