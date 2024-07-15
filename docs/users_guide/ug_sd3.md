@@ -66,8 +66,8 @@ pip install diffusers==0.29.2
    sd3_ldm_model_path: /home/john_doe/sd3/stable-diffusion-3-medium-diffusers
    ```
 
-## Generating an image using SD 3
-  On Basic tab, select SD 3 in the Generator model type combobox.
+## Generating an image using SD3
+  On the Basic tab, select SD3 in the Generator model type combobox.
 
 ## Limitations
 * Only text to image flow is supported.  Image to image and Inpainting are not supported.
@@ -77,3 +77,4 @@ pip install diffusers==0.29.2
 * LoRA is not supported.
 * FaceID is not supported during generation. However, you can use Face Fix tool to apply FaceID to the generated image. Face Fix tool uses SD 1.5 underneath.
 * Auto face fix is supported, but the custom face image that you specify is not used during auto face fix. If you want to use the custom face image, use Face Fix tool after generation.
+* SD3 was only tested on Ubuntu with NVIDIA RTX 4090 (24GB VRAM). If you have less GPU VRAM, it may not work.
