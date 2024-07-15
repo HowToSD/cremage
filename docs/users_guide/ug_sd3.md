@@ -63,7 +63,7 @@ pip install diffusers==0.29.2
 
    For example:
    ```
-   sd3_ldm_model_path: <Path to SD3 weights that you downloaded>/home/john_doe/sd3/stable-diffusion-3-medium-diffusers
+   sd3_ldm_model_path: /home/john_doe/sd3/stable-diffusion-3-medium-diffusers
    ```
 
 ## Generating an image using SD 3
