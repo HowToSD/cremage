@@ -1,4 +1,19 @@
 ## Updates
+July 14, 2024:
+Stable Diffusion 3 (SD3) support has been added.
+This is a breaking change and requires your action if you have already installed Cremage. Please add the following lines in config.yaml:
+```
+sd3_ldm_model_path: <Path to SD3 weights that you downloaded>
+sd3_ldm_model: None
+```
+and update the diffusers package version by typing the following:
+```
+conda activate cremage
+pip install diffusers==0.29.2
+```
+
+For more information, please refer to [documentation for Stable Diffusion 3](docs/users_guide/ug_sd3.md "SD3")
+
 July 11, 2024:
 Made maximum paint area size configurable for spot inpainting with an inpaint model.
 This is a breaking change and requires your action if you have already installed Cremage. Please add the following line in config.yaml:
@@ -36,7 +51,7 @@ For example, if you are starting out with AI image generation, you can just ente
 You can also go back to any of the previously generated image and tweak as Cremage provides the same image editing capability irrespective of whether it's newly generated or images generated months ago.
 
 # Major Features
-* Text to image
+* Text to image (including Stable Diffusion 3)
 * Image to image
 * Inpainting
 * Video generation using SVD including frame interpolation

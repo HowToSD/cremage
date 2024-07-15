@@ -13,3 +13,4 @@
 * [Wildcards](users_guide/ug_wildcards.md "Wildcards")
 * [Creating a video using SVD](users_guide/ug_video.md "Video")
 * [Safety checker](users_guide/ug_safety_checker.md "Safety checker")
+* [Stable Diffusion 3](users_guide/ug_sd3.md "SD3")
