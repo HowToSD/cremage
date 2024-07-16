@@ -1,4 +1,8 @@
 ## Updates
+July 15, 2024:
+Kandinsky 2.2 support has been added.  Only text to image flow is supported for now.
+No set up is required to use this model and the model is automatically downloaded. To use this, just select Kandinsky 2.2 from the Generator model type on the Basic tab.
+
 July 14, 2024:
 Stable Diffusion 3 (SD3) support has been added.
 This is a breaking change and requires your action if you have already installed Cremage. Please add the following lines in config.yaml:
@@ -49,6 +53,12 @@ Cremage is designed with the following goals in mind:
 For example, if you are starting out with AI image generation, you can just enter a positive prompt and press the Generate button to create images without tweaking any options.
 
 You can also go back to any of the previously generated image and tweak as Cremage provides the same image editing capability irrespective of whether it's newly generated or images generated months ago.
+
+# Supported model types
+* Stable Diffusion 1.5 (SD1.5)
+* SDXL
+* Stable Diffusion 3 (SD3)
+* Kandinsky 2.2
 
 # Major Features
 * Text to image (including Stable Diffusion 3)

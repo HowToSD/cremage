@@ -17,5 +17,6 @@ FACE_MODEL_NAME = "ip-adapter-faceid-plusv2_sd15.bin"
 GENERATOR_MODEL_TYPE_LIST = [
     "SD 1.5",
     "SDXL",
-    "SD 3"
+    "SD 3",
+    "Kandinsky 2.2"
 ]

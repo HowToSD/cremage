@@ -280,7 +280,10 @@ def override_kwargs(kwargs: Dict[str, Any],
         "clip_skip": 1,
         "seed": 1462286278}
     """
-    skip_keys = ["seed", "time", "generator_model_type"]  # Do not copy seed
+    skip_keys = ["seed",  # Do not copy seed
+                 "time",
+                 "generator_model_type",
+                 "additional_processing"]
 
     change_keys = {
         "sd3_ldm_model_path": "checkpoint_dir",

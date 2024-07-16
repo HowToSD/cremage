@@ -17,7 +17,6 @@ sys.path = [PROJECT_ROOT, MODULE_ROOT] + sys.path
 from sd.txt2img import parse_options_and_generate
 from sd.img2img import img2img_parse_options_and_generate
 from sd.inpaint import inpaint_parse_options_and_generate
-from sd3.txt2img import generate as sd3_txt2image_generate
 
 from cremage.const.const import *
 from cremage.utils.gtk_utils import text_view_get_text, show_error_dialog
@@ -163,8 +162,13 @@ def generate_handler(app, widget, event) -> None:
         else:
             refiner_strength = 0.0
 
-    elif generator_model_type == "SD 3":
-        ldm_path = join_directory_and_file_name(app.preferences["sd3_ldm_model_path"], app.preferences["sd3_ldm_model"])
+    elif generator_model_type in ["SD 3", "Kandinsky 2.2"]:
+        if generator_model_type == "SD 3":
+            from sd3.txt2img import generate as sd3_txt2image_generate
+            ldm_path = join_directory_and_file_name(app.preferences["sd3_ldm_model_path"], app.preferences["sd3_ldm_model"])
+        else:
+            from kandinsky.txt2img import generate as k2_2_txt2image_generate
+            ldm_path = None
         sampler = ""   # FIXME
         embedding_path = ""  # FIXME
         vae_path = ""  # FIXME
@@ -344,7 +348,14 @@ def generate_handler(app, widget, event) -> None:
                     'status_queue': status_queue})
     # end if sdxl
 
-    elif generator_model_type == "SD 3":
+    elif generator_model_type in ["SD 3", "Kandinsky 2.2"]:
+
+        if generator_model_type == "SD 3":
+            checkpoint_dir = app.preferences["sd3_ldm_model_path"]
+            target_func = sd3_txt2image_generate
+        else:
+            checkpoint_dir = ""  # Not used for now
+            target_func = k2_2_txt2image_generate
 
         update_prompt_history(
             positive_prompt_before_expansion,
@@ -356,7 +367,7 @@ def generate_handler(app, widget, event) -> None:
 
         kwargs = {'positive_prompt': positive_prompt,
                 'negative_prompt': negative_prompt,
-                'checkpoint_dir': app.preferences["sd3_ldm_model_path"],
+                'checkpoint_dir': checkpoint_dir,
                 'out_dir': app.output_dir,
                 "steps": app.preferences["sampling_steps"],
                 'guidance_scale': app.preferences["cfg"], # 7
@@ -387,7 +398,7 @@ def generate_handler(app, widget, event) -> None:
                 'status_queue': status_queue})
 
         thread = threading.Thread(
-            target=sd3_txt2image_generate,
+            target=target_func,
             kwargs=kwargs
         )
 
