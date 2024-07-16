@@ -93,10 +93,16 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
             app.fields1_labels["Hires fix upscaler"].hide()
             app.fields["hires_fix_scale_factor"].hide()
             app.fields1_labels["Hires fix scale factor"].hide()
-            app.fields["denoising_strength"].hide()
-            app.fields1_labels["Denoising strength"].hide()
 
-            app.rb_image_to_image.hide()
+            if generator_model_type in ["SD 3"]:
+                app.fields["denoising_strength"].hide()
+                app.fields1_labels["Denoising strength"].hide()
+                app.rb_image_to_image.hide()
+            elif generator_model_type in ["Kandinsky 2.2"]:
+                app.fields["denoising_strength"].show()
+                app.fields1_labels["Denoising strength"].show()
+                app.rb_image_to_image.show()
+
             app.rb_inpainting.hide()
 
             sd15_page_num = app.notebook.page_num(app.tab_contents["Models"])

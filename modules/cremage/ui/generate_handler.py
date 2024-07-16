@@ -167,7 +167,9 @@ def generate_handler(app, widget, event) -> None:
             from sd3.txt2img import generate as sd3_txt2image_generate
             ldm_path = join_directory_and_file_name(app.preferences["sd3_ldm_model_path"], app.preferences["sd3_ldm_model"])
         else:
-            from kandinsky.txt2img import generate as k2_2_txt2image_generate
+            from kandinsky.txt2img import generate as k2_2_txt2img_generate
+            from kandinsky.img2img import generate as k2_2_img2img_generate
+            
             ldm_path = None
         sampler = ""   # FIXME
         embedding_path = ""  # FIXME
@@ -353,9 +355,14 @@ def generate_handler(app, widget, event) -> None:
         if generator_model_type == "SD 3":
             checkpoint_dir = app.preferences["sd3_ldm_model_path"]
             target_func = sd3_txt2image_generate
-        else:
+        elif generator_model_type == "Kandinsky 2.2":
             checkpoint_dir = ""  # Not used for now
-            target_func = k2_2_txt2image_generate
+            if app.generation_mode == MODE_TEXT_TO_IMAGE:
+                target_func = k2_2_txt2img_generate
+            elif app.generation_mode == MODE_IMAGE_TO_IMAGE:
+                target_func = k2_2_img2img_generate
+            else:
+                raise ValueError("Invalid generation mode for Kandinsky 2.2")
 
         update_prompt_history(
             positive_prompt_before_expansion,
@@ -380,6 +387,13 @@ def generate_handler(app, widget, event) -> None:
                 "watermark": app.preferences["watermark"],
                 "auto_face_fix": auto_face_fix}
         
+        if app.generation_mode == MODE_IMAGE_TO_IMAGE and \
+           generator_model_type in ["Kandinsky 2.2"]:
+            kwargs.update({
+                "input_image": app.input_image_original_size,
+                "denoising_strength": app.preferences["denoising_strength"]
+            })
+
         # Override args_list if override checkbox is checked
         if app.override_checkbox.get_active():
             info = text_view_get_text(app.generation_information)

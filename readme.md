@@ -1,4 +1,7 @@
 ## Updates
+July 16, 2024:
+Image to image flow is now supported for Kandinsky 2.2.
+
 July 15, 2024:
 Kandinsky 2.2 support has been added.  Only text to image flow is supported for now.
 No set up is required to use this model and the model is automatically downloaded. To use this, just select Kandinsky 2.2 from the Generator model type on the Basic tab.
