@@ -582,9 +582,15 @@ def load_resized_pil_image(image_path:str, target_size:int=128) -> Image:
     try:
         pil_image = Image.open(image_path)
         w, h = pil_image.size 
-    except UnidentifiedImageError:
+    except (UnidentifiedImageError, OSError):
         # This is to guard against a race condition that may be the
         # reason for the image display error during generation of images in multiple batches
+        w = 1024
+        h = 1024
+        pil_image = Image.new("RGB", (w, h), color="black")
+    except Exception as e:
+        # Log the unexpected error if necessary
+        print(f"Unexpected error: {e}")
         w = 1024
         h = 1024
         pil_image = Image.new("RGB", (w, h), color="black")

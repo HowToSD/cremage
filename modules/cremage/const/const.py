@@ -18,5 +18,6 @@ GENERATOR_MODEL_TYPE_LIST = [
     "SD 1.5",
     "SDXL",
     "SD 3",
-    "Kandinsky 2.2"
+    "Kandinsky 2.2",
+    "Pixart Sigma"
 ]

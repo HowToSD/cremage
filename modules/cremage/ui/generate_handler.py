@@ -163,10 +163,13 @@ def generate_handler(app, widget, event) -> None:
         else:
             refiner_strength = 0.0
 
-    elif generator_model_type in ["SD 3", "Kandinsky 2.2"]:
+    elif generator_model_type in ["SD 3", "Pixart Sigma", "Kandinsky 2.2"]:
         if generator_model_type == "SD 3":
             from sd3.txt2img import generate as sd3_txt2image_generate
             ldm_path = join_directory_and_file_name(app.preferences["sd3_ldm_model_path"], app.preferences["sd3_ldm_model"])
+        elif generator_model_type == "Pixart Sigma":
+            from pixart_sigma.txt2img import generate as pixart_sigma_txt2image_generate
+            ldm_path = None  # TODO: Support custom weights
         else:
             # Do NOT move below import statements to the top of the file
             # It would slow down loading.
@@ -354,11 +357,14 @@ def generate_handler(app, widget, event) -> None:
                     'status_queue': status_queue})
     # end if sdxl
 
-    elif generator_model_type in ["SD 3", "Kandinsky 2.2"]:
+    elif generator_model_type in ["SD 3", "Pixart Sigma", "Kandinsky 2.2"]:
 
         if generator_model_type == "SD 3":
             checkpoint_dir = app.preferences["sd3_ldm_model_path"]
             target_func = sd3_txt2image_generate
+        elif generator_model_type == "Pixart Sigma":
+            checkpoint_dir = ""  # Not used for now
+            target_func = pixart_sigma_txt2image_generate
         elif generator_model_type == "Kandinsky 2.2":
             checkpoint_dir = ""  # Not used for now
             if app.generation_mode == MODE_TEXT_TO_IMAGE:

@@ -33,7 +33,8 @@ def sdxl_sampler_cb_changed(app, combo):
 
 def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
 
-    if generator_model_type == "SD 1.5" or generator_model_type in ["SD 3", "Kandinsky 2.2"]:
+    if generator_model_type == "SD 1.5" or \
+       generator_model_type in ["SD 3", "Pixart Sigma", "Kandinsky 2.2"]:
 
         # Common between SD 1.5 and SD 3
         app.fields["sdxl_sampler"].hide()
@@ -83,7 +84,7 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
                     app.tab_labels["ControlNet"],
                     2)
 
-        elif generator_model_type in ["SD 3", "Kandinsky 2.2"]:
+        elif generator_model_type in ["SD 3", "Pixart Sigma", "Kandinsky 2.2"]:
             app.fields["sampler"].hide()
             app.fields1_labels["Sampler"].hide()
             app.fields["clip_skip"].hide()
@@ -94,7 +95,7 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
             app.fields["hires_fix_scale_factor"].hide()
             app.fields1_labels["Hires fix scale factor"].hide()
 
-            if generator_model_type in ["SD 3"]:
+            if generator_model_type in ["SD 3", "Pixart Sigma"]:
                 app.fields["denoising_strength"].hide()
                 app.fields1_labels["Denoising strength"].hide()
                 app.rb_image_to_image.hide()
