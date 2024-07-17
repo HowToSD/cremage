@@ -1,13 +1,13 @@
 
 """
-Kandinsky img2img
+Kandinsky inpainting
 
 Copyright (c) 2024 Hideyuki Inada
 
 References
 [1] https://huggingface.co/docs/diffusers/en/using-diffusers/kandinsky?text-to-image=Kandinsky+2.2&image-to-image=Kandinsky+2.2
 https://huggingface.co/kandinsky-community/kandinsky-2-2-decoder
-[2] https://huggingface.co/docs/diffusers/en/api/pipelines/kandinsky_v22
+[2] https://huggingface.co/docs/diffusers/en/api/pipelines/kandinsky_v22#diffusers.KandinskyV22InpaintCombinedPipeline
 """
 import os
 import sys
@@ -19,7 +19,7 @@ import json
 import torch
 from typing import List, Optional, Tuple
 
-from diffusers import AutoPipelineForImage2Image
+from diffusers import AutoPipelineForInpainting
 from PIL.PngImagePlugin import PngInfo
 import numpy as np
 import PIL
@@ -48,6 +48,7 @@ def generate(
         ui_thread_instance=None,
         seed=-1,
         input_image=None,  # PIL image
+        mask_image=None,
         denoising_strength=0.2,
         auto_face_fix=False,
         safety_check=True,
@@ -60,7 +61,9 @@ def generate(
     if seed == -1:
         seed = random.getrandbits(32)
 
-    pipe = AutoPipelineForImage2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16)
+    pipe = AutoPipelineForInpainting.from_pretrained(
+        "kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16
+    )
     pipe.enable_model_cpu_offload()
 
     if status_queue:
@@ -98,7 +101,7 @@ def generate(
             num_images_per_prompt=batch_size,
             generator=random_number_generator,
             image = input_image.resize((width, height), resample=PIL.Image.LANCZOS),
-            strength=denoising_strength, # Kandinsky's default is 0.3
+            mask_image = mask_image.resize((width, height), resample=PIL.Image.LANCZOS)
         )
 
         for i, image in enumerate(images.images):

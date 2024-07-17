@@ -7,6 +7,7 @@ import sys
 import threading
 import queue
 
+from PIL import Image
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib
@@ -167,9 +168,12 @@ def generate_handler(app, widget, event) -> None:
             from sd3.txt2img import generate as sd3_txt2image_generate
             ldm_path = join_directory_and_file_name(app.preferences["sd3_ldm_model_path"], app.preferences["sd3_ldm_model"])
         else:
+            # Do NOT move below import statements to the top of the file
+            # It would slow down loading.
             from kandinsky.txt2img import generate as k2_2_txt2img_generate
             from kandinsky.img2img import generate as k2_2_img2img_generate
-            
+            from kandinsky.inpaint import generate as k2_2_inpaint_generate
+
             ldm_path = None
         sampler = ""   # FIXME
         embedding_path = ""  # FIXME
@@ -361,6 +365,8 @@ def generate_handler(app, widget, event) -> None:
                 target_func = k2_2_txt2img_generate
             elif app.generation_mode == MODE_IMAGE_TO_IMAGE:
                 target_func = k2_2_img2img_generate
+            elif app.generation_mode == MODE_INPAINTING:
+                target_func = k2_2_inpaint_generate
             else:
                 raise ValueError("Invalid generation mode for Kandinsky 2.2")
 
@@ -392,6 +398,13 @@ def generate_handler(app, widget, event) -> None:
             kwargs.update({
                 "input_image": app.input_image_original_size,
                 "denoising_strength": app.preferences["denoising_strength"]
+            })
+
+        if app.generation_mode == MODE_INPAINTING and \
+           generator_model_type in ["Kandinsky 2.2"]:
+            kwargs.update({
+                "input_image": app.input_image_original_size,
+                "mask_image": Image.open(app.mask_image_path),
             })
 
         # Override args_list if override checkbox is checked

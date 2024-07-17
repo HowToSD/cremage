@@ -1,6 +1,6 @@
 ## Updates
 July 16, 2024:
-Image to image flow is now supported for Kandinsky 2.2.
+Image to image flow and inpainting flow are now supported for Kandinsky 2.2.
 
 July 15, 2024:
 Kandinsky 2.2 support has been added.  Only text to image flow is supported for now.
