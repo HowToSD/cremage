@@ -73,6 +73,7 @@ You can also go back to any of the previously generated image and tweak as Crema
 * SDXL
 * Stable Diffusion 3 (SD3)
 * Kandinsky 2.2
+* PixArt-Σ (Pixart Sigma)
 
 # Major Features
 * Text to image (including Stable Diffusion 3)
