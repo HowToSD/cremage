@@ -34,7 +34,7 @@ logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
 def generate(
-        checkpoint_dir:str=None,  # Not used for now
+        checkpoint:str=None,  # Not used for now
         out_dir:str=None,
         positive_prompt: str=None,
         negative_prompt: str=None,

@@ -29,7 +29,7 @@ logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
 def generate(
-        checkpoint_dir:str=None,
+        checkpoint:str=None,
         out_dir:str=None,
         positive_prompt: str=None,
         negative_prompt: str=None,
@@ -68,7 +68,7 @@ def generate(
     if quantize_t5:
         from transformers import T5EncoderModel, BitsAndBytesConfig
         quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-        model_id = checkpoint_dir
+        model_id = checkpoint
         text_encoder = T5EncoderModel.from_pretrained(
             model_id,
             subfolder="text_encoder_3",
@@ -81,7 +81,7 @@ def generate(
             torch_dtype=torch.float16)
     else:
         pipe = StableDiffusion3Pipeline.from_pretrained(
-            checkpoint_dir, torch_dtype=torch.float16)
+            checkpoint, torch_dtype=torch.float16)
         pipe.enable_model_cpu_offload()
         # pipe = pipe.to("cuda")
 
@@ -148,7 +148,7 @@ def generate(
                 "time": time.time(),
                 "positive_prompt": positive_prompt,
                 "negative_prompt": negative_prompt,
-                "sd3_ldm_model_path": checkpoint_dir,
+                "sd3_ldm_model_path": checkpoint,
                 "sampling_iterations": steps,
                 "image_height": height,
                 "image_width": width,

@@ -1,7 +1,14 @@
 ## Updates
 July 17, 2024:
 PixArt-Σ (Pixart Sigma) support has been added. Only text to image flow is supported for now.
-No set up is required to use this model and the model is automatically downloaded. To use this, just select Pixart Sigma from the Generator model type on the Basic tab.
+
+This is a breaking change and requires your action if you have already installed Cremage. Please add the following lines in config.yaml:
+```
+pixart_sigma_ldm_model_path: None
+pixart_sigma_ldm_model: None
+```
+
+To use this model, select Pixart Sigma from the Generator model type on the Basic tab. Some of the fine-tuned models are also supported. Please see [documentation for PixArt-Σ (Pixart Sigma)](docs/users_guide/ug_pixart_sigma.md "PixArt-Σ (Pixart Sigma)")
 
 July 16, 2024:
 Image to image flow and inpainting flow are now supported for Kandinsky 2.2.

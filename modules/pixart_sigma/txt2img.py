@@ -32,6 +32,8 @@ MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 sys.path = [MODULE_ROOT] + sys.path
 from cremage.ui.update_image_handler import update_image
 from cremage.configs.preferences import load_user_config
+from cremage.utils.pixart_sigma_utils import update_pixart_sigma_model_with_custom_model
+
 
 MODEL_ID = "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS"
 
@@ -45,7 +47,7 @@ def flush():
 
 
 def generate(
-        checkpoint_dir:str=None,  # Not used for now
+        checkpoint:str=None,  # Not used for now
         out_dir:str=None,
         positive_prompt: str=None,
         negative_prompt: str=None,
@@ -116,11 +118,21 @@ def generate(
         del pipe
         flush()
 
+
+        # pipe = PixArtSigmaPipeline.from_pretrained(
+        #     MODEL_ID,
+        #     text_encoder=None,
+        #     torch_dtype=torch.float16,
+        # ).to("cuda")
+
         pipe = PixArtSigmaPipeline.from_pretrained(
             MODEL_ID,
             text_encoder=None,
             torch_dtype=torch.float16,
-        ).to("cuda")
+        )
+        if checkpoint and os.path.exists(checkpoint):
+            pipe.transformer = update_pixart_sigma_model_with_custom_model(pipe.transformer, checkpoint)
+        pipe.to("cuda")
 
         latents = pipe(
             negative_prompt=None,
@@ -169,6 +181,10 @@ def generate(
 
             file_name = str(time.time())
 
+            if checkpoint and os.path.exists(checkpoint):
+                ldm_model = os.path.basename(checkpoint)
+            else:
+                ldm_model = "None"
             generation_parameters = {
                 "time": time.time(),
                 "positive_prompt": positive_prompt,
@@ -180,6 +196,7 @@ def generate(
                 "seed": seed + new_seed_group_index + i,
                 "safety_check": safety_check,
                 "auto_face_fix": auto_face_fix,
+                "ldm_model": ldm_model,
                 "generator_model_type": "Pixart Sigma"
             }
 

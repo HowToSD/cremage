@@ -36,6 +36,14 @@ def sd_model_type_from_safetensors(file_path: str) -> int:
         else:
             return MODEL_TYPE_UNKNOWN
 
+def is_supported_pixart_sigma_custom_model(file_path:str) -> bool:
+    with safe_open(file_path, framework='pt') as f:
+        key = "transformer_blocks.0.attn1.to_k.bias"
+        if key in f.keys():
+            return True
+        else:
+            return False
+
 
 if __name__ == "__main__":
     dir_name = "/media/pup/ssd2/recoverable_data/sd_models/Stable-diffusion"

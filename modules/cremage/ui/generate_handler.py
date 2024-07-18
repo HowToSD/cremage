@@ -360,13 +360,13 @@ def generate_handler(app, widget, event) -> None:
     elif generator_model_type in ["SD 3", "Pixart Sigma", "Kandinsky 2.2"]:
 
         if generator_model_type == "SD 3":
-            checkpoint_dir = app.preferences["sd3_ldm_model_path"]
+            checkpoint = app.preferences["sd3_ldm_model_path"]
             target_func = sd3_txt2image_generate
         elif generator_model_type == "Pixart Sigma":
-            checkpoint_dir = ""  # Not used for now
+            checkpoint = join_directory_and_file_name(app.preferences["pixart_sigma_ldm_model_path"], app.preferences["pixart_sigma_ldm_model"])
             target_func = pixart_sigma_txt2image_generate
         elif generator_model_type == "Kandinsky 2.2":
-            checkpoint_dir = ""  # Not used for now
+            checkpoint = ""  # Not used for now
             if app.generation_mode == MODE_TEXT_TO_IMAGE:
                 target_func = k2_2_txt2img_generate
             elif app.generation_mode == MODE_IMAGE_TO_IMAGE:
@@ -386,7 +386,7 @@ def generate_handler(app, widget, event) -> None:
 
         kwargs = {'positive_prompt': positive_prompt,
                 'negative_prompt': negative_prompt,
-                'checkpoint_dir': checkpoint_dir,
+                'checkpoint': checkpoint,
                 'out_dir': app.output_dir,
                 "steps": app.preferences["sampling_steps"],
                 'guidance_scale': app.preferences["cfg"], # 7
@@ -417,7 +417,11 @@ def generate_handler(app, widget, event) -> None:
         if app.override_checkbox.get_active():
             info = text_view_get_text(app.generation_information)
             logger.info(f"Using the generation settings from the image instead of UI")
-            kwargs = override_kwargs(kwargs, info)
+            kwargs = override_kwargs(
+                kwargs,
+                info,
+                preferences=app.preferences,
+                generator_model_type=generator_model_type)
 
         status_queue = queue.Queue()
         # Start the image generation thread

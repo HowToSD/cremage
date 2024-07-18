@@ -16,6 +16,7 @@ from .safetensors_utils import sd_model_type_from_safetensors
 from .safetensors_utils import MODEL_TYPE_UNKNOWN
 from .safetensors_utils import MODEL_TYPE_SD_1_5
 from .safetensors_utils import MODEL_TYPE_SDXL
+from .safetensors_utils import is_supported_pixart_sigma_custom_model
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -422,3 +423,12 @@ def load_lora(lora_file_full_path, model_type="SD 1.5", name_check=True):
 
     rank = w.shape[0]  # [4, 320]
     return lora, rank
+
+
+def load_pixart_sigma_ldm_model_paths(model_dir: str):
+    files = _files_in_model_dir(
+                model_dir,
+                supported_extensions=[".safetensors"])
+    files = list(filter(
+            lambda e: is_supported_pixart_sigma_custom_model(os.path.join(model_dir, e)), files))
+    return files

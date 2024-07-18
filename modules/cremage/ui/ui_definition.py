@@ -45,6 +45,7 @@ from cremage.ui.model_path_update_handler import update_sdxl_ldm_model_name_valu
 from cremage.ui.model_path_update_handler import update_sdxl_ldm_inpaint_model_name_value_from_sdxl_ldm_model_dir
 from cremage.ui.model_path_update_handler import update_sdxl_vae_model_name_value_from_sdxl_vae_model_dir
 from cremage.ui.model_path_update_handler import update_sdxl_lora_model_name_value_from_sdxl_lora_model_dir
+from cremage.ui.model_path_update_handler import update_pixart_sigma_ldm_model_name_value_from_pixart_sigma_ldm_model_dir
 from cremage.ui.input_image_view_click_handler import input_image_view_click_handler
 from cremage.ui.main_image_view_click_handler import main_image_view_click_handler
 from cremage.ui.face_input_image_view_click_handler import face_input_image_view_click_handler
@@ -468,6 +469,8 @@ def main_ui_definition(app) -> None:
     update_sdxl_ldm_inpaint_model_name_value_from_sdxl_ldm_model_dir(app)
     update_sdxl_vae_model_name_value_from_sdxl_vae_model_dir(app)
     update_sdxl_lora_model_name_value_from_sdxl_lora_model_dir(app)
+
+    update_pixart_sigma_ldm_model_name_value_from_pixart_sigma_ldm_model_dir(app)
 
     # Notebook for the tabbed UI for the right panel
     # Page 1 hierarchy:
@@ -1041,7 +1044,6 @@ def main_ui_definition(app) -> None:
     add_save_preferences_button()
     # End of page 5
 
-
     # Page 6 start: SDXL advanced
     vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
     app.tab_labels["SDXL Advanced"] = Gtk.Label(label="SDXL Advanced")
@@ -1112,11 +1114,49 @@ def main_ui_definition(app) -> None:
                 halign=Gtk.Align.START)
         grid.attach(app.fields_sdxl_advanced_labels[label], *v[0])
         grid.attach(fields_sdxl_advanced[k], *v[1])
+    # Page 6 for SDXL advanced end
+
+    # Page 7 for PixArt-Sigma
+    vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    app.tab_labels["PixArt-Sigma"] = Gtk.Label(label="PixArt-Sigma")
+    app.tab_contents["PixArt-Sigma"] = vbox
+
+    app.notebook.append_page(
+        app.tab_contents["PixArt-Sigma"],
+        app.tab_labels["PixArt-Sigma"])
+
+    grid = Gtk.Grid()
+    grid.set_column_spacing(10)
+    grid.set_row_spacing(10)
+
+    # Set margins for the grid
+    grid.set_margin_start(10)  # Margin on the left side
+    grid.set_margin_end(10)    # Margin on the right side
+    grid.set_margin_top(10)    # Margin on the top
+    grid.set_margin_bottom(10) # Margin on the bottom
+
+    vbox.pack_start(grid, True, True, 0)
+    fields_pixart_sigma = {
+        "pixart_sigma_ldm_model": create_combo_box_typeahead(app.pixart_sigma_ldm_model_names, app.pixart_sigma_ldm_model_names.index(app.preferences["pixart_sigma_ldm_model"])),
+    }
+
+    app.pixart_sigma_fields_labels = dict()
+    # Add fields to the grid
+    row = 0
+    for _, (label_text, field) in enumerate(fields_pixart_sigma.items()):
+        i = row
+
+        label = Gtk.Label(label=label_text.replace("_", " ").capitalize(), halign=Gtk.Align.START)
+        app.pixart_sigma_fields_labels[label_text] = label
+
+        grid.attach(label, 0, i, 1, 1)  # field, left, top, width, height
+        grid.attach(field, 1, i, 2, 1)
+        row += 1
 
     # Save preferences button
     add_save_preferences_button()
-    # end of page 6 sdxl_advanced
+    # end of page 7 pixart-sigma
 
-   # Merge two dicts:
-    tmp_fields = {**app.fields, **fields_sdxl_advanced}
+    # Merge two dicts:
+    tmp_fields = {**app.fields, **fields_pixart_sigma}
     app.fields = tmp_fields

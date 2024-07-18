@@ -19,11 +19,12 @@ from cremage.utils.ml_utils import load_vae_model_paths
 from cremage.utils.ml_utils import load_control_net_model_paths
 from cremage.utils.ml_utils import load_lora_model_paths
 
-
 from cremage.utils.ml_utils import load_sdxl_ldm_model_paths
 from cremage.utils.ml_utils import load_sdxl_ldm_inpaint_model_paths
 from cremage.utils.ml_utils import load_sdxl_vae_model_paths
 from cremage.utils.ml_utils import load_sdxl_lora_model_paths
+
+from cremage.utils.ml_utils import load_pixart_sigma_ldm_model_paths
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -65,6 +66,13 @@ def update_sdxl_ldm_inpaint_model_name_value_from_sdxl_ldm_model_dir(app:Gtk.Win
     if app.preferences["sdxl_ldm_inpaint_model"] not in app.sdxl_ldm_inpaint_model_names:
         app.preferences["sdxl_ldm_inpaint_model"] = "None"
 
+def update_pixart_sigma_ldm_model_name_value_from_pixart_sigma_ldm_model_dir(app:Gtk.Window) -> None:
+    # Get the list of ldm model files
+    app.pixart_sigma_ldm_model_names = ["None"] + load_pixart_sigma_ldm_model_paths(app.preferences["pixart_sigma_ldm_model_path"])
+
+    # Check if the ldm model name exists
+    if app.preferences["pixart_sigma_ldm_model"] not in app.pixart_sigma_ldm_model_names:
+        app.preferences["pixart_sigma_ldm_model"] = "None"
 
 def on_ldm_model_path_changed(app:Gtk.Window) -> None:       
     update_ldm_model_name_value_from_ldm_model_dir(app)
@@ -182,6 +190,14 @@ def on_sdxl_lora_model_path_changed(app:Gtk.Window) -> None:
             app.sdxl_lora_model_names,
             app.sdxl_lora_model_names.index(app.preferences[f"sdxl_lora_model_{i}"])),
 
+def on_pixart_sigma_ldm_model_path_changed(app:Gtk.Window) -> None:       
+    update_pixart_sigma_ldm_model_name_value_from_pixart_sigma_ldm_model_dir(app)
+    update_combo_box(
+        app.fields["pixart_sigma_ldm_model"],
+        app.pixart_sigma_ldm_model_names,
+        app.pixart_sigma_ldm_model_names.index(app.preferences["pixart_sigma_ldm_model"]))        
+
+
 def update_all_model_paths(app:Gtk.Window) -> None:
     # FIXME.
     # app.preferences = load_user_config()
@@ -200,3 +216,5 @@ def update_all_model_paths(app:Gtk.Window) -> None:
     on_sdxl_ldm_model_path_changed(app)
     on_sdxl_vae_model_path_changed(app)
     on_sdxl_lora_model_path_changed(app)
+
+    on_pixart_sigma_ldm_model_path_changed(app)

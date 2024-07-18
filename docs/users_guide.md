@@ -14,3 +14,4 @@
 * [Creating a video using SVD](users_guide/ug_video.md "Video")
 * [Safety checker](users_guide/ug_safety_checker.md "Safety checker")
 * [Stable Diffusion 3](users_guide/ug_sd3.md "SD3")
+* [PixArt-Σ (Pixart Sigma)](users_guide/ug_pixart_sigma.md "PixArt-Σ (Pixart Sigma)")

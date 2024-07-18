@@ -262,9 +262,11 @@ def override_args_list(args_list: List[str],
 
     return retval
 
-# marker
+
 def override_kwargs(kwargs: Dict[str, Any],
-                       generation_string: str):
+                       generation_string: str,
+                       preferences:Dict=None,
+                       generator_model_type:str=None):
     """
     Example dict reconstructed from generation_string:
     {
@@ -286,7 +288,8 @@ def override_kwargs(kwargs: Dict[str, Any],
                  "additional_processing"]
 
     change_keys = {
-        "sd3_ldm_model_path": "checkpoint_dir",
+        "sd3_ldm_model_path": "checkpoint",
+        "ldm_model": "checkpoint",
         'image_height': "height",
         "image_width": "width",
         "sampling_iterations": "steps",
@@ -315,7 +318,13 @@ def override_kwargs(kwargs: Dict[str, Any],
             v = cast_keys[k](v)
 
         if k not in skip_keys:
-            retval[k] = v
+            # TODO: Clean this up
+            if k == "checkpoint" and generator_model_type == "Pixart Sigma":
+                retval[k] = join_directory_and_file_name(
+                    preferences["pixart_sigma_ldm_model_path"],
+                    v)
+            else:
+                retval[k] = v
 
     return retval
 

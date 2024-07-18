@@ -107,6 +107,8 @@ class Config:
     inpaint_max_edge_len: int
     sd3_ldm_model_path: str
     sd3_ldm_model: str
+    pixart_sigma_ldm_model_path: str
+    pixart_sigma_ldm_model: str
 
 def load_user_config():
 
@@ -210,7 +212,9 @@ def load_user_config():
             "wildcards_path": "data/wildcards",
             "inpaint_max_edge_len": 512,
             "sd3_ldm_model_path": "models/sd3_ldm",
-            "sd3_ldm_model": "None"
+            "sd3_ldm_model": "None",
+            "pixart_sigma_ldm_model_path": "models/pixart_sigma_ldm",
+            "pixart_sigma_ldm_model": "None"
         }
         OmegaConf.save(config, CONFIG_FILE_PATH)
 

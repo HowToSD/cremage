@@ -56,6 +56,10 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
             app.notebook.remove_page(sdxl_advanced_page_num)
 
         if generator_model_type == "SD 1.5":
+            pixart_sigma_page_num = app.notebook.page_num(app.tab_contents["PixArt-Sigma"])
+            if pixart_sigma_page_num >= 0:
+                app.notebook.remove_page(pixart_sigma_page_num)
+
             app.fields["sampler"].show()
             app.fields1_labels["Sampler"].show()
             app.fields["clip_skip"].show()
@@ -95,12 +99,40 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
             app.fields["hires_fix_scale_factor"].hide()
             app.fields1_labels["Hires fix scale factor"].hide()
 
-            if generator_model_type in ["SD 3", "Pixart Sigma"]:
+            if generator_model_type in ["SD 3"]:
+                pixart_sigma_page_num = app.notebook.page_num(app.tab_contents["PixArt-Sigma"])
+                if pixart_sigma_page_num >= 0:
+                    app.notebook.remove_page(pixart_sigma_page_num)
+
                 app.fields["denoising_strength"].hide()
                 app.fields1_labels["Denoising strength"].hide()
                 app.rb_image_to_image.hide()
                 app.rb_inpainting.hide()
+
+            elif generator_model_type in ["Pixart Sigma"]:
+
+                pixart_sigma_page_num = app.notebook.page_num(app.tab_contents["PixArt-Sigma"])
+                if pixart_sigma_page_num  == -1:
+                    app.notebook.insert_page(
+                        app.tab_contents["PixArt-Sigma"],
+                        app.tab_labels["PixArt-Sigma"],
+                        1)
+
+                app.fields["denoising_strength"].hide()
+                app.fields1_labels["Denoising strength"].hide()
+                app.rb_image_to_image.hide()
+                app.rb_inpainting.hide()
+
+                app.fields["denoising_strength"].hide()
+                app.fields1_labels["Denoising strength"].hide()
+                app.rb_image_to_image.hide()
+                app.rb_inpainting.hide()
+
             elif generator_model_type in ["Kandinsky 2.2"]:
+                pixart_sigma_page_num = app.notebook.page_num(app.tab_contents["PixArt-Sigma"])
+                if pixart_sigma_page_num >= 0:
+                    app.notebook.remove_page(pixart_sigma_page_num)
+
                 app.fields["denoising_strength"].show()
                 app.fields1_labels["Denoising strength"].show()
                 app.rb_image_to_image.show()
@@ -150,6 +182,10 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
         control_net_page_num = app.notebook.page_num(app.tab_contents["ControlNet"])
         if control_net_page_num >= 0:
             app.notebook.remove_page(control_net_page_num)
+
+        pixart_sigma_page_num = app.notebook.page_num(app.tab_contents["PixArt-Sigma"])
+        if pixart_sigma_page_num >= 0:
+            app.notebook.remove_page(pixart_sigma_page_num)
 
         sdxl_page_num = app.notebook.page_num(app.tab_contents["SDXL Models"])
         if sdxl_page_num == -1:
