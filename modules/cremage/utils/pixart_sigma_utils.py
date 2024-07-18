@@ -7,10 +7,41 @@ from typing import Dict, Any
 import logging
 
 import torch
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, Gdk
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+DEFAULT_MODEL_ID = "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS"
+MODEL_ID_LIST = [
+    "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS",
+    "dataautogpt3/PixArt-Sigma-900M"
+]
+
+
+def pixart_sigma_model_id_cb_changed(app, combo):
+    pixart_sigma_model_id = combo.get_child().get_text()
+    toggle_pixart_sigma_ui(app, pixart_sigma_model_id)
+
+
+def toggle_pixart_sigma_ui(app:Gtk.Window, model_id):
+    if model_id == DEFAULT_MODEL_ID:
+        app.pixart_sigma_fields_labels["pixart_sigma_ldm_model"].show()
+        app.fields["pixart_sigma_ldm_model"].show()
+        
+    else:
+        app.pixart_sigma_fields_labels["pixart_sigma_ldm_model"].hide()
+        app.fields["pixart_sigma_ldm_model"].hide()
+
+
+def update_pixart_sigma_model_id_value(app:Gtk.Window) -> None:
+    app.pixart_sigma_model_ids = ["None"] + MODEL_ID_LIST
+
+    if app.preferences["pixart_sigma_model_id"] not in MODEL_ID_LIST:
+        app.preferences["pixart_sigma_model_id"] = "None"
 
 def update_pixart_sigma_model_with_custom_model(model: torch.nn.Module, custom_model_path: str) -> torch.nn.Module:
     try:

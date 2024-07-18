@@ -73,6 +73,8 @@ from cremage.utils.hires_fix_upscaler_utils import hires_fix_upscaler_name_list
 from cremage.utils.misc_utils import join_directory_and_file_name
 from cremage.ui.generator_model_type_change_handler import sdxl_sampler_cb_changed
 from cremage.ui.sdxl_use_refiner_check_box_handler import sdxl_use_refiner_check_box_changed
+from cremage.utils.pixart_sigma_utils import pixart_sigma_model_id_cb_changed
+from cremage.utils.pixart_sigma_utils import update_pixart_sigma_model_id_value
 from sdxl.const.const import SDXL_RESOLUTIONS
 from sdxl.const.const import SDXL_SAMPLER_NAME_LIST
 from sdxl.const.const import DISCRETIZATION_LIST
@@ -1136,9 +1138,19 @@ def main_ui_definition(app) -> None:
     grid.set_margin_bottom(10) # Margin on the bottom
 
     vbox.pack_start(grid, True, True, 0)
+
+    update_pixart_sigma_model_id_value(app)
     fields_pixart_sigma = {
-        "pixart_sigma_ldm_model": create_combo_box_typeahead(app.pixart_sigma_ldm_model_names, app.pixart_sigma_ldm_model_names.index(app.preferences["pixart_sigma_ldm_model"])),
+        "pixart_sigma_model_id": create_combo_box_typeahead(
+            app.pixart_sigma_model_ids,
+            app.pixart_sigma_model_ids.index(app.preferences["pixart_sigma_model_id"]),
+            width=400),
+        "pixart_sigma_ldm_model": create_combo_box_typeahead(
+            app.pixart_sigma_ldm_model_names,
+            app.pixart_sigma_ldm_model_names.index(app.preferences["pixart_sigma_ldm_model"]),
+            width=400)
     }
+    fields_pixart_sigma["pixart_sigma_model_id"].connect("changed", lambda widget, app=app:pixart_sigma_model_id_cb_changed(app, widget))
 
     app.pixart_sigma_fields_labels = dict()
     # Add fields to the grid

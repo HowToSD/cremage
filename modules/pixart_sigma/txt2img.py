@@ -7,6 +7,8 @@ Copyright (c) 2024 Hideyuki Inada
 Code to interact with PixArt-Σ is based on [1] and [2] below and is covered under Apache 2.0 license.
 Refer to the license document at the root of this project.
 
+See pixart_sigma_utils.py for the list of model IDs.
+
 References
 [1] https://huggingface.co/docs/diffusers/v0.29.2/api/pipelines/pixart_sigma
 [2] https://github.com/huggingface/diffusers/blob/v0.29.2/docs/source/en/api/pipelines/pixart_sigma.md
@@ -33,9 +35,8 @@ sys.path = [MODULE_ROOT] + sys.path
 from cremage.ui.update_image_handler import update_image
 from cremage.configs.preferences import load_user_config
 from cremage.utils.pixart_sigma_utils import update_pixart_sigma_model_with_custom_model
+from cremage.utils.pixart_sigma_utils import DEFAULT_MODEL_ID, MODEL_ID_LIST
 
-
-MODEL_ID = "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS"
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ def flush():
 
 
 def generate(
+        model_id=None,
         checkpoint:str=None,  # Not used for now
         out_dir:str=None,
         positive_prompt: str=None,
@@ -66,6 +68,9 @@ def generate(
     """
     Generates an image based on the provided prompts, steps, and guidance scale.
     """
+
+    if model_id not in MODEL_ID_LIST:
+        model_id = DEFAULT_MODEL_ID
 
     if seed == -1:
         seed = random.getrandbits(32)
@@ -95,13 +100,13 @@ def generate(
             status_queue.put("Generating images ...")
 
         text_encoder = T5EncoderModel.from_pretrained(
-            MODEL_ID,
+            model_id,
             subfolder="text_encoder",
             load_in_8bit=True,
             device_map="auto",
         )
         pipe = PixArtSigmaPipeline.from_pretrained(
-            MODEL_ID,
+            model_id,
             text_encoder=text_encoder,
             transformer=None,
             device_map="balanced"
@@ -118,20 +123,16 @@ def generate(
         del pipe
         flush()
 
-
-        # pipe = PixArtSigmaPipeline.from_pretrained(
-        #     MODEL_ID,
-        #     text_encoder=None,
-        #     torch_dtype=torch.float16,
-        # ).to("cuda")
-
         pipe = PixArtSigmaPipeline.from_pretrained(
-            MODEL_ID,
+            model_id,
             text_encoder=None,
             torch_dtype=torch.float16,
         )
-        if checkpoint and os.path.exists(checkpoint):
+
+        if model_id == DEFAULT_MODEL_ID and checkpoint and os.path.exists(checkpoint):
             pipe.transformer = update_pixart_sigma_model_with_custom_model(pipe.transformer, checkpoint)
+        else:
+            checkpoint = "None"
         pipe.to("cuda")
 
         latents = pipe(
@@ -196,6 +197,7 @@ def generate(
                 "seed": seed + new_seed_group_index + i,
                 "safety_check": safety_check,
                 "auto_face_fix": auto_face_fix,
+                "model_id": model_id,
                 "ldm_model": ldm_model,
                 "generator_model_type": "Pixart Sigma"
             }

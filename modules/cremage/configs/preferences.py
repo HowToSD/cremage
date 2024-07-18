@@ -109,6 +109,8 @@ class Config:
     sd3_ldm_model: str
     pixart_sigma_ldm_model_path: str
     pixart_sigma_ldm_model: str
+    pixart_sigma_model_id: str
+
 
 def load_user_config():
 
@@ -214,7 +216,8 @@ def load_user_config():
             "sd3_ldm_model_path": "models/sd3_ldm",
             "sd3_ldm_model": "None",
             "pixart_sigma_ldm_model_path": "models/pixart_sigma_ldm",
-            "pixart_sigma_ldm_model": "None"
+            "pixart_sigma_ldm_model": "None",
+            "pixart_sigma_model_id": "None"
         }
         OmegaConf.save(config, CONFIG_FILE_PATH)
 

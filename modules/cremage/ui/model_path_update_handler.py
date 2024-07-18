@@ -66,6 +66,7 @@ def update_sdxl_ldm_inpaint_model_name_value_from_sdxl_ldm_model_dir(app:Gtk.Win
     if app.preferences["sdxl_ldm_inpaint_model"] not in app.sdxl_ldm_inpaint_model_names:
         app.preferences["sdxl_ldm_inpaint_model"] = "None"
 
+
 def update_pixart_sigma_ldm_model_name_value_from_pixart_sigma_ldm_model_dir(app:Gtk.Window) -> None:
     # Get the list of ldm model files
     app.pixart_sigma_ldm_model_names = ["None"] + load_pixart_sigma_ldm_model_paths(app.preferences["pixart_sigma_ldm_model_path"])

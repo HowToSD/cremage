@@ -1,4 +1,14 @@
 ## Updates
+July 18, 2024:
+900 M parameter variant of PixArt-Σ (Pixart Sigma) support has been added.
+Fine-tuned models for this variant are not supported yet.
+Please see [documentation for PixArt-Σ (Pixart Sigma)](docs/users_guide/ug_pixart_sigma.md "PixArt-Σ (Pixart Sigma)")
+
+This is a breaking change and requires your action if you have already installed Cremage. Please add the following lines in config.yaml:
+```
+pixart_sigma_model_id: None
+```
+
 July 17, 2024:
 PixArt-Σ (Pixart Sigma) support has been added. Only text to image flow is supported for now.
 

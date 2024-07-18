@@ -399,6 +399,11 @@ def generate_handler(app, widget, event) -> None:
                 "watermark": app.preferences["watermark"],
                 "auto_face_fix": auto_face_fix}
         
+        if generator_model_type == "Pixart Sigma":
+            kwargs.update({
+                "model_id": app.preferences["pixart_sigma_model_id"]
+            })
+
         if app.generation_mode == MODE_IMAGE_TO_IMAGE and \
            generator_model_type in ["Kandinsky 2.2"]:
             kwargs.update({

@@ -261,14 +261,7 @@ def create_combo_box(options: List[Any], active_index=0):
     combo.set_active(active_index)
     return combo
 
-def create_combo_box_typeahead(options: List[Any], active_index=0):
-
-
-    # combo = Gtk.ComboBoxText()
-    # for option in options:
-    #     combo.append_text(str(option))
-    # combo.set_active(active_index)
-    # return combo
+def create_combo_box_typeahead(options: List[Any], active_index=0, width=None):
 
     # Create a ListStore with one string column to use as the model
     liststore = Gtk.ListStore(str)
@@ -279,6 +272,9 @@ def create_combo_box_typeahead(options: List[Any], active_index=0):
     combobox = Gtk.ComboBox.new_with_entry()
     combobox.set_model(liststore)
     combobox.set_entry_text_column(0)
+
+    if width:
+        combobox.set_size_request(width, -1)
 
     # Setup the completion for the entry
     entry = combobox.get_child()

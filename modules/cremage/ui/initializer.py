@@ -20,6 +20,7 @@ from cremage.ui.ui_definition import main_ui_definition
 from cremage.ui.window_realized_handler import window_realized_handler
 from cremage.ui.generator_model_type_change_handler import toggle_genenator_model_type_ui
 from cremage.ui.sdxl_use_refiner_check_box_handler import toggle_use_refiner_ui
+from cremage.utils.pixart_sigma_utils import toggle_pixart_sigma_ui
 from cremage.const.const import *
 
 BLANK_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "blank_image_control_net.png")
@@ -108,3 +109,4 @@ def setup_field_visibility(app:Gtk.Window):
     use_refiner = True if app.preferences["sdxl_use_refiner"] else False
     toggle_use_refiner_ui(app, use_refiner)
 
+    toggle_pixart_sigma_ui(app, app.preferences["pixart_sigma_model_id"])

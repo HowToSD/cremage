@@ -46,6 +46,7 @@ COMBO_BOX_FIELDS = [
     "refiner_sdxl_lora_model_4",
     "refiner_sdxl_lora_model_5",
     "pixart_sigma_ldm_model",
+    "pixart_sigma_model_id",
     "sdxl_image_resolution",
     "sampler",
     "sdxl_sampler",

@@ -5,10 +5,15 @@ You can skip this section if you just installed Cremage. If you are upgrading yo
 ```
 pixart_sigma_ldm_model_path: None
 pixart_sigma_ldm_model: None
+pixart_sigma_model_id: None
 ```
 
 ## Using PixArt-Σ
 Weights are automatically downloaded, so there is no need to manually download them. To generate an image using this model, just select "Pixart Sigma" in the Generator model type combobox on the Basic tab, type prompts and press Generate.
+
+## Using 900M Variant
+By default, original PixArt-Σ model (PixArt-alpha/PixArt-Sigma-XL-2-1024-MS) is downloaded from Hugging Face and is used for generation.  You can also use 900M variant (https://huggingface.co/dataautogpt3/PixArt-Sigma-900M). To do so, select dataautogpt3/PixArt-Sigma-900M in the model ID combobox.
+Weights for this variant are automatically downloaded, so no further set up is needed. However, fine-tuned models for this variant is not supported at this time.
 
 ## Fine-tuned models
 There are multiple types of fine-tuned models available in the community. Cremage only supports models that satisfy the following conditions:
