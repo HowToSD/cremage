@@ -41,6 +41,7 @@ pip install diffusers==0.29.2
 ```
 
 For more information, please refer to [documentation for Stable Diffusion 3](docs/users_guide/ug_sd3.md "SD3")
+
 ---
 # Welcome to Cremage.
 
@@ -58,7 +59,7 @@ You can also go back to any of the previously generated image and tweak as Crema
 * SDXL
 * Stable Diffusion 3 (SD3)
 * Kandinsky 2.2
-* PixArt-Σ (Pixart Sigma)
+* PixArt-Σ (PixArt Sigma)
 * Hunyuan-DiT
 
 # Major Features
@@ -214,10 +215,6 @@ The tool is available on the Tools tab.
 
 June 2, 2024: Cremage now supports SDXL. Check out [Using SDXL with Cremage](docs/users_guide/ug_sdxl.md "View the SDXL Guide")
 
-May 4, 2024: Experimental segmentation inpainting was added.
-[Watch the demo video](docs/videos/segmentation_inpainting_4x_speed.mp4)
-(Note the video is 4x speed of the actual).
-
 May 6, 2024: *BREAKING CHANGE* Made face strength of FaceID configurable. Using a text editor, add the following line at the bottom of config.yaml in the Cremage installation directory.
 
 ```
@@ -225,6 +222,10 @@ face_strength: 0.7
 ```
 
 Existing Cremage installation will fail to start without making this change.
+
+May 4, 2024: Experimental segmentation inpainting was added.
+[Watch the demo video](docs/videos/segmentation_inpainting_4x_speed.mp4)
+(Note the video is 4x speed of the actual).
 
 # Reporting bugs
 The best way to report a bug is to create an issue on GitHub.
