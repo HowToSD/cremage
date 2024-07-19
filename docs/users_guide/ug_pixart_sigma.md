@@ -29,6 +29,7 @@ See Appendix below to find out the list of weight names that fine-tuned models n
 
 ## Limitations
 * Only text to image flow is supported.
+* Currently only 1 is supported for the batch size. If you specify a large number, batch size is adjusted to 1, and the number of batches will be adjusted to generate the specified number of images.
 * Auto face fix is supported, but the custom face image that you specify is not used during auto face fix. If you want to use the custom face image, use Face Fix tool after generation.
 * This feature has been only tested on Ubuntu with NVIDIA RTX 4090 (24GB VRAM). If you have less GPU VRAM, it may not work.
 

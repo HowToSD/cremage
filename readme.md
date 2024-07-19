@@ -1,6 +1,6 @@
 ## Updates
 July 18, 2024:
-900 M parameter variant of PixArt-Σ (Pixart Sigma) support has been added.
+Hunyuan-DiT support and 900M parameter variant of PixArt-Σ (Pixart Sigma) support have been added.
 Fine-tuned models for this variant are not supported yet.
 Please see [documentation for PixArt-Σ (Pixart Sigma)](docs/users_guide/ug_pixart_sigma.md "PixArt-Σ (Pixart Sigma)")
 
@@ -41,31 +41,6 @@ pip install diffusers==0.29.2
 ```
 
 For more information, please refer to [documentation for Stable Diffusion 3](docs/users_guide/ug_sd3.md "SD3")
-
-July 11, 2024:
-Made maximum paint area size configurable for spot inpainting with an inpaint model.
-This is a breaking change and requires your action if you have already installed Cremage. Please add the following line in config.yaml:
-```
-inpaint_max_edge_len: 512
-```
-Previously, a 512x512 box was selected to wrap your masked region when you spot-inpaint using an inpaint model, but changing this value will allow you to cover the larger area.  However, please be aware that inpainting quality may go down as you increase the size if the inpainting model was not trained with larger image size.
-
-July 11, 2024: Added text prompt safety checker to detect NSFW word(s).
-This uses fine-tuned BERT-based classifier model. For details, refer to [documentation for safety checker](docs/users_guide/ug_safety_checker.md "Safety checker").
-
-July 2, 2024: Added LLM interactor to have a discussion about images with an LLM locally. This can be used to analyze any images including ones generated in Cremage as well as generated externally.
-Currently, "llava-hf/llava-v1.6-mistral-7b-hf" is used as the LLM model for this feature.
-This model is automatically downloaded, so there is no need for you to manually download.
-To use, select an image on the image list, and click LLM interactor on the Tools palette.
-
-June 27, 2024: Experimental face colorize feature has been added. This feature is still work in progress and requires some post editing after using the feature. Checkout the [documentation for fixing a face](docs/users_guide/ug_fixing_face.md "Fixing a face") for more information.
-
-June 26, 2024: Experimental face unblur feature has been added. This feature is still work in progress and requires some post editing after using the feature. Checkout the [documentation for fixing a face](docs/users_guide/ug_fixing_face.md "Fixing a face") for more information.
-
-June 11, 2024: Video generation using Stable Video Diffusion (SVD) 1.1 is now supported. For more information, check out [Creating a video using SVD](docs/users_guide/ug_video.md "Video").
-
-At this point, this feature is only available for machines running Ubuntu with 24GB GPU RAM. However, if you want to use it on a host with less RAM, please file a ticket so that I can review and prioritize.
-
 ---
 # Welcome to Cremage.
 
@@ -84,6 +59,7 @@ You can also go back to any of the previously generated image and tweak as Crema
 * Stable Diffusion 3 (SD3)
 * Kandinsky 2.2
 * PixArt-Σ (Pixart Sigma)
+* Hunyuan-DiT
 
 # Major Features
 * Text to image (including Stable Diffusion 3)
@@ -198,6 +174,31 @@ By choosing to use **Cremage**, users acknowledge and accept the risks associate
 Users are reminded that **Cremage** must be used only for lawful and ethical purposes. This includes refraining from using the software to generate images of any real person without the explicit consent of the individuals whose likenesses are to be used. Users assume full responsibility for ensuring their use of the software complies with all applicable laws and ethical standards.
 
 # Previous Updates
+
+July 11, 2024:
+Made maximum paint area size configurable for spot inpainting with an inpaint model.
+This is a breaking change and requires your action if you have already installed Cremage. Please add the following line in config.yaml:
+```
+inpaint_max_edge_len: 512
+```
+Previously, a 512x512 box was selected to wrap your masked region when you spot-inpaint using an inpaint model, but changing this value will allow you to cover the larger area.  However, please be aware that inpainting quality may go down as you increase the size if the inpainting model was not trained with larger image size.
+
+July 11, 2024: Added text prompt safety checker to detect NSFW word(s).
+This uses fine-tuned BERT-based classifier model. For details, refer to [documentation for safety checker](docs/users_guide/ug_safety_checker.md "Safety checker").
+
+July 2, 2024: Added LLM interactor to have a discussion about images with an LLM locally. This can be used to analyze any images including ones generated in Cremage as well as generated externally.
+Currently, "llava-hf/llava-v1.6-mistral-7b-hf" is used as the LLM model for this feature.
+This model is automatically downloaded, so there is no need for you to manually download.
+To use, select an image on the image list, and click LLM interactor on the Tools palette.
+
+June 27, 2024: Experimental face colorize feature has been added. This feature is still work in progress and requires some post editing after using the feature. Checkout the [documentation for fixing a face](docs/users_guide/ug_fixing_face.md "Fixing a face") for more information.
+
+June 26, 2024: Experimental face unblur feature has been added. This feature is still work in progress and requires some post editing after using the feature. Checkout the [documentation for fixing a face](docs/users_guide/ug_fixing_face.md "Fixing a face") for more information.
+
+June 11, 2024: Video generation using Stable Video Diffusion (SVD) 1.1 is now supported. For more information, check out [Creating a video using SVD](docs/users_guide/ug_video.md "Video").
+
+At this point, this feature is only available for machines running Ubuntu with 24GB GPU RAM. However, if you want to use it on a host with less RAM, please file a ticket so that I can review and prioritize.
+
 June 6, 2024: Spot inpainter now supports inpaint models in addition to regular SD 1.5 models. Inpaint models have been supported in the main UI, but fixing seams required switching between Spot inpainter and the main UI in the past. Now, you can inpaint using both models within Spot inpainter. This will make seam fixing much easier. Also, for inpainting using an inpaint model, Spot inpainter extracts a 512x512 region surrounding the mask to inpaint instead of processing the entire image, allowing you to touch up a large image.
 
 June 4, 2024: The wildcards feature support has been added to randomly replace a part of the prompt with a predefined set of words. Check out [How to Use Wildcards](docs/users_guide/ug_wildcards.md "Wildcards") for details.  If you have already installed Cremage, this update requires an extra step to manually update your configuration after pulling the latest code from GitHub.

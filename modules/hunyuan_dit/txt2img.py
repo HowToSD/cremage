@@ -1,17 +1,18 @@
 
 """
-PixArt-Σ txt2img
+Hunyuan-DiT txt2img
 
 Copyright (c) 2024 Hideyuki Inada
 
-Code to interact with PixArt-Σ is based on [1] and [2] below and is covered under Apache 2.0 license.
+Code to interact with Hunyuan-Dit is based on PixArt-Sigma interaction code [1] and [2] as well as Hunyuan documentation [3] below and is covered under Apache 2.0 license.
 Refer to the license document at the root of this project.
-
-See pixart_sigma_utils.py for the list of model IDs.
+In addition, portion of the code was taken from [4].
 
 References
 [1] https://huggingface.co/docs/diffusers/v0.29.2/api/pipelines/pixart_sigma
 [2] https://github.com/huggingface/diffusers/blob/v0.29.2/docs/source/en/api/pipelines/pixart_sigma.md
+[3] https://huggingface.co/docs/diffusers/en/api/pipelines/hunyuandit#diffusers.HunyuanDiTPipeline
+[4] https://gist.github.com/sayakpaul/3154605f6af05b98a41081aaba5ca43e
 """
 import os
 import sys
@@ -24,7 +25,7 @@ import torch
 from typing import List, Optional, Tuple
 
 from transformers import T5EncoderModel
-from diffusers import PixArtSigmaPipeline
+from diffusers import HunyuanDiTPipeline
 from PIL.PngImagePlugin import PngInfo
 import numpy as np
 from PIL import Image
@@ -34,9 +35,7 @@ MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 sys.path = [MODULE_ROOT] + sys.path
 from cremage.ui.update_image_handler import update_image
 from cremage.configs.preferences import load_user_config
-from cremage.utils.pixart_sigma_utils import update_pixart_sigma_model_with_custom_model
-from cremage.utils.pixart_sigma_utils import DEFAULT_MODEL_ID, MODEL_ID_LIST
-
+from cremage.const.const import GMT_HUNYUAN_DIT
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -48,13 +47,13 @@ def flush():
 
 
 def generate(
-        model_id=None,
+        model_id="Tencent-Hunyuan/HunyuanDiT-Diffusers",
         checkpoint:str=None,  # Not used for now
         out_dir:str=None,
         positive_prompt: str=None,
         negative_prompt: str=None,
-        steps: int = 20,
-        guidance_scale: float = 4.5,
+        steps: int = 50,
+        guidance_scale: float = 5.0,
         height: int = 1024,
         width: int = 1024,
         number_of_batches = 1,
@@ -68,13 +67,6 @@ def generate(
     """
     Generates an image based on the provided prompts, steps, and guidance scale.
     """
-    if batch_size != 1:
-        logger.warn("Currently only 1 is supported for the batch size. Number of batches were adjusted to generate the specified number of images.")
-        number_of_batches *= batch_size
-        batch_size = 1
-
-    if model_id not in MODEL_ID_LIST:
-        model_id = DEFAULT_MODEL_ID
 
     if seed == -1:
         seed = random.getrandbits(32)
@@ -83,6 +75,11 @@ def generate(
         status_queue.put("Diffusers pipeline created")
 
     file_number_base = len(os.listdir(out_dir))
+
+    if batch_size != 1:
+        logger.warn("Currently only 1 is supported for the batch size. Number of batches were adjusted to generate the specified number of images.")
+        number_of_batches *= batch_size
+        batch_size = 1
 
     if safety_check:
         from safety.safety_filter import SafetyFilter
@@ -96,47 +93,54 @@ def generate(
 
     for batch_index in range(number_of_batches):
         new_seed_group_index = batch_size * batch_index
-        # TODO: Fix the issue where if you specify random number generator when bs > 1, the same image is generated for all images within
-        # the batch.
-        random_number_generator = [torch.Generator(device="cuda").manual_seed(seed + new_seed_group_index + i) for i in range(batch_size**2)]
+        random_number_generator = [torch.Generator(device="cuda").manual_seed(seed + new_seed_group_index + i) for i in range(batch_size)]
 
         if status_queue:
             status_queue.put("Generating images ...")
 
         text_encoder = T5EncoderModel.from_pretrained(
             model_id,
-            subfolder="text_encoder",
+            subfolder="text_encoder_2",
             load_in_8bit=True,
             device_map="auto",
         )
-        pipe = PixArtSigmaPipeline.from_pretrained(
+        pipe = HunyuanDiTPipeline.from_pretrained(
             model_id,
-            text_encoder=text_encoder,
+            text_encoder_2=text_encoder,
             transformer=None,
+            vae=None,
             device_map="balanced"
         )
 
         with torch.no_grad():
-            prompt_embeds, prompt_attention_mask, negative_embeds, negative_prompt_attention_mask = \
+            prompt_embeds, negative_embeds, prompt_attention_mask, negative_prompt_attention_mask = \
                 pipe.encode_prompt(
                     prompt=positive_prompt,
                     negative_prompt=negative_prompt,
                     num_images_per_prompt=batch_size)
 
+            prompt_embeds_2, negative_prompt_embeds_2, prompt_attention_mask_2, negative_prompt_attention_mask_2 = \
+                pipe.encode_prompt(
+                    prompt=positive_prompt,
+                    negative_prompt=negative_prompt,
+                    prompt_embeds=None,
+                    negative_prompt_embeds=None,
+                    prompt_attention_mask=None,
+                    negative_prompt_attention_mask=None,
+                    max_sequence_length=256,
+                    text_encoder_index=1,
+                )
         del text_encoder
         del pipe
         flush()
 
-        pipe = PixArtSigmaPipeline.from_pretrained(
+        pipe = HunyuanDiTPipeline.from_pretrained(
             model_id,
             text_encoder=None,
+            text_encoder_2=None,
+            vae=None,
             torch_dtype=torch.float16,
         )
-
-        if model_id == DEFAULT_MODEL_ID and checkpoint and os.path.exists(checkpoint):
-            pipe.transformer = update_pixart_sigma_model_with_custom_model(pipe.transformer, checkpoint)
-        else:
-            checkpoint = "None"
         pipe.to("cuda")
 
         latents = pipe(
@@ -148,14 +152,28 @@ def generate(
             num_images_per_prompt=batch_size,
             height=height,
             width=width,
-            num_inference_steps=steps,  # default 20
-            guidance_scale=guidance_scale,  # default 4.5
+            num_inference_steps=steps,
+            guidance_scale=guidance_scale,
             generator=random_number_generator,
             output_type="latent",
+            prompt_embeds_2=prompt_embeds_2,
+            negative_prompt_embeds_2=negative_prompt_embeds_2,
+            prompt_attention_mask_2=prompt_attention_mask_2,
+            negative_prompt_attention_mask_2=negative_prompt_attention_mask_2,
         ).images
 
         del pipe.transformer
         flush()
+
+        # Instantiate VAE
+        pipe = HunyuanDiTPipeline.from_pretrained(
+            model_id,
+            text_encoder=None,
+            text_encoder_2=None,
+            transformer=None,
+            torch_dtype=torch.float16,
+        )
+        pipe.to("cuda")
 
         image_list = []
         for _ in range(batch_size):
@@ -203,7 +221,7 @@ def generate(
                 "auto_face_fix": auto_face_fix,
                 "model_id": model_id,
                 "ldm_model": ldm_model,
-                "generator_model_type": "Pixart Sigma"
+                "generator_model_type": GMT_HUNYUAN_DIT
             }
 
             file_number = file_number_base + new_seed_group_index + i

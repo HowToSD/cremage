@@ -16,7 +16,7 @@ PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path = [TOOLS_ROOT, MODULE_ROOT] + sys.path
-from cremage.const.const import THUMBNAIL_IMAGE_EDGE_LENGTH
+from cremage.const.const import *
 from cremage.utils.image_utils import resize_pil_image
 from cremage.utils.gtk_utils import set_pil_image_to_gtk_image
 from cremage.utils.app_misc_utils import get_next_face_file_path
@@ -33,8 +33,12 @@ def sdxl_sampler_cb_changed(app, combo):
 
 def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
 
-    if generator_model_type == "SD 1.5" or \
-       generator_model_type in ["SD 3", "Pixart Sigma", "Kandinsky 2.2"]:
+    if generator_model_type == GMT_SD_1_5 or \
+       generator_model_type in [
+           GMT_SD_3,
+           GMT_PIXART_SIGMA,
+           GMT_KANDINSKY_2_2,
+           GMT_HUNYUAN_DIT]:
 
         # Common between SD 1.5 and SD 3
         app.fields["sdxl_sampler"].hide()
@@ -55,7 +59,7 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
         if sdxl_advanced_page_num >= 0:
             app.notebook.remove_page(sdxl_advanced_page_num)
 
-        if generator_model_type == "SD 1.5":
+        if generator_model_type == GMT_SD_1_5:
             pixart_sigma_page_num = app.notebook.page_num(app.tab_contents["PixArt-Sigma"])
             if pixart_sigma_page_num >= 0:
                 app.notebook.remove_page(pixart_sigma_page_num)
@@ -88,7 +92,13 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
                     app.tab_labels["ControlNet"],
                     2)
 
-        elif generator_model_type in ["SD 3", "Pixart Sigma", "Kandinsky 2.2"]:
+        elif generator_model_type in \
+            [
+                GMT_SD_3,
+                GMT_PIXART_SIGMA,
+                GMT_KANDINSKY_2_2,
+                GMT_HUNYUAN_DIT
+            ]:
             app.fields["sampler"].hide()
             app.fields1_labels["Sampler"].hide()
             app.fields["clip_skip"].hide()
@@ -99,7 +109,7 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
             app.fields["hires_fix_scale_factor"].hide()
             app.fields1_labels["Hires fix scale factor"].hide()
 
-            if generator_model_type in ["SD 3"]:
+            if generator_model_type in [GMT_SD_3, GMT_HUNYUAN_DIT]:
                 pixart_sigma_page_num = app.notebook.page_num(app.tab_contents["PixArt-Sigma"])
                 if pixart_sigma_page_num >= 0:
                     app.notebook.remove_page(pixart_sigma_page_num)
@@ -109,7 +119,7 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
                 app.rb_image_to_image.hide()
                 app.rb_inpainting.hide()
 
-            elif generator_model_type in ["Pixart Sigma"]:
+            elif generator_model_type in [GMT_PIXART_SIGMA]:
 
                 pixart_sigma_page_num = app.notebook.page_num(app.tab_contents["PixArt-Sigma"])
                 if pixart_sigma_page_num  == -1:
@@ -128,7 +138,7 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
                 app.rb_image_to_image.hide()
                 app.rb_inpainting.hide()
 
-            elif generator_model_type in ["Kandinsky 2.2"]:
+            elif generator_model_type in [GMT_KANDINSKY_2_2]:
                 pixart_sigma_page_num = app.notebook.page_num(app.tab_contents["PixArt-Sigma"])
                 if pixart_sigma_page_num >= 0:
                     app.notebook.remove_page(pixart_sigma_page_num)

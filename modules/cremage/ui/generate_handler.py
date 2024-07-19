@@ -104,7 +104,7 @@ def generate_handler(app, widget, event) -> None:
 
     wildcards_path = app.preferences["wildcards_path"]
 
-    if generator_model_type == "SD 1.5":
+    if generator_model_type == GMT_SD_1_5:
         embedding_path = app.preferences["embedding_path"]
         sampler = app.preferences["sampler"]
         ldm_path = join_directory_and_file_name(app.preferences["ldm_model_path"], app.preferences["ldm_model"])
@@ -124,7 +124,7 @@ def generate_handler(app, widget, event) -> None:
         # e.g. "model/loras/foo.safetensors,model/loras/bar.safetensors"
         #      "1.0,0.9"
         lora_models, lora_weights = generate_lora_params(lora_dict)
-    elif generator_model_type == "SDXL":
+    elif generator_model_type == GMT_SDXL:
         embedding_path = app.preferences["sdxl_embedding_path"]
         sampler = app.preferences["sdxl_sampler"]+"Sampler"
         ldm_path = join_directory_and_file_name(app.preferences["sdxl_ldm_model_path"], app.preferences["sdxl_ldm_model"])
@@ -163,14 +163,17 @@ def generate_handler(app, widget, event) -> None:
         else:
             refiner_strength = 0.0
 
-    elif generator_model_type in ["SD 3", "Pixart Sigma", "Kandinsky 2.2"]:
-        if generator_model_type == "SD 3":
+    elif generator_model_type in [GMT_SD_3, GMT_PIXART_SIGMA, GMT_KANDINSKY_2_2, GMT_HUNYUAN_DIT]:
+        if generator_model_type == GMT_SD_3:
             from sd3.txt2img import generate as sd3_txt2image_generate
             ldm_path = join_directory_and_file_name(app.preferences["sd3_ldm_model_path"], app.preferences["sd3_ldm_model"])
-        elif generator_model_type == "Pixart Sigma":
+        elif generator_model_type == GMT_PIXART_SIGMA:
             from pixart_sigma.txt2img import generate as pixart_sigma_txt2image_generate
-            ldm_path = None  # TODO: Support custom weights
-        else:
+            ldm_path = None
+        elif generator_model_type == GMT_HUNYUAN_DIT:
+            from hunyuan_dit.txt2img import generate as hunyuan_dit_txt2image_generate
+            ldm_path = None
+        else:  # Kandinsky
             # Do NOT move below import statements to the top of the file
             # It would slow down loading.
             from kandinsky.txt2img import generate as k2_2_txt2img_generate
@@ -227,7 +230,7 @@ def generate_handler(app, widget, event) -> None:
             "--face_strength", str(app.preferences["face_strength"])
         ]
 
-    if generator_model_type == "SD 1.5":
+    if generator_model_type == GMT_SD_1_5:
         if app.generation_mode in (MODE_IMAGE_TO_IMAGE, MODE_INPAINTING):
             # Save current image_input to a file
             # Note that we are saving the full-size image here.
@@ -276,7 +279,7 @@ def generate_handler(app, widget, event) -> None:
                     'status_queue': status_queue})
     # end if sd 1.5
 
-    elif generator_model_type == "SDXL":
+    elif generator_model_type == GMT_SDXL:
 
         from sdxl.sdxl_pipeline.sdxl_image_generator import parse_options_and_generate as sdxl_parse_options_and_generate
 
@@ -357,15 +360,18 @@ def generate_handler(app, widget, event) -> None:
                     'status_queue': status_queue})
     # end if sdxl
 
-    elif generator_model_type in ["SD 3", "Pixart Sigma", "Kandinsky 2.2"]:
+    elif generator_model_type in [GMT_SD_3, GMT_PIXART_SIGMA, GMT_KANDINSKY_2_2, GMT_HUNYUAN_DIT]:
 
-        if generator_model_type == "SD 3":
+        if generator_model_type == GMT_SD_3:
             checkpoint = app.preferences["sd3_ldm_model_path"]
             target_func = sd3_txt2image_generate
-        elif generator_model_type == "Pixart Sigma":
+        elif generator_model_type == GMT_PIXART_SIGMA:
             checkpoint = join_directory_and_file_name(app.preferences["pixart_sigma_ldm_model_path"], app.preferences["pixart_sigma_ldm_model"])
             target_func = pixart_sigma_txt2image_generate
-        elif generator_model_type == "Kandinsky 2.2":
+        elif generator_model_type == GMT_HUNYUAN_DIT:
+            checkpoint = ""  # Not used for now
+            target_func = hunyuan_dit_txt2image_generate
+        elif generator_model_type == GMT_KANDINSKY_2_2:
             checkpoint = ""  # Not used for now
             if app.generation_mode == MODE_TEXT_TO_IMAGE:
                 target_func = k2_2_txt2img_generate
@@ -389,7 +395,7 @@ def generate_handler(app, widget, event) -> None:
                 'checkpoint': checkpoint,
                 'out_dir': app.output_dir,
                 "steps": app.preferences["sampling_steps"],
-                'guidance_scale': app.preferences["cfg"], # 7
+                'guidance_scale': app.preferences["cfg"],
                 'height': int(image_height),
                 'width': int(image_width),
                 "number_of_batches": int(number_of_batches),
@@ -399,20 +405,20 @@ def generate_handler(app, widget, event) -> None:
                 "watermark": app.preferences["watermark"],
                 "auto_face_fix": auto_face_fix}
         
-        if generator_model_type == "Pixart Sigma":
+        if generator_model_type == GMT_PIXART_SIGMA:
             kwargs.update({
                 "model_id": app.preferences["pixart_sigma_model_id"]
             })
 
         if app.generation_mode == MODE_IMAGE_TO_IMAGE and \
-           generator_model_type in ["Kandinsky 2.2"]:
+           generator_model_type in [GMT_KANDINSKY_2_2]:
             kwargs.update({
                 "input_image": app.input_image_original_size,
                 "denoising_strength": app.preferences["denoising_strength"]
             })
 
         if app.generation_mode == MODE_INPAINTING and \
-           generator_model_type in ["Kandinsky 2.2"]:
+           generator_model_type in [GMT_KANDINSKY_2_2]:
             kwargs.update({
                 "input_image": app.input_image_original_size,
                 "mask_image": Image.open(app.mask_image_path),

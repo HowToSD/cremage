@@ -14,10 +14,18 @@ TRUE_FALSE_LIST = ["True", "False"]
 
 FACE_MODEL_NAME = "ip-adapter-faceid-plusv2_sd15.bin"
 
+GMT_SD_1_5 = "SD 1.5"
+GMT_SDXL = "SDXL"
+GMT_SD_3 = "SD 3"
+GMT_KANDINSKY_2_2 = "Kandinsky 2.2"
+GMT_PIXART_SIGMA = "Pixart Sigma"
+GMT_HUNYUAN_DIT = "Hunyuan-DiT"
+
 GENERATOR_MODEL_TYPE_LIST = [
-    "SD 1.5",
-    "SDXL",
-    "SD 3",
-    "Kandinsky 2.2",
-    "Pixart Sigma"
+    GMT_SD_1_5,
+    GMT_SDXL,
+    GMT_SD_3 ,
+    GMT_KANDINSKY_2_2,
+    GMT_PIXART_SIGMA,
+    GMT_HUNYUAN_DIT
 ]
