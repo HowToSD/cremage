@@ -62,6 +62,8 @@ You can also go back to any of the previously generated image and tweak as Crema
 * Stable Diffusion 1.5 (SD1.5)
 * SDXL
 * Stable Diffusion 3 (SD3)
+* Stable Cascade
+* Stable Video Diffusion (SVD)
 * Kandinsky 2.2
 * PixArt-Σ (PixArt Sigma)
 * Hunyuan-DiT
