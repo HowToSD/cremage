@@ -1,4 +1,8 @@
 ## Updates
+July 19, 2024:
+Stable Cascade support has been added.  No manual set up is required to use this model.
+Just select Stable Cascade in the Model generator type combobox on the Basic tab to generate an image.
+
 July 18, 2024:
 Hunyuan-DiT support and 900M parameter variant of PixArt-Σ (Pixart Sigma) support have been added.
 Fine-tuned models for this variant are not supported yet.

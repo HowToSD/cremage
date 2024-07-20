@@ -163,10 +163,20 @@ def generate_handler(app, widget, event) -> None:
         else:
             refiner_strength = 0.0
 
-    elif generator_model_type in [GMT_SD_3, GMT_PIXART_SIGMA, GMT_KANDINSKY_2_2, GMT_HUNYUAN_DIT]:
+    elif generator_model_type in \
+        [
+            GMT_SD_3,
+            GMT_STABLE_CASCADE,
+            GMT_PIXART_SIGMA,
+            GMT_KANDINSKY_2_2,
+            GMT_HUNYUAN_DIT
+        ]:
         if generator_model_type == GMT_SD_3:
             from sd3.txt2img import generate as sd3_txt2image_generate
             ldm_path = join_directory_and_file_name(app.preferences["sd3_ldm_model_path"], app.preferences["sd3_ldm_model"])
+        elif generator_model_type == GMT_STABLE_CASCADE:
+            from stable_cascade.txt2img import generate as stable_cascade_txt2image_generate
+            ldm_path = None
         elif generator_model_type == GMT_PIXART_SIGMA:
             from pixart_sigma.txt2img import generate as pixart_sigma_txt2image_generate
             ldm_path = None
@@ -360,11 +370,20 @@ def generate_handler(app, widget, event) -> None:
                     'status_queue': status_queue})
     # end if sdxl
 
-    elif generator_model_type in [GMT_SD_3, GMT_PIXART_SIGMA, GMT_KANDINSKY_2_2, GMT_HUNYUAN_DIT]:
+    elif generator_model_type in \
+        [
+            GMT_SD_3,
+            GMT_STABLE_CASCADE,
+            GMT_PIXART_SIGMA,
+            GMT_KANDINSKY_2_2,
+            GMT_HUNYUAN_DIT]:
 
         if generator_model_type == GMT_SD_3:
             checkpoint = app.preferences["sd3_ldm_model_path"]
             target_func = sd3_txt2image_generate
+        elif generator_model_type == GMT_STABLE_CASCADE:
+            checkpoint = ""
+            target_func = stable_cascade_txt2image_generate
         elif generator_model_type == GMT_PIXART_SIGMA:
             checkpoint = join_directory_and_file_name(app.preferences["pixart_sigma_ldm_model_path"], app.preferences["pixart_sigma_ldm_model"])
             target_func = pixart_sigma_txt2image_generate

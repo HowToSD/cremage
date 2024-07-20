@@ -1,17 +1,16 @@
 
 """
-PixArt-Σ txt2img
+Stable Cascade txt2img
 
 Copyright (c) 2024 Hideyuki Inada
 
-Code to interact with PixArt-Σ is based on [1] and [2] below and is covered under Apache 2.0 license.
+Code to interact with Stable Cascade is based on [1], [2] and [3] below and is covered under Apache 2.0 license.
 Refer to the license document at the root of this project.
-
-See pixart_sigma_utils.py for the list of model IDs.
 
 References
 [1] https://huggingface.co/docs/diffusers/v0.29.2/api/pipelines/pixart_sigma
 [2] https://github.com/huggingface/diffusers/blob/v0.29.2/docs/source/en/api/pipelines/pixart_sigma.md
+[3] https://huggingface.co/docs/diffusers/main/en/api/pipelines/stable_cascade
 """
 import os
 import sys
@@ -23,8 +22,7 @@ import json
 import torch
 from typing import List, Optional, Tuple
 
-from transformers import T5EncoderModel
-from diffusers import PixArtSigmaPipeline
+from diffusers import StableCascadeDecoderPipeline, StableCascadePriorPipeline
 from PIL.PngImagePlugin import PngInfo
 import numpy as np
 from PIL import Image
@@ -34,9 +32,7 @@ MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 sys.path = [MODULE_ROOT] + sys.path
 from cremage.ui.update_image_handler import update_image
 from cremage.configs.preferences import load_user_config
-from cremage.utils.pixart_sigma_utils import update_pixart_sigma_model_with_custom_model
-from cremage.utils.pixart_sigma_utils import DEFAULT_MODEL_ID, MODEL_ID_LIST
-
+from cremage.const.const import GMT_STABLE_CASCADE
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -54,7 +50,7 @@ def generate(
         positive_prompt: str=None,
         negative_prompt: str=None,
         steps: int = 20,
-        guidance_scale: float = 4.5,
+        guidance_scale: float = 4.0,
         height: int = 1024,
         width: int = 1024,
         number_of_batches = 1,
@@ -70,13 +66,10 @@ def generate(
     """
     start_time = time.perf_counter()
 
-    if batch_size != 1:
+    if batch_size != 1:  # Specifying bs > 1 results in the similar/same image being generated for the same batch
         logger.warn("Currently only 1 is supported for the batch size. Number of batches were adjusted to generate the specified number of images.")
         number_of_batches *= batch_size
         batch_size = 1
-
-    if model_id not in MODEL_ID_LIST:
-        model_id = DEFAULT_MODEL_ID
 
     if seed == -1:
         seed = random.getrandbits(32)
@@ -96,83 +89,47 @@ def generate(
         wm_encoder = WatermarkEncoder()
         wm_encoder.set_watermark('bytes', wm.encode('utf-8'))
 
+    prior = StableCascadePriorPipeline.from_pretrained("stabilityai/stable-cascade-prior", variant="bf16", torch_dtype=torch.bfloat16)
+    decoder = StableCascadeDecoderPipeline.from_pretrained("stabilityai/stable-cascade", variant="bf16", torch_dtype=torch.float16)
+
     for batch_index in range(number_of_batches):
         new_seed_group_index = batch_size * batch_index
-        # TODO: Fix the issue where if you specify random number generator when bs > 1, the same image is generated for all images within
-        # the batch.
-        random_number_generator = [torch.Generator(device="cuda").manual_seed(seed + new_seed_group_index + i) for i in range(batch_size**2)]
+        random_number_generator = [torch.Generator(device="cuda").manual_seed(seed + new_seed_group_index + i) for i in range(batch_size)]
 
         if status_queue:
             status_queue.put("Generating images ...")
 
-        text_encoder = T5EncoderModel.from_pretrained(
-            model_id,
-            subfolder="text_encoder",
-            load_in_8bit=True,
-            device_map="auto",
-        )
-        pipe = PixArtSigmaPipeline.from_pretrained(
-            model_id,
-            text_encoder=text_encoder,
-            transformer=None,
-            device_map="balanced"
-        )
-
-        with torch.no_grad():
-            prompt_embeds, prompt_attention_mask, negative_embeds, negative_prompt_attention_mask = \
-                pipe.encode_prompt(
-                    prompt=positive_prompt,
-                    negative_prompt=negative_prompt,
-                    num_images_per_prompt=batch_size)
-
-        del text_encoder
-        del pipe
-        flush()
-
-        pipe = PixArtSigmaPipeline.from_pretrained(
-            model_id,
-            text_encoder=None,
-            torch_dtype=torch.float16,
-        )
-
-        if model_id == DEFAULT_MODEL_ID and checkpoint and os.path.exists(checkpoint):
-            pipe.transformer = update_pixart_sigma_model_with_custom_model(pipe.transformer, checkpoint)
-        else:
-            checkpoint = "None"
-
-        # Compile
-        # Disabling torch.compile for now as compiling takes significant amount of time
-        # pipe.transformer = torch.compile(pipe.transformer, mode="max-autotune", fullgraph=True)
-        # pipe.vae.decode = torch.compile(pipe.vae.decode, mode="max-autotune", fullgraph=True)
-        pipe.to("cuda")
-
-        latents = pipe(
-            negative_prompt=None,
-            prompt_embeds=prompt_embeds,
-            negative_prompt_embeds=negative_embeds,
-            prompt_attention_mask=prompt_attention_mask,
-            negative_prompt_attention_mask=negative_prompt_attention_mask,
-            num_images_per_prompt=batch_size,
+        # If you specify 1024x1024 for output
+        # For bs=1, prior generates image embedding in shape (1, 16, 24, 24)
+        prior.enable_model_cpu_offload()
+        prior_output = prior(
+            prompt=positive_prompt,
+            negative_prompt=negative_prompt,
             height=height,
             width=width,
+            guidance_scale=guidance_scale,  # default 4
+            num_images_per_prompt=batch_size,  # 1,  # FIXME
             num_inference_steps=steps,  # default 20
-            guidance_scale=guidance_scale,  # default 4.5
             generator=random_number_generator,
-            output_type="latent",
-        ).images
-
-        del pipe.transformer
-        flush()
+        )
+        decoder.enable_model_cpu_offload()
 
         image_list = []
-        for _ in range(batch_size):
+        for i in range(batch_size):
             with torch.no_grad():
-                image = pipe.vae.decode(latents / pipe.vae.config.scaling_factor, return_dict=False)[0]
-            image = pipe.image_processor.postprocess(image, output_type="pil")[0]
+                outputs = decoder(
+                        image_embeddings=prior_output.image_embeddings.to(torch.float16),
+                        prompt=positive_prompt,
+                        negative_prompt=negative_prompt,
+                        guidance_scale=0.0,
+                        output_type="pil",
+                        num_inference_steps=10,   # FIXME. 10 is the default
+                        generator=random_number_generator[i],
+                        num_images_per_prompt=1,
+                    )
+                image = outputs.images[0]
             image_list.append(image)
         images = image_list
-        del pipe
-        flush()
 
         for i, image in enumerate(images):
             
@@ -210,7 +167,7 @@ def generate(
                 "auto_face_fix": auto_face_fix,
                 "model_id": model_id,
                 "ldm_model": ldm_model,
-                "generator_model_type": "Pixart Sigma"
+                "generator_model_type": GMT_STABLE_CASCADE
             }
 
             file_number = file_number_base + new_seed_group_index + i
@@ -238,7 +195,8 @@ def generate(
                                 generation_parameters=str_generation_params)
 
             # end single batch
-    gc.collect()
+    
+    flush()
     # end batch
 
     end_time = time.perf_counter()
