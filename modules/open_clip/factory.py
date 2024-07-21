@@ -148,7 +148,11 @@ def load_checkpoint(model, checkpoint_path, strict=True):
         load_big_vision_weights(model, checkpoint_path)
         return {}
 
+    t_start = time.perf_counter()
     state_dict = load_state_dict(checkpoint_path)
+    t_end = time.perf_counter()
+    logger.info(f"Loaded stated dict in {t_end - t_start} sec")
+
     # detect old format and make compatible with new format
     if 'positional_embedding' in state_dict and not hasattr(model, 'positional_embedding'):
         state_dict = convert_to_custom_text_state_dict(state_dict)
@@ -226,6 +230,7 @@ def create_model(
         require_pretrained: bool = False,
         lora_ranks=None,
         lora_weights=None,
+        disable_loading_state_dict=True, # Cremage added
         **model_kwargs,
 ):
     force_preprocess_cfg = force_preprocess_cfg or {}
@@ -301,7 +306,7 @@ def create_model(
             model = CLIP(**model_cfg, cast_dtype=cast_dtype,
                          lora_ranks=lora_ranks, lora_weights=lora_weights)
             t_end = time.perf_counter()
-            logger.debug(f"open_clip CLIP instantiation took {t_end-t_start} seconds")
+            logger.info(f"open_clip CLIP instantiation took {t_end-t_start} seconds")
 
         if precision in ("fp16", "bf16"):
             dtype = torch.float16 if 'fp16' in precision else torch.bfloat16
@@ -337,9 +342,14 @@ def create_model(
             elif os.path.exists(pretrained):
                 checkpoint_path = pretrained
 
-            if checkpoint_path:
+            if checkpoint_path and disable_loading_state_dict is False:
                 logging.info(f'Loading pretrained {model_name} weights ({pretrained}).')
+                t_start = time.perf_counter()
                 load_checkpoint(model, checkpoint_path)
+                t_end = time.perf_counter()
+                logging.info(f'Loaded pretrained {model_name} weights ({pretrained}) in {t_end - t_start} sec.')
+            elif disable_loading_state_dict:
+                logging.info("Skipping loading state dict during model creation.")
             else:
                 error_str = (
                     f'Pretrained weights ({pretrained}) not found for model {model_name}.'
@@ -349,7 +359,11 @@ def create_model(
             pretrained_loaded = True
         elif has_hf_hub_prefix:
             logging.info(f'Loading pretrained {model_name} weights ({checkpoint_path}).')
+            t_start = time.perf_counter()
             load_checkpoint(model, checkpoint_path)
+            t_end = time.perf_counter()
+            logging.info(f'Loaded pretrained {model_name} weights ({checkpoint_path}) in {t_end - t_start} sec.')
+
             pretrained_loaded = True
 
         if require_pretrained and not pretrained_loaded:
@@ -432,6 +446,7 @@ def create_model_and_transforms(
         output_dict: Optional[bool] = None,
         lora_ranks: Optional[List[int]] = None,
         lora_weights: Optional[List[float]] = None,
+        disable_loading_state_dict=True, # Cremage added
         **model_kwargs,
 ):
     force_preprocess_cfg = merge_preprocess_kwargs(
@@ -455,6 +470,7 @@ def create_model_and_transforms(
         output_dict=output_dict,
         lora_ranks=lora_ranks,
         lora_weights=lora_weights,
+        disable_loading_state_dict=disable_loading_state_dict, # Cremage added
         **model_kwargs,
     )
     t_end = time.perf_counter()

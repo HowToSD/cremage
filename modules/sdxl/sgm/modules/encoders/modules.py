@@ -648,7 +648,9 @@ class FrozenOpenCLIPEmbedder2(AbstractEmbModel):
             device=torch.device("cpu"),
             pretrained=version,
             lora_ranks=lora_ranks,
-            lora_weights=lora_weights
+            lora_weights=lora_weights,
+            # precision="fp16",  # Cremage TODO. Enable after checking the behavior on Mac.
+            disable_loading_state_dict=True  # Do not load state dict, load later
         )
         t_end = time.perf_counter()
         logger.debug(f"open_clip.create_model_and_transforms took {t_end-t_start} seconds")

@@ -367,6 +367,8 @@ def generate(opt,
     global prev_lora_models_2
     global prev_lora_weights_2
 
+    start_time = time.perf_counter()
+
     use_refiner = False
 
     # Hires fix
@@ -701,8 +703,12 @@ def generate(opt,
         # end single batch
         gc.collect()
     # end batch
+
+    end_time = time.perf_counter()
+    logger.info(f"Completed. Time elapsed: {end_time - start_time}")
+
     if status_queue:
-        status_queue.put("Completed")
+        status_queue.put(f"Completed. Time elapsed: {end_time - start_time:0.1f} seconds")
 
 
 def parse_options_and_generate(args=None,

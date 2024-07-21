@@ -99,7 +99,7 @@ def init_st(version_dict, lora_models=None, lora_weights=None):
         t_start = time.perf_counter()
         model = instantiate_model_from_config(config)
         t_end = time.perf_counter()
-        logger.debug(f"Base model instantiation took {t_end-t_start} seconds")
+        logger.info(f"Base model instantiation took {t_end-t_start} seconds")
         state["msg"] = "Model instantiated (state dict is not loaded yet)"
         state["model"] = model
         state["ckpt"] = None

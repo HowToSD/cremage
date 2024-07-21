@@ -1,4 +1,7 @@
 ## Updates
+July 20, 2024:
+Improved speed for SDXL image generation by optimizing model loading logic.
+
 July 19, 2024:
 Stable Cascade support has been added.  No manual set up is required to use this model.
 Just select Stable Cascade in the Model generator type combobox on the Basic tab to generate an image.
