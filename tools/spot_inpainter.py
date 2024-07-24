@@ -50,8 +50,9 @@ MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODELS_ROOT = os.path.join(PROJECT_ROOT, "models")
 sys.path = [MODULE_ROOT, TOOLS_ROOT] + sys.path
-from sd.img2img import img2img_parse_options_and_generate
-from sd.inpaint import inpaint_parse_options_and_generate
+from sd.options import parse_options as sd15_parse_options
+from sd.img2img import generate as sd15_img2img_generate
+from sd.inpaint import generate as sd15_inpaint_generate
 from cremage.utils.image_utils import pil_image_to_pixbuf, get_bounding_boxes_from_grayscale_image
 from cremage.utils.image_utils import get_single_bounding_box_from_grayscale_image
 from cremage.utils.gtk_utils import show_alert_dialog
@@ -1247,12 +1248,13 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
             "--inpaint_ckpt", model_path
         ]
 
-        generate_func=inpaint_parse_options_and_generate
+        options = sd15_parse_options(args_list)
+        generate_func=sd15_inpaint_generate
         
         # Start the image generation thread
         thread = threading.Thread(
             target=generate_func,
-            kwargs={'args': args_list,
+            kwargs={'options': options,
                     'ui_thread_instance': None})  # FIXME
         thread.start()
 
@@ -1376,12 +1378,13 @@ class SpotInpainter(Gtk.Window):  # Subclass Window object
             "--init-img", input_image_path,
             "--strength", self.denoising_strength
         ]
-        generate_func=img2img_parse_options_and_generate
+        options = sd15_parse_options(args_list)
+        generate_func=sd15_img2img_generate
         
         # Start the image generation thread
         thread = threading.Thread(
             target=generate_func,
-            kwargs={'args': args_list,
+            kwargs={'options': options,
                     'ui_thread_instance': None})  # FIXME
         thread.start()
 

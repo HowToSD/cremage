@@ -419,8 +419,14 @@ def load_lora(lora_file_full_path, model_type="SD 1.5", name_check=True):
     if model_type == "SD 1.5":
         w = lora['lora_unet_down_blocks_0_attentions_0_transformer_blocks_0_attn1_to_k.lora_down.weight']
     else: # sdxl
-        w = lora['lora_unet_output_blocks_5_1_transformer_blocks_1_attn1_to_k.lora_down.weight']
-
+        key1 = 'lora_unet_output_blocks_5_1_transformer_blocks_1_attn1_to_k.lora_down.weight'
+        key2 = 'lora_unet_up_blocks_0_attentions_0_transformer_blocks_1_attn1_to_k.lora_down.weight'
+        if key1 in lora:
+            w = lora[key1]
+        elif key2 in lora:
+            w = lora[key2]
+        else:
+            raise ValueError("Expected key was not found in SDXL LoRA")
     rank = w.shape[0]  # [4, 320]
     return lora, rank
 

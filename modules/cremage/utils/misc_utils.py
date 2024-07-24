@@ -4,6 +4,7 @@ Miscellaneous utility functions
 import os
 import sys
 import re
+import argparse
 import time
 import platform
 import subprocess
@@ -152,115 +153,109 @@ def str_to_detected_data_type(s: str):
         # Return the original string if it cannot be converted to a number
         return s
 
-def override_args_list(args_list: List[str],
+def override_options(opt: argparse.Namespace,
                        generation_string: str,
                        preferences_dict: Dict[str, Any],
                        sdxl=False):
     """
-
-    Example dict reconstructed from generation_string:
-    {
-        "time": 1711483882.8759885,
-        "positive_prompt": "cute puppy",
-        "negative_prompt": "scary",
-        "ldm_model": "foo.safetensors",
-        "vae_model": "vae-ft-mse-840000-ema-pruned.ckpt", 
-        "sampler": "DDIM", 
-        "sampling_iterations": 50, 
-        "image_height": 768, 
-        "image_width": 512, 
-        "clip_skip": 1,
-        "seed": 1462286278}
+    Override options object with previous generation parameters.
     """
-    # TODO: Support other parameters. 
-    #   1st priority: height, width, vae, 
-    #   2nd: seed, 
-    #   3rd: sampler, sampling iterations
-    retval = args_list
+    parsed_args = opt
 
     try:
         print(generation_string)
         override_dict = json.loads(generation_string)
-
     except:
         logging.warn("Failed to parse generation_string. Override ignored")
-        return retval
+        return opt
 
-    retval = args_list.copy()
-
-    for i in range(int(len(args_list) / 2)) :
-        j = i * 2
-        if args_list[j] == "--prompt" and "positive_prompt" in override_dict:
-            retval[j+1] = override_dict["positive_prompt"]
-        if args_list[j] == "--negative_prompt" and "negative_prompt" in override_dict:
-            retval[j+1] = override_dict["negative_prompt"]
-        if args_list[j] == "--clip_skip" and "clip_skip" in override_dict:
-            retval[j+1] = str(override_dict["clip_skip"])
-        if args_list[j] == "--scale" and "cfg" in override_dict:
-            retval[j+1] = str(override_dict["cfg"])
-        if args_list[j] == "--sampler" and "sampler" in override_dict:
+    for arg, value in vars(parsed_args).items():
+        if arg == "prompt" and "positive_prompt" in override_dict:
+              setattr(parsed_args, arg, override_dict["positive_prompt"])
+        if arg == "negative_prompt" and "negative_prompt" and "negative_prompt" in override_dict:
+            setattr(parsed_args, arg, override_dict["negative_prompt"])
+        if arg == "clip_skip" and "clip_skip" in override_dict:
+            setattr(parsed_args, arg, int(override_dict["clip_skip"]))
+        if arg == "scale" and "cfg" in override_dict:
+            setattr(parsed_args, arg, float(override_dict["cfg"]))
+        if arg == "sampler" and "sampler" in override_dict:
             sampler = str(override_dict["sampler"])
             if sdxl:
                 sampler += "Sampler"
-            retval[j+1] = sampler
-        if args_list[j] == "--sampling_steps" and "sampling_iterations" in override_dict:
-            retval[j+1] = str(override_dict["sampling_iterations"])
-        if args_list[j] == "--H" and "image_height" in override_dict:
-            retval[j+1] = str(override_dict["image_height"])
-        if args_list[j] == "--W" and "image_width" in override_dict:
-            retval[j+1] = str(override_dict["image_width"])
-        if args_list[j] == "--ckpt" and "ldm_model" in override_dict:
-            retval[j+1] = os.path.join(
-                preferences_dict["ldm_model_path"], override_dict["ldm_model"])
-        if args_list[j] == "--vae_ckpt" and "vae_model" in override_dict:
-            retval[j+1] = os.path.join(
-                preferences_dict["vae_model_path"], override_dict["vae_model"])
-        if args_list[j] == "--lora_models" and "lora_models" in override_dict:
+            setattr(parsed_args, arg, sampler)
+        if arg == "sampling_steps" and "sampling_iterations" in override_dict:
+            setattr(parsed_args, arg, int(override_dict["sampling_iterations"]))
+        if arg == "H" and "image_height" in override_dict:
+            setattr(parsed_args, arg, int(override_dict["image_height"]))
+        if arg == "W" and "image_width" in override_dict:
+            setattr(parsed_args, arg, int(override_dict["image_width"]))
+        if arg == "ckpt" and "ldm_model" in override_dict:
+            setattr(parsed_args, arg, os.path.join(
+                preferences_dict["ldm_model_path"], override_dict["ldm_model"]))
+        if arg == "vae_ckpt" and "vae_model" in override_dict:
+            setattr(parsed_args, arg, os.path.join(
+                preferences_dict["vae_model_path"], override_dict["vae_model"]))
+        if arg == "lora_models" and "lora_models" in override_dict:
             # Convert each relative path to full path
+            if sdxl:
+                dir_key = "sdxl_lora_model_path"
+            else:
+                dir_key = "lora_model_path"
             if override_dict["lora_models"]:
                 l = override_dict["lora_models"].split(",")
-                l = [os.path.join(
-                    preferences_dict["lora_model_path"], e.strip()) for e in l if len(e.strip()) > 0]
-                l = ",".join(l)
+                l2 = list()
+                for e in l:
+                    if len(e.strip()) > 0:
+                        e = os.path.join(preferences_dict[dir_key], e.strip())
+                    else:
+                        e = ""
+                    l2.append(e)
+                l = ",".join(l2)
             else:
                 l = ""
-            retval[j+1] = l
-        if args_list[j] == "--lora_weights" and "lora_weights" in override_dict:
-            retval[j+1] = override_dict["lora_weights"]
+            setattr(parsed_args, arg, l)
+        if arg == "lora_weights" and "lora_weights" in override_dict:
+            setattr(parsed_args, arg, override_dict["lora_weights"])
 
         # sdxl refiner
-        if args_list[j] == "--refiner_sdxl_ckpt" and "refiner_ldm_model" in override_dict:
-            retval[j+1] = os.path.join(
-                preferences_dict["sdxl_ldm_model_path"], override_dict["refiner_ldm_model"])
+        if arg == "refiner_sdxl_ckpt" and "refiner_ldm_model" in override_dict:
+            setattr(parsed_args, arg, os.path.join(
+                preferences_dict["sdxl_ldm_model_path"], override_dict["refiner_ldm_model"]))
 
-        if args_list[j] == "--refiner_sdxl_vae_ckpt" and "refiner_vae_model" in override_dict:
-            retval[j+1] = os.path.join(
-                preferences_dict["sdxl_vae_model_path"], override_dict["refiner_vae_model"])
+        if arg == "refiner_sdxl_vae_ckpt" and "refiner_vae_model" in override_dict:
+            setattr(parsed_args, arg, os.path.join(
+                preferences_dict["sdxl_vae_model_path"], override_dict["refiner_vae_model"]))
 
-        if args_list[j] == "--refiner_sdxl_lora_models" and "refiner_lora_models" in override_dict:
+        if arg == "refiner_sdxl_lora_models" and "refiner_lora_models" in override_dict:
             # Convert each relative path to full path
             if override_dict["refiner_lora_models"]:
                 l = override_dict["refiner_lora_models"].split(",")
-                l = [os.path.join(
-                    preferences_dict["sdxl_lora_model_path"], e.strip()) for e in l if len(e.strip()) > 0]
-                l = ",".join(l)
+                l2 = list()
+                dir_key = "sdxl_lora_model_path"
+                for e in l:
+                    if len(e.strip()) > 0:
+                        e = os.path.join(preferences_dict[dir_key], e.strip())
+                    else:
+                        e = ""
+                    l2.append(e)
+                l = ",".join(l2)
             else:
                 l = ""
-            retval[j+1] = l
+            setattr(parsed_args, arg, l)
 
-        if args_list[j] == "--refiner_sdxl_lora_weights" and "refiner_lora_weights" in override_dict:
-            retval[j+1] = override_dict["refiner_lora_weights"]
+        if arg == "refiner_sdxl_lora_weights" and "refiner_lora_weights" in override_dict:
+            setattr(parsed_args, arg, override_dict["refiner_lora_weights"])
 
-        if args_list[j] == "--refiner_strength" and "refiner_strength" in override_dict:
-            retval[j+1] = str(override_dict["refiner_strength"])
+        if arg == "refiner_strength" and "refiner_strength" in override_dict:
+            setattr(parsed_args, arg, float(override_dict["refiner_strength"]))
 
-        if args_list[j] == "--hires_fix_upscaler" and "hires_fix_upscaler" in override_dict:
-            retval[j+1] = str(override_dict["hires_fix_upscaler"])
+        if arg == "hires_fix_upscaler" and "hires_fix_upscaler" in override_dict:
+            setattr(parsed_args, arg, str(override_dict["hires_fix_upscaler"]))
 
-        if args_list[j] == "--hires_fix_scale_factor" and "hires_fix_scale_factor" in override_dict:
-            retval[j+1] = str(override_dict["hires_fix_scale_factor"])
+        if arg == "hires_fix_scale_factor" and "hires_fix_scale_factor" in override_dict:
+            setattr(parsed_args, arg, float(override_dict["hires_fix_scale_factor"]))
 
-    return retval
+    return parsed_args
 
 
 def override_kwargs(kwargs: Dict[str, Any],
@@ -385,3 +380,34 @@ def generate_lora_params(preferences: Dict[str, Any],
     lora_weights = ",".join(lora_weights)
 
     return (lora_models, lora_weights)
+
+import os
+
+def strip_directory_from_path_list_str(path_str: str, delimiter: str = ",") -> str:
+    """
+    Strips directory components from a delimited list of file paths.
+
+    Args:
+        path_str (str): The list of full paths delimited by a specified delimiter.
+        delimiter (str): The delimiter used to separate the paths in the input string. Default is a comma.
+
+    Returns:
+        str: The list of base paths delimited by the specified delimiter.
+
+    Example:
+        "/foo/bar.safesensors,baz.safesensors"
+        will become
+        "bar.safesensors,baz.safesensors"
+    """
+    def safe_base_name(p):
+        if p is None or p == "":
+            return p
+        else:
+            return os.path.basename(p)
+
+    if not path_str:
+        return path_str
+
+    paths = path_str.split(delimiter)
+    base_paths = [safe_base_name(path) for path in paths]
+    return delimiter.join(base_paths)

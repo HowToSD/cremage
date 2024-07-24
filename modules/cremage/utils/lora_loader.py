@@ -5,6 +5,8 @@ import os
 import logging
 import re
 
+import torch
+
 from .ml_utils import load_lora
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
@@ -52,18 +54,154 @@ def load_loras(lora_paths:str, lora_weights:str, model_type="SD 1.5", name_check
     return loras, lora_ranks, lora_weights
 
 
+def map_non_standard_lora_key_to_standard_lora_key(k):
+    """
+    Maps a single non-standard LoRA key to a standard LoRA key.
+
+    Non-standard LoRA key : lora_unet_down_blocks_1_attentions_0_proj_in.alpha
+    Standard LoRA key: lora_unet_input_blocks_4_1_proj_in.alpha
+
+   Examples
+
+    a: Non-standard, b:standard
+    ---------------------------
+    a: lora_unet_down_blocks_1_attentions_0_proj_in.alpha
+    b: lora_unet_input_blocks_4_1_proj_in.alpha
+
+    a: lora_unet_down_blocks_1_attentions_0_transformer_blocks_0_attn1_to_k.alpha
+    b: lora_unet_input_blocks_4_1_transformer_blocks_0_attn1_to_k.alpha
+
+    Mid
+    a: lora_unet_mid_block_attentions_0_proj_in.alpha
+    b: lora_unet_middle_block_1_proj_in.alpha
+
+    Up
+    a: lora_unet_up_blocks_0_attentions_0_proj_in.alpha
+    b: lora_unet_output_blocks_0_1_proj_in.alpha
+
+    Parameters to be discarded:
+        lora_te2_text_projection.alpha
+        lora_te2_text_projection.lora_down.weight
+        lora_te2_text_projection.lora_up.weight
+
+    Mapping of block numbers
+    Total 10 major blocks
+    (Non-standard to Standard)
+
+    Down
+    1, 0    4, 1
+    1, 1    5, 1
+    2, 0    7, 1
+    2, 1    8, 1
+
+    Mid
+    0       1
+
+    Up
+    0, 0    0, 1
+    0, 1    1, 1
+    0, 2    2, 1
+    1, 0    3, 1
+    1, 1    4, 1
+    1, 2    5, 1
+    """
+    if k.startswith("lora_unet_down_blocks"):
+        k2 = "lora_unet_input_blocks"
+        match = re.search(r"_([0-9])_attentions_([0-9])_(.+)$", k)
+        if match is None:
+            raise ValueError(f"Unexpected down block name detected: {k}")
+        first_digit = match.group(1)
+        second_digit = match.group(2)
+        last = match.group(3)
+        if first_digit == "1" and second_digit == "0":
+            block_num = "4_1"
+        elif first_digit == "1" and second_digit == "1":
+            block_num = "5_1"
+        elif first_digit == "2" and second_digit == "0":
+            block_num = "7_1"
+        elif first_digit == "2" and second_digit == "1":
+            block_num = "8_1"
+        else:
+            raise ValueError(f"Unexpected down block name detected: {k}")
+
+        k2 = f"{k2}_{block_num}_{last}"
+
+    elif k.startswith("lora_unet_mid_block"):
+        if k.startswith("lora_unet_mid_block_attentions_0"):
+            k2 = k.replace("lora_unet_mid_block_attentions_0_", "lora_unet_middle_block_1_")
+        else:
+            raise ValueError(f"Unexpected middle block name detected: {k}")
+    elif k.startswith("lora_unet_up_blocks"):
+        k2 = "lora_unet_output_blocks"
+        match = re.search(r"_([0-9])_attentions_([0-9])_(.+)$", k)
+        if match is None:
+            raise ValueError(f"Unexpected down block name detected: {k}")
+        first_digit = match.group(1)
+        second_digit = match.group(2)
+        last = match.group(3)
+        if first_digit == "0" and second_digit == "0":
+            block_num = "0_1"
+        elif first_digit == "0" and second_digit == "1":
+            block_num = "1_1"
+        elif first_digit == "0" and second_digit == "2":
+            block_num = "2_1"
+        elif first_digit == "1" and second_digit == "0":
+            block_num = "3_1"
+        elif first_digit == "1" and second_digit == "1":
+            block_num = "4_1"
+        elif first_digit == "1" and second_digit == "2":
+            block_num = "5_1"                    
+        else:
+            raise ValueError(f"Unexpected down block name detected: {k}")
+
+        k2 = f"{k2}_{block_num}_{last}"
+    else:
+        k2 = k
+    return k2
+
+def map_non_standard_lora_keys_to_standard_lora_keys(sd):
+    """
+    Maps non-standard LoRA's keys standard LoRA keys.
+    """
+    SKIP_KEYS = [
+        "lora_te2_text_projection.alpha",
+        "lora_te2_text_projection.lora_down.weight",
+        "lora_te2_text_projection.lora_up.weight"
+    ]
+    sample_key = "lora_unet_down_blocks_1_attentions_0_proj_in.alpha"
+    if sample_key in sd:
+        logger.info("Non-standard LoRA key was detected. Mapping to standard LoRA keys")
+    else:  # Standard LoRA keys, continue without mapping
+        return sd
+
+    out = dict()
+    for k, v in sd.items():
+        if k in SKIP_KEYS:
+            continue
+        else:
+            k2 = map_non_standard_lora_key_to_standard_lora_key(k)
+
+        out[k2] = torch.nn.Parameter(v)
+    return out
+
+
 def load_loras_state_dict_into_custom_model_state_dict(lora_sds, model_sd):
     """
-    
+    Loads SDXL LoRA's state dict to SDXL model's state dict.
+
+    There are LoRA(s) that use non-standard keys.
+    Those LoRA's keys are mapped to standard LoRA keys first.
+ 
     Args:
         lora_sds (List[Dict[str, tensor]])
         model_sd (Dict[str, tensor])
     """
     if lora_sds is None or len(lora_sds) == 0:
         return model_sd
-    
+
     sd = model_sd
     for i, lora_sd in enumerate(lora_sds):
+        lora_sd = map_non_standard_lora_keys_to_standard_lora_keys(lora_sd)
         for k, v in lora_sd.items():
             model_k = map_sdxl_lora_weight_name_to_mode_weight_name(k, i)
             model_sd[model_k] = v
@@ -140,10 +278,6 @@ def map_sdxl_lora_weight_name_to_mode_weight_name(sd_key:str, lora_index:int):
         k = k.replace("_proj.lora_down.weight", f"_lora_downs.{lora_index}.weight")
         k = k.replace("_proj.lora_up.weight", f"_lora_ups.{lora_index}.weight")
 
-
-        
     else:
-        logger.warning(f"Unexpected key found: {sd_key}")
-        k = sd_key # FIXME
+        raise ValueError(f"Unexpected weight name: {sd_key}")
     return k
-

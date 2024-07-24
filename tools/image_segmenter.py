@@ -37,7 +37,6 @@ MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODELS_ROOT = os.path.join(PROJECT_ROOT, "models")
 sys.path = [MODULE_ROOT, TOOLS_ROOT] + sys.path
-from sd.img2img import img2img_parse_options_and_generate
 from tool_base import ToolBase
 from cremage.utils.misc_utils import get_tmp_file
 from cremage.utils.gtk_utils import show_alert_dialog, set_pil_image_to_gtk_image
@@ -46,6 +45,8 @@ from cremage.utils.gtk_utils import text_view_get_text, create_combo_box_typeahe
 from cremage.utils.misc_utils import get_tmp_dir
 from cremage.utils.misc_utils import generate_lora_params
 from cremage.ui.model_path_update_handler import update_ldm_model_name_value_from_ldm_model_dir
+from sd.options import parse_options as sd15_parse_options
+from sd.img2img import generate as sd15_img2img_generate
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -541,12 +542,13 @@ class ImageSegmenter(ToolBase):  # Subclass Window object
             "--init-img", input_image_path,
             "--strength", self.denoising_strength
         ]
-        generate_func=img2img_parse_options_and_generate
+        options = sd15_parse_options(args_list)
+        generate_func=sd15_img2img_generate
 
         # Start the image generation thread
         thread = threading.Thread(
             target=generate_func,
-            kwargs={'args': args_list,
+            kwargs={'options': options,
                     'ui_thread_instance': None})  # FIXME
         thread.start()
 

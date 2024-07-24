@@ -15,14 +15,15 @@ from gi.repository import Gtk, GLib
 PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path = [PROJECT_ROOT, MODULE_ROOT] + sys.path
-from sd.txt2img import parse_options_and_generate
-from sd.img2img import img2img_parse_options_and_generate
-from sd.inpaint import inpaint_parse_options_and_generate
+from sd.txt2img import generate as sd15_txt2img_generate
+from sd.img2img import generate as sd15_img2img_generate
+from sd.inpaint import generate as sd15_inpaint_generate
+from sd.options import parse_options as sd15_parse_options
 
 from cremage.const.const import *
 from cremage.utils.gtk_utils import text_view_get_text, show_error_dialog
-from cremage.utils.misc_utils import override_args_list, generate_lora_params
-from cremage.utils.misc_utils import override_kwargs
+from cremage.utils.misc_utils import generate_lora_params
+from cremage.utils.misc_utils import override_options, override_kwargs
 from cremage.utils.misc_utils import join_directory_and_file_name
 from cremage.utils.prompt_history import update_prompt_history
 from cremage.ui.ui_to_preferences import copy_ui_field_values_to_preferences
@@ -252,7 +253,7 @@ def generate_handler(app, widget, event) -> None:
             args_list += [
                 "--init-img", input_image_path,
             ]
-            generate_func = img2img_parse_options_and_generate
+            generate_func = sd15_img2img_generate
 
             if app.generation_mode == MODE_INPAINTING:
                 # Save current image_input to a file
@@ -260,15 +261,17 @@ def generate_handler(app, widget, event) -> None:
                     "--mask-img", app.mask_image_path,
                     "--inpaint_ckpt", ldm_inpaint_path
                 ]
-                generate_func = inpaint_parse_options_and_generate
+                generate_func = sd15_inpaint_generate
         else:  # txt2img
-            generate_func = parse_options_and_generate
+            generate_func = sd15_txt2img_generate
+
+        options = sd15_parse_options(args_list)
 
         # Override args_list if override checkbox is checked
         if app.override_checkbox.get_active():
             info = text_view_get_text(app.generation_information)
             logger.info(f"Using the generation settings from the image instead of UI")
-            args_list = override_args_list(args_list, info, app.preferences)
+            options = override_options(options, info, app.preferences)
         else:
             logger.debug("Not overriding the generation setting")
 
@@ -284,14 +287,14 @@ def generate_handler(app, widget, event) -> None:
         # Start the image generation thread
         thread = threading.Thread(
             target=generate_func,
-            kwargs={'args': args_list,
+            kwargs={'options': options,
                     'ui_thread_instance': app,
                     'status_queue': status_queue})
     # end if sd 1.5
 
     elif generator_model_type == GMT_SDXL:
 
-        from sdxl.sdxl_pipeline.sdxl_image_generator import parse_options_and_generate as sdxl_parse_options_and_generate
+        from sdxl.sdxl_pipeline.sdxl_image_generator import generate as sdxl_generate
 
         if app.generation_mode in (MODE_IMAGE_TO_IMAGE, MODE_INPAINTING):
             # Save current image_input to a file
@@ -341,13 +344,16 @@ def generate_handler(app, widget, event) -> None:
             "--sampler_order", str(app.preferences["sampler_order"])
         ]
 
-        generate_func = sdxl_parse_options_and_generate
+        generate_func = sdxl_generate
+
+        from sdxl.sdxl_pipeline.options import parse_options as sdxl_parse_options
+        options = sdxl_parse_options(args_list)
 
         # Override args_list if override checkbox is checked
         if app.override_checkbox.get_active():
             info = text_view_get_text(app.generation_information)
             logger.info(f"Using the generation settings from the image instead of UI")
-            args_list = override_args_list(args_list, info, app.preferences,
+            options = override_options(options, info, app.preferences,
                                            sdxl=True)
         else:
             logger.debug("Not overriding the generation setting")
@@ -364,7 +370,7 @@ def generate_handler(app, widget, event) -> None:
         # Start the image generation thread
         thread = threading.Thread(
             target=generate_func,
-            kwargs={'args': args_list,
+            kwargs={'options': options,
                     'generation_type': generation_type,
                     'ui_thread_instance': app,
                     'status_queue': status_queue})

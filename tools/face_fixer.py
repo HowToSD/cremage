@@ -87,7 +87,9 @@ MODELS_ROOT = os.path.join(PROJECT_ROOT, "models")
 sys.path = [MODULE_ROOT, TOOLS_ROOT] + sys.path
 OPENCV_FACE_DETECTION_MODEL_PATH = os.path.join(MODELS_ROOT, "opencv", "face_detection_yunet_2023mar.onnx")
 
-from sd.img2img import img2img_parse_options_and_generate
+from sd.options import parse_options as sd15_parse_options
+from sd.img2img import generate as sd15_img2img_generate
+from sd.inpaint import generate as sd15_inpaint_generate
 from cremage.utils.image_utils import pil_image_to_pixbuf
 from cremage.utils.gtk_utils import text_view_get_text, create_combo_box_typeahead
 from cremage.utils.misc_utils import generate_lora_params
@@ -1070,12 +1072,13 @@ class FaceFixer(Gtk.Window):
                 "--face_model", self.face_model_full_path
             ]
 
-        generate_func=img2img_parse_options_and_generate
+        options = sd15_parse_options(args_list)
+        generate_func=sd15_img2img_generate
 
         # Start the image generation thread
         thread = threading.Thread(
             target=generate_func,
-            kwargs={'args': args_list,
+            kwargs={'options': options,
                     'ui_thread_instance': None})  # FIXME
         thread.start()
 

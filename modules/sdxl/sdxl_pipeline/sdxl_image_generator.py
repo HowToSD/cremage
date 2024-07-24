@@ -39,6 +39,7 @@ from cremage.utils.ml_utils import scale_pytorch_images
 from cremage.utils.cuda_utils import gpu_memory_info
 from cremage.configs.preferences import load_user_config
 from cremage.utils.wildcards import resolve_wildcards
+from cremage.utils.misc_utils import strip_directory_from_path_list_str
 
 # SD_XL_BASE_RATIOS = {
 #     "0.5": (704, 1408),
@@ -354,7 +355,7 @@ prev_ckpt_2 = None
 prev_lora_models_2 = None
 prev_lora_weights_2 = None
 
-def generate(opt,
+def generate(options=None,
              generation_type="txt2img",
              ui_thread_instance=None,
              status_queue=None):
@@ -368,7 +369,7 @@ def generate(opt,
     global prev_lora_weights_2
 
     start_time = time.perf_counter()
-
+    opt = options
     use_refiner = False
 
     # Hires fix
@@ -657,7 +658,7 @@ def generate(opt,
                 "negative_prompt": negative_prompt,
                 "ldm_model": os.path.basename(opt.ckpt),
                 "vae_model": os.path.basename(opt.vae_ckpt),
-                "lora_models": opt.lora_models,
+                "lora_models": strip_directory_from_path_list_str(opt.lora_models),
                 "lora_weights": opt.lora_weights,
                 "sampler": opt.sampler.replace("Sampler", ""),
                 "sampling_iterations": opt.sampling_steps,
@@ -679,7 +680,7 @@ def generate(opt,
             if use_refiner:
                 generation_parameters["refiner_ldm_model"] = os.path.basename(opt.refiner_sdxl_ckpt)
                 generation_parameters["refiner_vae_model"] = os.path.basename(opt.refiner_sdxl_vae_ckpt)
-                generation_parameters["refiner_lora_models"] = opt.refiner_sdxl_lora_models
+                generation_parameters["refiner_lora_models"] = strip_directory_from_path_list_str(opt.refiner_sdxl_lora_models)
                 generation_parameters["refiner_lora_weights"] = opt.refiner_sdxl_lora_weights
                 generation_parameters["refiner_strength"] = opt.refiner_strength
 
@@ -709,56 +710,3 @@ def generate(opt,
 
     if status_queue:
         status_queue.put(f"Completed. Time elapsed: {end_time - start_time:0.1f} seconds")
-
-
-def parse_options_and_generate(args=None,
-                               generation_type="txt2img",
-                               ui_thread_instance=None,
-                               status_queue=None
-                               ):
-
-    opt = parse_options(args)    
-    generate(
-        opt=opt,
-        generation_type=generation_type,
-        ui_thread_instance=ui_thread_instance,
-        status_queue=status_queue)
-
-if __name__ == "__main__":
-
-    args = [
-        "--prompt","""Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        Cute puppy on the kitchen counter
-        
-        
-        
-        wild tiger in a jungle
-        """,
-        "--negative_prompt", "low quality, worst quality",
-        "--outdir", os.path.join(os.path.expanduser("~"), ".cremage", "outputs"),
-        "--ckpt", f"{CHECKPOINTS_DIR}/juggernautXL_juggernautX.safetensors",
-        # FIXME
-        "--lora_models", "/media/pup/ssd2/recoverable_data/sd_models/Lora_sdxl/howtosd_alpha_model_v2y.safetensors",
-        "--lora_weights", "1.0",
-        "--vae_ckpt", f"{VAE_CHECKPOINTS_DIR}/sdxl_vae.safetensors",
-        "--sampler", "EulerEDMSampler",
-        "--sampling_steps", "30"
-    ]
-    parse_options_and_generate(args=args,
-                               generation_type="txt2img",
-                               ui_thread_instance=None,
-                               status_queue=None)

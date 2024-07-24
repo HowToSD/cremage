@@ -1135,6 +1135,9 @@ def generate(opt,
                                         procedural=True,
                                         status_queue=status_queue)
                                     img = face_fixer.fix_with_insight_face(img)
+
+                                    # TODO. Save in generation information
+
                                 # Extra processing end
                                 file_name = f"{base_count:05}_{time_str}.png"
                                 img.save(

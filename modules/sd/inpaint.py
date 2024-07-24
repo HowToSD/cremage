@@ -71,8 +71,8 @@ def make_batch_sd(
     return batch
 
 
-def generate(opt, ui_thread_instance=None, status_queue=None):
-
+def generate(options=None, ui_thread_instance=None, status_queue=None):
+    opt = options
     if opt.seed == 0:
         seed = random.getrandbits(32)
     else:
@@ -413,14 +413,3 @@ def generate(opt, ui_thread_instance=None, status_queue=None):
 
     print(f"Images generated in {sample_path}")
     return result
-
-
-def inpaint_parse_options_and_generate(args=None,
-                                       ui_thread_instance=None,
-                                       status_queue=None):
-    opt = parse_options(args)    
-    generate(opt, ui_thread_instance=ui_thread_instance, status_queue=status_queue)
-
-
-if __name__ == "__main__":
-    inpaint_parse_options_and_generate()
