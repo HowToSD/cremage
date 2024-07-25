@@ -15,6 +15,10 @@ References
 """
 import os
 import sys
+if os.environ.get("ENABLE_HF_INTERNET_CONNECTION") == "1":
+    local_files_only_value=False
+else:
+    local_files_only_value=True
 import logging
 import gc
 import random
@@ -110,12 +114,14 @@ def generate(
             subfolder="text_encoder",
             load_in_8bit=True,
             device_map="auto",
+            local_files_only=local_files_only_value
         )
         pipe = PixArtSigmaPipeline.from_pretrained(
             model_id,
             text_encoder=text_encoder,
             transformer=None,
-            device_map="balanced"
+            device_map="balanced",
+            local_files_only=local_files_only_value
         )
 
         with torch.no_grad():
@@ -133,6 +139,7 @@ def generate(
             model_id,
             text_encoder=None,
             torch_dtype=torch.float16,
+            local_files_only=local_files_only_value
         )
 
         if model_id == DEFAULT_MODEL_ID and checkpoint and os.path.exists(checkpoint):

@@ -14,6 +14,10 @@ References
 """
 import os
 import sys
+if os.environ.get("ENABLE_HF_INTERNET_CONNECTION") == "1":
+    local_files_only_value=False
+else:
+    local_files_only_value=True
 import logging
 import gc
 import random
@@ -89,8 +93,14 @@ def generate(
         wm_encoder = WatermarkEncoder()
         wm_encoder.set_watermark('bytes', wm.encode('utf-8'))
 
-    prior = StableCascadePriorPipeline.from_pretrained("stabilityai/stable-cascade-prior", variant="bf16", torch_dtype=torch.bfloat16)
-    decoder = StableCascadeDecoderPipeline.from_pretrained("stabilityai/stable-cascade", variant="bf16", torch_dtype=torch.float16)
+    prior = StableCascadePriorPipeline.from_pretrained("stabilityai/stable-cascade-prior",
+                                                        variant="bf16",
+                                                        torch_dtype=torch.bfloat16,
+                                                        local_files_only=local_files_only_value)
+    decoder = StableCascadeDecoderPipeline.from_pretrained("stabilityai/stable-cascade",
+                                                           variant="bf16",
+                                                           torch_dtype=torch.float16,
+                                                           local_files_only=local_files_only_value)
 
     for batch_index in range(number_of_batches):
         new_seed_group_index = batch_size * batch_index

@@ -11,6 +11,10 @@ https://huggingface.co/kandinsky-community/kandinsky-2-2-decoder
 """
 import os
 import sys
+if os.environ.get("ENABLE_HF_INTERNET_CONNECTION") == "1":
+    local_files_only_value=False
+else:
+    local_files_only_value=True
 import logging
 import gc
 import random
@@ -62,7 +66,8 @@ def generate(
         seed = random.getrandbits(32)
 
     pipe = AutoPipelineForInpainting.from_pretrained(
-        "kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16
+        "kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16,
+        local_files_only=local_files_only_value
     )
     pipe.enable_model_cpu_offload()
 

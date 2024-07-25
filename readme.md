@@ -1,4 +1,11 @@
 ## Updates
+July 25, 2024:
+For newly added models (e.g., PixArt-Sigma), code has been added to use locally cached model files without establishing a network connection. For some models or features, Cremage may need to download the model initially if you have not used the model or feature before. However, after the initial download, if you turn off "Enable hf internet connection" in the Preferences window, Cremage should not make any Internet connection. On Linux, you can verify this by typing:
+```
+sudo netstat -apon | grep tcp
+```
+If you see any connections established after starting Cremage with the connection disabled in the above setting, please file a ticket on the Issue tracker of this repository.
+
 July 20, 2024:
 Improved speed for SDXL image generation by optimizing model loading logic.
 

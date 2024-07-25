@@ -6,6 +6,10 @@ Copyright (c) 2024 Hideyuki Inada
 """
 import os
 import sys
+if os.environ.get("ENABLE_HF_INTERNET_CONNECTION") == "1":
+    local_files_only_value=False
+else:
+    local_files_only_value=True
 import logging
 import gc
 import random
@@ -73,15 +77,18 @@ def generate(
             model_id,
             subfolder="text_encoder_3",
             quantization_config=quantization_config,
+            local_files_only=local_files_only_value
         )
         pipe = StableDiffusion3Pipeline.from_pretrained(
             model_id,
             text_encoder_3=text_encoder,
             device_map="balanced",
-            torch_dtype=torch.float16)
+            torch_dtype=torch.float16,
+            local_files_only=local_files_only_value)
     else:
         pipe = StableDiffusion3Pipeline.from_pretrained(
-            checkpoint, torch_dtype=torch.float16)
+            checkpoint, torch_dtype=torch.float16,
+            local_files_only=local_files_only_value)
         pipe.enable_model_cpu_offload()
         # pipe = pipe.to("cuda")
 
