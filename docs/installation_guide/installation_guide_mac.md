@@ -59,3 +59,23 @@
    Therefore, if you are using a laptop that has a lower default resolution (e.g. 1440 x 900), some of the tools will not work.  It is recommended to switch to a higher resolution (e.g. 2048 x 1280) using the Displays setting screen in System Settings on your Mac.
 
 Now have a look at [Getting Started](../getting_started.md "View Getting Started") to finish set up in Cremage and generate your first image.
+
+### Troubleshooting
+If Cremage does not start or Cremage throws an error, check the following:
+
+#### Model preference is not set
+Cremage throws an error if you did not specify the model to use before generating an image. Check Getting Started above for the steps to do so.
+
+#### Wrong PyTorch version
+You may have installed a wrong PyTorch version. To check, type the following in terminal:
+```
+conda activate cremage
+python
+```
+This starts Python. Then in Python, type:
+```
+import torch
+torch.__version__
+```
+
+This should show 2.4.0 or later.
