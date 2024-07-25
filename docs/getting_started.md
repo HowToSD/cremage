@@ -1,6 +1,6 @@
 # Getting Started with Cremage
 
-If you haven't done so, please complete the installation following the Refer to [Installation Guide](docs/installation_guide.md "View the Installation Guide").
+If you haven't done so, please complete the installation following the Refer to [Installation Guide](installation_guide.md "View the Installation Guide").
 Make sure that you have also downloaded the models and placed under the Cremage installation directory.
 
 # Steps
