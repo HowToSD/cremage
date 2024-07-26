@@ -146,6 +146,7 @@ class FaceFixer(Gtk.Window):
                  save_call_back=None,
                  positive_prompt=None,
                  negative_prompt=None,
+                 denoising_strength=0.3,
                  generation_information_call_back=None,
                  preferences=None,
                  pil_face_image=None,
@@ -181,6 +182,7 @@ class FaceFixer(Gtk.Window):
         self.procedural = procedural  # True if img2img. False if UI
         self.positive_prompt_procedural = positive_prompt
         self.negative_prompt_procedural = negative_prompt
+        self.denoising_strength_procedural = denoising_strength
         self.status_queue = status_queue
 
         # Create an Image widget
@@ -1057,9 +1059,13 @@ class FaceFixer(Gtk.Window):
         input_image_path = os.path.join(get_tmp_dir(), "input_image.png")
         input_image.save(input_image_path)
 
+        if self.procedural:  # img2img
+            denoising_strength = str(self.denoising_strength_procedural)
+        else:
+            denoising_strength = self.denoising_entry.get_text()
         args_list += [
             "--init-img", input_image_path,
-            "--strength", self.denoising_entry.get_text()
+            "--strength", denoising_strength
         ]
 
         # FaceID

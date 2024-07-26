@@ -26,7 +26,7 @@ logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
 
-def sdxl_sampler_cb_changed(app, combo):
+def generator_model_type_changed(app, combo):
     generator_model_type = combo.get_child().get_text()
     toggle_genenator_model_type_ui(app, generator_model_type)
 

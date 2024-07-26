@@ -222,7 +222,11 @@ def generate_handler(app, widget, event) -> None:
                     "--lora_weights", lora_weights,
                     "--outdir", app.output_dir,
                     "--embedding_images_dir", app.embedding_images_dir,
-                    "--strength", denoising_strength]
+                    "--strength", denoising_strength,
+                    "--auto_face_fix_strength", str(app.preferences["auto_face_fix_strength"]),
+                    "--auto_face_fix_face_detection_method", str(app.preferences["auto_face_fix_face_detection_method"]),
+                    "--auto_face_fix_prompt", str(app.preferences["auto_face_fix_prompt"]),
+                ]
     if app.preferences["safety_check"]:
         args_list.append("--safety_check")
     if app.preferences["watermark"]:
@@ -428,8 +432,12 @@ def generate_handler(app, widget, event) -> None:
                 "seed": int(seed),
                 "safety_check": app.preferences["safety_check"],
                 "watermark": app.preferences["watermark"],
-                "auto_face_fix": auto_face_fix}
-        
+                "auto_face_fix": auto_face_fix,
+                "auto_face_fix_strength": float(app.preferences["auto_face_fix_strength"]),
+                "auto_face_fix_face_detection_method": app.preferences["auto_face_fix_face_detection_method"],
+                "auto_face_fix_prompt": app.preferences["auto_face_fix_prompt"]
+        }
+
         if generator_model_type == GMT_PIXART_SIGMA:
             kwargs.update({
                 "model_id": app.preferences["pixart_sigma_model_id"]

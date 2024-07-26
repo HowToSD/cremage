@@ -51,6 +51,9 @@ def generate(
         ui_thread_instance=None,
         seed=-1,
         auto_face_fix=False,
+        auto_face_fix_strength=0.3,
+        auto_face_fix_face_detection_method="OpenCV",
+        auto_face_fix_prompt="",
         safety_check=True,
         watermark=False,
         status_queue=None):
@@ -111,14 +114,24 @@ def generate(
                 logger.debug("Applying face fix")
                 status_queue.put("Applying face fix")
                 app = load_user_config()
+                if auto_face_fix_prompt:
+                    auto_face_fix_prompt = auto_face_fix_prompt
+                else:
+                    auto_face_fix_prompt = positive_prompt
                 face_fixer = FaceFixer(
                     preferences=app,
-                    positive_prompt=positive_prompt,
+                    positive_prompt=auto_face_fix_prompt,
                     negative_prompt=negative_prompt,
+                    denoising_strength=auto_face_fix_strength,
                     procedural=True,
                     status_queue=status_queue)
-                
-                image = face_fixer.fix_with_insight_face(image)
+
+                if auto_face_fix_face_detection_method == "InsightFace":
+                    image = face_fixer.fix_with_insight_face(image)
+                elif auto_face_fix_face_detection_method == "OpenCV":
+                    image = face_fixer.fix_with_opencv(image)
+                else:
+                    logger.info(f"Ignoring unsupported face detection method: {auto_face_fix_face_detection_method}")
 
             file_name = str(time.time())
 
@@ -135,6 +148,10 @@ def generate(
                 "auto_face_fix": auto_face_fix,
                 "generator_model_type": "Kandinsky 2.2"
             }
+            if auto_face_fix:
+                generation_parameters["auto_face_fix_strength"] = auto_face_fix_strength
+                generation_parameters["auto_face_fix_prompt"] = auto_face_fix_prompt
+                generation_parameters["auto_face_fix_face_detection_method"] = auto_face_fix_face_detection_method
 
             file_number = file_number_base + new_seed_group_index + i
             time_str = time.time()

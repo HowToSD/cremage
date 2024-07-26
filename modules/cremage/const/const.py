@@ -31,3 +31,8 @@ GENERATOR_MODEL_TYPE_LIST = [
     GMT_PIXART_SIGMA,
     GMT_HUNYUAN_DIT
 ]
+
+FACE_DETECTION_METHOD_LIST = [
+    "OpenCV",
+    "InsightFace"
+]

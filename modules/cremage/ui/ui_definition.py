@@ -21,7 +21,7 @@ sys.path = [MODULE_ROOT] + sys.path
 
 from cremage.const.const import MAIN_IMAGE_CANVAS_SIZE, TRUE_FALSE_LIST, FACE_MODEL_NAME
 from cremage.const.const import THUMBNAIL_IMAGE_EDGE_LENGTH
-from cremage.const.const import GENERATOR_MODEL_TYPE_LIST
+from cremage.const.const import GENERATOR_MODEL_TYPE_LIST, FACE_DETECTION_METHOD_LIST
 from cremage.ui.generate_handler import generate_handler
 from cremage.ui.save_preference_handler import save_preference_handler
 from cremage.ui.graffiti_editor_widget_click_handler import graffiti_editor_widget_click_handler
@@ -71,8 +71,9 @@ from cremage.ui.show_prompt_list_handlers import show_negative_prompt_expansion_
 from cremage.utils.sampler_utils import sampler_name_list
 from cremage.utils.hires_fix_upscaler_utils import hires_fix_upscaler_name_list
 from cremage.utils.misc_utils import join_directory_and_file_name
-from cremage.ui.generator_model_type_change_handler import sdxl_sampler_cb_changed
+from cremage.ui.generator_model_type_change_handler import generator_model_type_changed
 from cremage.ui.sdxl_use_refiner_check_box_handler import sdxl_use_refiner_check_box_changed
+from cremage.ui.auto_face_fix_change_handler import auto_face_fix_changed
 from cremage.utils.pixart_sigma_utils import pixart_sigma_model_id_cb_changed
 from cremage.utils.pixart_sigma_utils import update_pixart_sigma_model_id_value
 from sdxl.const.const import SDXL_RESOLUTIONS
@@ -568,21 +569,28 @@ def main_ui_definition(app) -> None:
         "hires_fix_upscaler": create_combo_box_typeahead(hires_fix_upscaler_list, hires_fix_upscaler_list.index(app.preferences["hires_fix_upscaler"])),
         "hires_fix_scale_factor": Gtk.Entry(text=str(app.preferences["hires_fix_scale_factor"])),
         "auto_face_fix": create_combo_box(TRUE_FALSE_LIST, int(not app.preferences["auto_face_fix"])),
+        "auto_face_fix_face_detection_method": create_combo_box(FACE_DETECTION_METHOD_LIST, int(not app.preferences["auto_face_fix_face_detection_method"])),
+        "auto_face_fix_strength": Gtk.Entry(text=app.preferences["auto_face_fix_strength"]),
+        "auto_face_fix_prompt": Gtk.TextView()
     }
 
-    fields1["generator_model_type"].connect("changed", lambda widget, app=app:sdxl_sampler_cb_changed(app, widget))
+    fields1["generator_model_type"].connect("changed", lambda widget, app=app:generator_model_type_changed(app, widget))
 
     text_view_set_text(fields1["positive_prompt_pre_expansion"], app.preferences["positive_prompt_pre_expansion"])
     text_view_set_text(fields1["negative_prompt_pre_expansion"], app.preferences["negative_prompt_pre_expansion"])
     text_view_set_text(fields1["positive_prompt_expansion"], app.preferences["positive_prompt_expansion"])
     text_view_set_text(fields1["negative_prompt_expansion"], app.preferences["negative_prompt_expansion"])
 
+    fields1["auto_face_fix"].connect("changed", lambda widget, app=app:auto_face_fix_changed(app, widget))
+    text_view_set_text(fields1["auto_face_fix_prompt"], app.preferences["auto_face_fix_prompt"])
+
     # Apply the same style to both TextViews
     for textview in [
         fields1["positive_prompt_pre_expansion"],
         fields1["negative_prompt_pre_expansion"],
         fields1["positive_prompt_expansion"],
-        fields1["negative_prompt_expansion"]
+        fields1["negative_prompt_expansion"],
+        fields1["auto_face_fix_prompt"],
         ]:
         context = textview.get_style_context()
         context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
@@ -653,11 +661,18 @@ def main_ui_definition(app) -> None:
     fields1_pos["hires_fix_scale_factor"] = ((2, row, 1, 1), (3, row, 1, 1))    
     row += 1
 
-    fields1_pos["auto_face_fix"] = ((0, row, 1, 1), (1, row, 1, 1))
-    row += 1
-
     fields1_pos["denoising_strength"] = ((0, row, 1, 1), (1, row, 1, 1))
     fields1_pos["clip_skip"] = ((2, row, 1, 1), (3, row, 1, 1))
+    row += 1
+
+    fields1_pos["auto_face_fix"] = ((0, row, 1, 1), (1, row, 1, 1))
+    fields1_pos["auto_face_fix_strength"] = ((2, row, 1, 1), (3, row, 1, 1))
+    row += 1
+
+    fields1_pos["auto_face_fix_face_detection_method"] = ((0, row, 1, 1), (1, row, 1, 1))
+    row += 1
+
+    fields1_pos["auto_face_fix_prompt"] = ((0, row, 1, 1), (1, row, 3, 2))
     row += 1
 
     assert sorted(fields1.keys()) == sorted(fields1_pos.keys())

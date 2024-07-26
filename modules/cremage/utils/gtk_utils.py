@@ -228,6 +228,19 @@ def text_view_set_text(tv: Gtk.TextView, text: str) -> None:
         text = ""
     buffer.set_text(text)
 
+def combo_box_get_text(combo):
+    """
+    Returns text of the active row.
+
+    Returns:
+        str: Active text or None
+    """
+    model = combo.get_model()
+    active_index = combo.get_active()
+    if active_index < 0:
+        return None
+    return model[active_index][0]
+
 
 # Helper function to update a dropdown list
 def update_combo_box(combo, options, active_index=0):

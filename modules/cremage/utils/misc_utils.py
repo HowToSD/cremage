@@ -255,6 +255,21 @@ def override_options(opt: argparse.Namespace,
         if arg == "hires_fix_scale_factor" and "hires_fix_scale_factor" in override_dict:
             setattr(parsed_args, arg, float(override_dict["hires_fix_scale_factor"]))
 
+        if arg == "auto_face_fix":
+            if "auto_face_fix" in override_dict:
+                setattr(parsed_args, arg, True)
+            else:
+                setattr(parsed_args, arg, False)
+
+        if arg == "auto_face_fix_strength" and "auto_face_fix_strength" in override_dict:
+            setattr(parsed_args, arg, float(override_dict["auto_face_fix_strength"]))
+
+        if arg == "auto_face_fix_prompt" and "auto_face_fix_prompt" in override_dict:
+            setattr(parsed_args, arg, str(override_dict["auto_face_fix_prompt"]))
+
+        if arg == "auto_face_fix_face_detection_method" and "auto_face_fix_face_detection_method" in override_dict:
+            setattr(parsed_args, arg, str(override_dict["auto_face_fix_face_detection_method"]))
+
     return parsed_args
 
 

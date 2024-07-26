@@ -411,6 +411,24 @@ def parse_options(arguments=None):
         help="Apply face fix automatically for each generated image",
     )
     parser.add_argument(
+        "--auto_face_fix_strength",
+        type=float,
+        help="Denoising strength of auto face fix",
+        default=0.3
+    )
+    parser.add_argument(
+        "--auto_face_fix_face_detection_method",
+        type=str,
+        help="Face detection method of auto face fix",
+        default="InsightFace"
+    )
+    parser.add_argument(
+        "--auto_face_fix_prompt",
+        type=str,
+        help="Positive prompt for auto face fix",
+        default=""
+    )
+    parser.add_argument(
         "--embedding_images_dir",
         type=str,
         help="Path to store images to showcase each TI embedding",

@@ -1112,11 +1112,6 @@ def generate(opt,
                                 img = Image.fromarray(x_sample.astype(np.uint8))
                                 if opt.watermark:
                                     img = put_watermark(img, wm_encoder)
-                                time_str = time.time()
-
-                                str_generation_params = json.dumps(generation_parameters)
-                                metadata = PngInfo()
-                                metadata.add_text("generation_data", str_generation_params)
 
                                 # Remove padding
                                 if padding_used and bbox_to_crop:
@@ -1128,17 +1123,37 @@ def generate(opt,
                                     logger.debug("Applying face fix")
                                     status_queue.put("Applying face fix")
                                     app = load_user_config()
+
+                                    if opt.auto_face_fix_prompt:
+                                        auto_face_fix_prompt = opt.auto_face_fix_prompt
+                                    else:
+                                        auto_face_fix_prompt = opt.prompt
                                     face_fixer = FaceFixer(
                                         preferences=app,
-                                        positive_prompt=opt.prompt,
+                                        positive_prompt=auto_face_fix_prompt,
                                         negative_prompt=opt.negative_prompt,
+                                        denoising_strength=opt.auto_face_fix_strength,
                                         procedural=True,
                                         status_queue=status_queue)
-                                    img = face_fixer.fix_with_insight_face(img)
-
-                                    # TODO. Save in generation information
+                                    if opt.auto_face_fix_face_detection_method == "InsightFace":
+                                        img = face_fixer.fix_with_insight_face(img)
+                                    elif opt.auto_face_fix_face_detection_method == "OpenCV":
+                                        img = face_fixer.fix_with_opencv(img)
+                                    else:
+                                        logger.info(f"Ignoring unsupported face detection method: {opt.auto_face_fix_face_detection_method}")
+                                    # Save in generation information
+                                    generation_parameters["auto_face_fix"] = True
+                                    generation_parameters["auto_face_fix_strength"] = opt.auto_face_fix_strength
+                                    generation_parameters["auto_face_fix_prompt"] = auto_face_fix_prompt
+                                    generation_parameters["auto_face_fix_face_detection_method"] = opt.auto_face_fix_face_detection_method
 
                                 # Extra processing end
+
+                                time_str = time.time()
+                                str_generation_params = json.dumps(generation_parameters)
+                                metadata = PngInfo()
+                                metadata.add_text("generation_data", str_generation_params)
+
                                 file_name = f"{base_count:05}_{time_str}.png"
                                 img.save(
                                     os.path.join(sample_path, file_name),

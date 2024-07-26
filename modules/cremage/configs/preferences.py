@@ -110,6 +110,9 @@ class Config:
     pixart_sigma_ldm_model_path: str
     pixart_sigma_ldm_model: str
     pixart_sigma_model_id: str
+    auto_face_fix_strength: float
+    auto_face_fix_prompt: str
+    auto_face_fix_face_detection_method: str
 
 
 def load_user_config():
@@ -217,7 +220,10 @@ def load_user_config():
             "sd3_ldm_model": "None",
             "pixart_sigma_ldm_model_path": "models/pixart_sigma_ldm",
             "pixart_sigma_ldm_model": "None",
-            "pixart_sigma_model_id": "None"
+            "pixart_sigma_model_id": "None",
+            "auto_face_fix_strength": 0.3,
+            "auto_face_fix_prompt": "",
+            "auto_face_fix_face_detection_method": "InsightFace"
         }
         OmegaConf.save(config, CONFIG_FILE_PATH)
 

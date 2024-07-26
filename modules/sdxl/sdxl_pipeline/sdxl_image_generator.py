@@ -639,15 +639,27 @@ def generate(options=None,
                 logger.debug("Applying face fix")
                 status_queue.put("Applying face fix")
                 app = load_user_config()
+
+                if opt.auto_face_fix_prompt:
+                    auto_face_fix_prompt = opt.auto_face_fix_prompt
+                else:
+                    auto_face_fix_prompt = positive_prompt
                 face_fixer = FaceFixer(
                     preferences=app,
-                    positive_prompt=positive_prompt,
+                    positive_prompt=auto_face_fix_prompt,
                     negative_prompt=negative_prompt,
+                    denoising_strength=opt.auto_face_fix_strength,
                     procedural=True,
                     status_queue=status_queue)
                 
                 pil_img, tensor_device = tensor_to_pil_image(sample)
-                pil_img = face_fixer.fix_with_insight_face(pil_img)
+                if opt.auto_face_fix_face_detection_method == "InsightFace":
+                    pil_img = face_fixer.fix_with_insight_face(pil_img)
+                elif opt.auto_face_fix_face_detection_method == "OpenCV":
+                    pil_img = face_fixer.fix_with_opencv(pil_img)
+                else:
+                    logger.info(f"Ignoring unsupported face detection method: {opt.auto_face_fix_face_detection_method}")
+
                 sample = pil_image_to_tensor(pil_img,
                                              half=sample.dtype==torch.float16,
                                              device=tensor_device)
@@ -670,6 +682,13 @@ def generate(options=None,
                 "watermark": opt.watermark,
                 "safety_check": opt.safety_check
             }
+
+            # Add face fix
+            if opt.auto_face_fix:
+                generation_parameters["auto_face_fix"] = True
+                generation_parameters["auto_face_fix_strength"] = opt.auto_face_fix_strength
+                generation_parameters["auto_face_fix_prompt"] = auto_face_fix_prompt
+                generation_parameters["auto_face_fix_face_detection_method"] = opt.auto_face_fix_face_detection_method
 
             if use_hires_fix:
                 generation_parameters["hires_fix_upscaler"] = opt.hires_fix_upscaler

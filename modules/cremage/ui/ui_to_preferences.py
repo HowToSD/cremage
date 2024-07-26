@@ -21,6 +21,8 @@ logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
 COMBO_BOX_FIELDS = [
+    "auto_face_fix",
+    "auto_face_fix_face_detection_method",
     "vae_model",
     "control_model",
     "ldm_model",
@@ -83,14 +85,16 @@ FLOAT_FIELDS = [
     "sampler_s_tmin",
     "sampler_s_tmax",
     "sampler_s_noise",
-    "sampler_eta"
+    "sampler_eta",
+    "auto_face_fix_strength"
 ]
 
 TEXT_VIEW_FIELDS = [
     "positive_prompt_pre_expansion",
     "negative_prompt_pre_expansion",
     "positive_prompt_expansion",
-    "negative_prompt_expansion"
+    "negative_prompt_expansion",
+    "auto_face_fix_prompt"
 ]
 
 CHECK_BUTTON_FIELDS = [
