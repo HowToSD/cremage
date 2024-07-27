@@ -40,6 +40,7 @@ from cremage.utils.cuda_utils import gpu_memory_info
 from cremage.configs.preferences import load_user_config
 from cremage.utils.wildcards import resolve_wildcards
 from cremage.utils.misc_utils import strip_directory_from_path_list_str
+from cremage.utils.random_utils import safe_random_int
 
 # SD_XL_BASE_RATIOS = {
 #     "0.5": (704, 1408),
@@ -424,7 +425,7 @@ def generate(options=None,
 
     # Seed
     if opt.seed == -1:
-        seed = random.getrandbits(32)
+        seed = safe_random_int()
     else:
         seed = opt.seed
     seed_everything(seed)

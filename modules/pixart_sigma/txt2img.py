@@ -40,7 +40,7 @@ from cremage.ui.update_image_handler import update_image
 from cremage.configs.preferences import load_user_config
 from cremage.utils.pixart_sigma_utils import update_pixart_sigma_model_with_custom_model
 from cremage.utils.pixart_sigma_utils import DEFAULT_MODEL_ID, MODEL_ID_LIST
-
+from cremage.utils.random_utils import safe_random_int
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ def generate(
         model_id = DEFAULT_MODEL_ID
 
     if seed == -1:
-        seed = random.getrandbits(32)
+        seed = safe_random_int()
 
     if status_queue:
         status_queue.put("Diffusers pipeline created")

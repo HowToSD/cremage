@@ -34,6 +34,7 @@ MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 sys.path = [MODULE_ROOT] + sys.path
 from cremage.ui.update_image_handler import update_image
 from cremage.configs.preferences import load_user_config
+from cremage.utils.random_utils import safe_random_int
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -66,7 +67,7 @@ def generate(
     """
 
     if seed == -1:
-        seed = random.getrandbits(32)
+        seed = safe_random_int()
 
     pipe = AutoPipelineForInpainting.from_pretrained(
         "kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16,

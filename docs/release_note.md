@@ -1,4 +1,8 @@
 # Release Note
+
+July 27, 2024 (v3.2.1):
+Fixed the random number seed issue for image generation.
+
 July 26, 2024 (v3.2.0):
 Added prompt override, denoising strength, and face detection method fields for the Auto Face Fix feature. These options become available when you enable Auto Face Fix in the Basic tab.
 Auto Face Fix applies facial enhancements after generating an image. It detects faces in the image and uses image-to-image processing to improve their appearance. Previously, these options were only available through the Face Fix tool, requiring manual invocation. Now, you can configure these parameters during image generation.

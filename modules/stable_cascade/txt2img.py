@@ -37,6 +37,7 @@ sys.path = [MODULE_ROOT] + sys.path
 from cremage.ui.update_image_handler import update_image
 from cremage.configs.preferences import load_user_config
 from cremage.const.const import GMT_STABLE_CASCADE
+from cremage.utils.random_utils import safe_random_int
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ def generate(
         batch_size = 1
 
     if seed == -1:
-        seed = random.getrandbits(32)
+        seed = safe_random_int()
 
     if status_queue:
         status_queue.put("Diffusers pipeline created")

@@ -59,6 +59,7 @@ from cremage.utils.hires_fix_upscaler_utils import hires_fix_upscaler_name_list
 from cremage.utils.ml_utils import scale_pytorch_images
 from cremage.utils.misc_utils import extract_embedding_filenames
 from cremage.utils.wildcards import resolve_wildcards
+from cremage.utils.random_utils import safe_random_int
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -596,7 +597,7 @@ def generate(opt,
 
     # Seed
     if opt.seed == -1:
-        seed = random.getrandbits(32)
+        seed = safe_random_int()
     else:
         seed = opt.seed
     seed_everything(seed)

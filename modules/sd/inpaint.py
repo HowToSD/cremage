@@ -34,6 +34,7 @@ from cremage.utils.generation_status_updater import StatusUpdater
 from cremage.utils.image_utils import bbox_for_multiple_of_64
 from cremage.utils.image_utils import resize_with_padding
 from ip_adapter.ip_adapter_faceid import generate_face_embedding_from_image
+from cremage.utils.random_utils import safe_random_int
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -74,7 +75,7 @@ def make_batch_sd(
 def generate(options=None, ui_thread_instance=None, status_queue=None):
     opt = options
     if opt.seed == 0:
-        seed = random.getrandbits(32)
+        seed = safe_random_int()
     else:
         seed = opt.seed
     seed_everything(seed)
@@ -160,7 +161,7 @@ def generate(options=None, ui_thread_instance=None, status_queue=None):
     model = sampler.model
 
     if opt.seed == -1:
-        seed = random.getrandbits(32)
+        seed = safe_random_int()
     else:
         seed = opt.seed
     prng = np.random.RandomState(seed)
