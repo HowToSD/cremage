@@ -162,6 +162,21 @@ def override_options(opt: argparse.Namespace,
     """
     parsed_args = opt
 
+    # Deal with a string where the user decided to add a new line
+    # in text view.
+    # In this case, generation string contains \n as opposed to \\n
+    # which unedited generation string contains.
+    # A single backslash \n causes JSON parse error, so you need
+    # to add the second backslash.
+    # To do so, we first define the regex pattern to match \n not preceded by \
+    # The pattern uses a negative lookbehind assertion to ensure that the \n is not part of \\n
+    # (?<!...) is the syntax for negative lookbehind
+    # (?<!\\) ensures that the position is not preceded by a single backslash
+    pattern = r'(?<!\\)\n'
+
+    # Then replace \n with \\n using the regex pattern
+    generation_string = re.sub(pattern, r'\\n', generation_string)
+
     try:
         print(generation_string)
         override_dict = json.loads(generation_string)

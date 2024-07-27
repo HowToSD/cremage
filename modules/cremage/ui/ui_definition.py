@@ -68,6 +68,8 @@ from cremage.ui.show_prompt_list_handlers import show_positive_prompt_pre_expans
 from cremage.ui.show_prompt_list_handlers import show_negative_prompt_pre_expansion_history_handler
 from cremage.ui.show_prompt_list_handlers import show_positive_prompt_expansion_history_handler
 from cremage.ui.show_prompt_list_handlers import show_negative_prompt_expansion_history_handler
+from cremage.ui.copy_prompt_handlers import copy_positive_prompt_handler
+from cremage.ui.copy_prompt_handlers import copy_negative_prompt_handler
 from cremage.utils.sampler_utils import sampler_name_list
 from cremage.utils.hires_fix_upscaler_utils import hires_fix_upscaler_name_list
 from cremage.utils.misc_utils import join_directory_and_file_name
@@ -85,6 +87,7 @@ BLANK_INPUT_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "blan
 BLANK_MASK_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "blank_mask_image.png")
 BLANK_CONTROL_NET_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "blank_image_control_net.png")
 LIST_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "prompt_history.png")
+PROMPT_COPY_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "prompt_copy.png")
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -262,7 +265,7 @@ def main_ui_definition(app) -> None:
     positive_prompt_label = Gtk.Label(label="Positive prompt")
     positive_prompt_label.set_halign(Gtk.Align.START)  # Align label to the left
     hbox.pack_start(positive_prompt_label, True, True, 0)
-    
+
     # Create the button with an image
     icon_image = Gtk.Image.new_from_file(LIST_IMAGE_PATH)
     icon_button = Gtk.Button()
@@ -270,6 +273,15 @@ def main_ui_definition(app) -> None:
     icon_button.set_relief(Gtk.ReliefStyle.NONE)  # Optional: remove button border
     icon_button.connect("clicked", lambda widget, app=app: show_positive_prompt_history_handler(app, widget))
     hbox.pack_end(icon_button, False, False, 0)
+
+    # Create the copy positive prompt button with an image
+    icon_image = Gtk.Image.new_from_file(PROMPT_COPY_IMAGE_PATH)
+    icon_button = Gtk.Button()
+    icon_button.set_image(icon_image)
+    icon_button.set_relief(Gtk.ReliefStyle.NONE)  # Optional: remove button border
+    icon_button.connect("clicked", lambda widget, app=app: copy_positive_prompt_handler(app, widget))
+    hbox.pack_end(icon_button, False, False, 0)
+
     vboxImage.pack_start(hbox, False, False, 0)
     # Positive prompt label end
 
@@ -294,7 +306,7 @@ def main_ui_definition(app) -> None:
     negative_prompt_label = Gtk.Label(label="Negative prompt")
     negative_prompt_label.set_halign(Gtk.Align.START)  # Align label to the left
     hbox.pack_start(negative_prompt_label, True, True, 0)
-    
+
     # Create the button with an image
     icon_image = Gtk.Image.new_from_file(LIST_IMAGE_PATH)
     icon_button = Gtk.Button()
@@ -302,6 +314,15 @@ def main_ui_definition(app) -> None:
     icon_button.set_relief(Gtk.ReliefStyle.NONE)  # Optional: remove button border
     icon_button.connect("clicked", lambda widget, app=app: show_negative_prompt_history_handler(app, widget))
     hbox.pack_end(icon_button, False, False, 0)
+
+    # Create the copy negative prompt button with an image
+    icon_image = Gtk.Image.new_from_file(PROMPT_COPY_IMAGE_PATH)
+    icon_button = Gtk.Button()
+    icon_button.set_image(icon_image)
+    icon_button.set_relief(Gtk.ReliefStyle.NONE)  # Optional: remove button border
+    icon_button.connect("clicked", lambda widget, app=app: copy_negative_prompt_handler(app, widget))
+    hbox.pack_end(icon_button, False, False, 0)
+
     vboxImage.pack_start(hbox, False, False, 0)
     # Negative prompt label end
 

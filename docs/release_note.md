@@ -1,4 +1,7 @@
 # Release Note
+July 27, 2024 (v3.2.2):
+Added support for copying positive prompt and negative prompt from generation information to positive prompt and negative prompt fields. To use this feature, just press the "C" icon by one of the prompt fields.
+Note that if you just want to use previous generation information including prompts, select "Use generation infor" checkbox and press Generate.  If you want, you can also edit the parameters inside the Generation information textbox.
 
 July 27, 2024 (v3.2.1):
 Fixed the random number seed issue for image generation.
