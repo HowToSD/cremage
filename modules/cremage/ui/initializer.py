@@ -69,7 +69,10 @@ def first_init(app:Gtk.Window):
         os.makedirs(app.output_dir, exist_ok=True)
     app.trash_dir = os.path.join(os.path.expanduser("~"), ".cremage", "trash")
     if os.path.exists(app.trash_dir) is False:
-        os.makedirs(app.trash_dir, exist_ok=True)       
+        os.makedirs(app.trash_dir, exist_ok=True)
+    app.favorites_dir = os.path.join(os.path.expanduser("~"), ".cremage", "favorites")
+    if os.path.exists(app.favorites_dir) is False:
+        os.makedirs(app.favorites_dir, exist_ok=True)              
     app.data_dir = os.path.join(os.path.expanduser("~"), ".cremage", "data")
     if os.path.exists(app.data_dir) is False:
         os.makedirs(app.data_dir, exist_ok=True)       

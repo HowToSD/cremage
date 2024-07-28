@@ -53,6 +53,12 @@ def main_menu_definition(app) -> None:
                             Gdk.ModifierType.CONTROL_MASK, Gtk.AccelFlags.VISIBLE)
     file_menu.append(preferences_item)
 
+    # Favorites directory
+    favorites_dir_viewer_item = Gtk.MenuItem(label="View favorites directory")
+    favorites_dir_viewer_item.connect("activate", 
+                                   lambda widget, app=app: open_favorites_dir_handler(app, widget))
+    file_menu.append(favorites_dir_viewer_item)
+
     # Output directory
     output_dir_viewer_item = Gtk.MenuItem(label="View output directory")
     output_dir_viewer_item.connect("activate", 
@@ -86,6 +92,15 @@ def open_output_dir_handler(app, widget):
     This is used to drag and drop images into Cremage.
     """
     directory_path = app.output_dir
+    open_os_directory(directory_path)
+
+def open_favorites_dir_handler(app, widget):
+    """
+    Opens the directory using OS-specific file viewer application.
+
+    This is used to drag and drop images into Cremage.
+    """
+    directory_path = app.favorites_dir
     open_os_directory(directory_path)
 
 

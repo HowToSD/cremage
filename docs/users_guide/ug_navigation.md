@@ -9,9 +9,12 @@ To navigate, first click an image on the list, then press any key in the table b
 | End  or Cmd+down arrow for Mac| Jump to the oldest image |
 | Up arrow | Scroll to the newer image |
 | Down arrow | Scroll to the older image |
-| Shift+Ctrl+m | Mark the current image |
-| Shift+Ctrl+g | Go to the marked image |
+| f | Copy image to favorites directory |
+| m | Mark the current image |
+| g | Go to the marked image |
 | Del | Erase current image |
 | Backspace | Erase current image |
 
 There is also a scrollbar to the right of the image list box that you can drag to scroll fast.
+
+Note that prior to version 3.2.3, marking the current image and going to the marked image required pressing Ctrl+Shift with m or g, but pressing Ctrl+Shift is no longer quired starting in 3.2.3.

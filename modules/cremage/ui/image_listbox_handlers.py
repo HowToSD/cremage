@@ -76,15 +76,21 @@ def image_listbox_key_press_handler(app:Gtk.Window, widget:Gtk.ListBox, event:Gd
     ctrl = (event.state & Gdk.ModifierType.CONTROL_MASK) != 0
     shift = (event.state & Gdk.ModifierType.SHIFT_MASK) != 0
 
-    if ctrl and shift and keyname in ['m', 'M']:
-        print("Ctrl+Shift+M was pressed")
+    if keyname in ['m', 'M']:
+        print("M was pressed")
         selected_row = app.listbox.get_selected_row() # obj 0-7
         mark_image(app, selected_row.get_index())
         return True  # Return True if you want to stop other handlers from being invoked for this event.
 
-    if ctrl and shift and keyname in ['g', 'G']:
-        print("Ctrl+Shift+G was pressed")
+    if keyname in ['g', 'G']:
+        print("G was pressed")
         go_to_marked_image(app)
+        return True
+
+    if keyname in ['f', 'F']:
+        print("F was pressed")
+        selected_row = app.listbox.get_selected_row() # obj 0-7
+        copy_image_to_favorites(app, selected_row.get_index())
         return True
 
     if keyname == "Delete":
@@ -269,6 +275,27 @@ def go_to_marked_image(app:Gtk.Window) -> bool :
     first_row.grab_focus()
     update_main_image(app, first_row.get_index())
     return True
+
+def copy_image_to_favorites(app:Gtk.Window, listbox_index:int):
+    """
+    Copies image to the favorites folder.
+
+    Args:
+        list_box_index (int):  Position in the listbox of the image to be deleted.
+            0-based.
+    """
+    # Get the global image index of the image to be deleted
+    current_image_index = app.current_image_start_index + listbox_index
+    image_path = app.image_paths[current_image_index]
+    base_name = os.path.basename(image_path)
+    target_file_path = os.path.join(app.favorites_dir, base_name)
+    if os.path.exists(target_file_path):
+        # If target path already exists in a trash directory,
+        # create a new file name by appending the time to the base name of the file.
+        target_file_path = os.path.splitext(target_file_path)[0] + str(time.time()) + os.path.splitext(target_file_path)[1]
+
+    # Move the file to trash dir
+    shutil.copy(image_path, target_file_path)
 
 
 def delete_image(app:Gtk.Window, listbox_index:int):

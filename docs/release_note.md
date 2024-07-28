@@ -1,9 +1,15 @@
 # Release Note
-July 27, 2024 (v3.2.2):
+July 27, 2024
+
+(v3.2.3):
+Added support of copying the file to the favorites directory on Image List on the left of the main image. To copy, press "f" after selecting the image. The image is copied to .cremage/favorites under your home directory.  You can also view this directory by selecting File | View favorites directory menu item from the top menu bar.
+In addition, prior to version 3.2.3, marking the current image and going to the marked image required pressing Ctrl+Shift with m or g, but pressing Ctrl+Shift is no longer quired starting in 3.2.3.
+
+(v3.2.2):
 Added support for copying positive prompt and negative prompt from generation information to positive prompt and negative prompt fields. To use this feature, just press the "C" icon by one of the prompt fields.
 Note that if you just want to use previous generation information including prompts, select "Use generation infor" checkbox and press Generate.  If you want, you can also edit the parameters inside the Generation information textbox.
 
-July 27, 2024 (v3.2.1):
+(v3.2.1):
 Fixed the random number seed issue for image generation.
 
 July 26, 2024 (v3.2.0):
