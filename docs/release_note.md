@@ -1,6 +1,6 @@
 # Release Note
 July 30, 2024 (v3.2.4):
-SDXL Inpainting is now supported. Weights are automatically downloaded from Hugging Face so no user action is required. If you have disabled model downloading network connection in Preferences screen, make sure that you renable this when you use this feature for the first time. To use this, select Inpainting radio button at the bottom of the screen. For more information, refer to [Inpainting](docs/users_guide/ug_inpainting.md "Inpainting")
+SDXL Inpainting is now supported. Weights are automatically downloaded from Hugging Face so no user action is required. If you have disabled model downloading network connection in Preferences screen, make sure that you renable this when you use this feature for the first time. To use this, select Inpainting radio button at the bottom of the screen. For more information, refer to [Inpainting](users_guide/ug_inpainting.md "Inpainting")
 
 (v3.2.3):
 Added support of copying the file to the favorites directory on Image List on the left of the main image. To copy, press "f" after selecting the image. The image is copied to .cremage/favorites under your home directory.  You can also view this directory by selecting File | View favorites directory menu item from the top menu bar.
