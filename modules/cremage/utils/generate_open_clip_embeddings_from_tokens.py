@@ -25,6 +25,7 @@ from cremage.utils.ml_utils import load_embedding
 BOS = 49406
 EOS = 49407
 PAD = 0  # Change from CLIP
+BREAK_MARKER = "BREAK"
 
 def token_to_embedding(model, token_ids):
     # Cremage: nn.Module does not have device attribute
@@ -118,6 +119,11 @@ def generate_open_clip_embeddings(
                 i += 1
                 embedding_list.append(list())  # Create a blank list for new row
                 current_seq_len = converted_length            
+            elif word == BREAK_MARKER:
+                i += 1
+                embedding_list.append(list())  # Create a blank list for new row
+                current_seq_len = 0
+                continue
             else:
                 # Convert to embeddings
                 current_seq_len += converted_length 

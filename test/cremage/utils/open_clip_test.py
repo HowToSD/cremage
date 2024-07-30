@@ -295,6 +295,53 @@ Cute puppy on the kitchen counter
             self.assertTrue(r.shape == (77, 1280))
         self.assertTrue(eos_index_list[0] == 73)
 
+    def test_break(self):
+        """
+        A blank string "" gets converted to:
+        49406, 49407, 0, ... 0
+        """
+        TestOpenClip.model = self._load_model() if TestOpenClip.model is None else TestOpenClip.model
+        model = TestOpenClip.model
+        inputs = [
+                ('Photo', 1.0),
+                ('of', 1.0),
+                ('a', 1.0),        
+                ('dancing', 1.2),
+                ('BREAK', 1.0),
+                ('man', 1.1)
+        ]
+
+        retval, eos_index_list = generate_open_clip_embeddings(
+            model,
+            "/media/pup/ssd2/recoverable_data/sd_models/embeddings_sdxl",
+            inputs)
+        self.assertTrue(len(retval) == 2)
+
+    def test_break_2(self):
+        """
+        A blank string "" gets converted to:
+        49406, 49407, 0, ... 0
+        """
+        TestOpenClip.model = self._load_model() if TestOpenClip.model is None else TestOpenClip.model
+        model = TestOpenClip.model
+        inputs = [
+                ('Photo', 1.0),
+                ('of', 1.0),
+                ('a', 1.0),        
+                ('dancing', 1.2),
+                ('break', 1.0),
+                ('man', 1.1)
+        ]
+
+        retval, eos_index_list = generate_open_clip_embeddings(
+            model,
+            "/media/pup/ssd2/recoverable_data/sd_models/embeddings_sdxl",
+            inputs)
+        self.assertTrue(len(retval) == 1)
+
+
+
+
 
 if __name__ == '__main__':
     unittest.main()

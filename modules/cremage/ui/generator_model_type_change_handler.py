@@ -181,7 +181,7 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
         app.fields1_labels["Denoising strength"].show()
 
         app.rb_image_to_image.show()
-        app.rb_inpainting.hide()
+        app.rb_inpainting.show()
         
         app.tab_labels["Models"].set_visible(False)
         app.tab_labels["ControlNet"].set_visible(False)

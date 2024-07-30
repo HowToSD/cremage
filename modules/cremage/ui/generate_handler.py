@@ -298,7 +298,10 @@ def generate_handler(app, widget, event) -> None:
 
     elif generator_model_type == GMT_SDXL:
 
-        from sdxl.sdxl_pipeline.sdxl_image_generator import generate as sdxl_generate
+        if app.generation_mode == MODE_INPAINTING:
+            from sdxl.sdxl_pipeline.sdxl_inpaint import generate as sdxl_generate
+        else:
+            from sdxl.sdxl_pipeline.sdxl_image_generator import generate as sdxl_generate
 
         if app.generation_mode in (MODE_IMAGE_TO_IMAGE, MODE_INPAINTING):
             # Save current image_input to a file
@@ -323,30 +326,31 @@ def generate_handler(app, widget, event) -> None:
         else:  # txt2img
             generation_type = "txt2img"
         
-        args_list += [
-            "--refiner_strength", str(refiner_strength),
-            "--refiner_sdxl_ckpt", refiner_ldm_path,
-            "--refiner_sdxl_vae_ckpt", refiner_vae_path,
-            "--refiner_sdxl_lora_models", refiner_sdxl_lora_models,
-            "--refiner_sdxl_lora_weights", refiner_sdxl_lora_weights,
+        if app.generation_mode != MODE_INPAINTING:
+            args_list += [
+                "--refiner_strength", str(refiner_strength),
+                "--refiner_sdxl_ckpt", refiner_ldm_path,
+                "--refiner_sdxl_vae_ckpt", refiner_vae_path,
+                "--refiner_sdxl_lora_models", refiner_sdxl_lora_models,
+                "--refiner_sdxl_lora_weights", refiner_sdxl_lora_weights,
 
-            "--discretization", app.preferences["discretization"],
-            "--discretization_sigma_min", str(app.preferences["discretization_sigma_min"]),
-            "--discretization_sigma_max", str(app.preferences["discretization_sigma_max"]),
-            "--discretization_rho", str(app.preferences["discretization_rho"]),
-            "--guider", app.preferences["guider"],
-            "--linear_prediction_guider_min_scale", str(app.preferences["linear_prediction_guider_min_scale"]),
-            "--linear_prediction_guider_max_scale", str(app.preferences["linear_prediction_guider_max_scale"]),
-            "--triangle_prediction_guider_min_scale", str(app.preferences["triangle_prediction_guider_min_scale"]),
-            "--triangle_prediction_guider_max_scale", str(app.preferences["triangle_prediction_guider_max_scale"]),
+                "--discretization", app.preferences["discretization"],
+                "--discretization_sigma_min", str(app.preferences["discretization_sigma_min"]),
+                "--discretization_sigma_max", str(app.preferences["discretization_sigma_max"]),
+                "--discretization_rho", str(app.preferences["discretization_rho"]),
+                "--guider", app.preferences["guider"],
+                "--linear_prediction_guider_min_scale", str(app.preferences["linear_prediction_guider_min_scale"]),
+                "--linear_prediction_guider_max_scale", str(app.preferences["linear_prediction_guider_max_scale"]),
+                "--triangle_prediction_guider_min_scale", str(app.preferences["triangle_prediction_guider_min_scale"]),
+                "--triangle_prediction_guider_max_scale", str(app.preferences["triangle_prediction_guider_max_scale"]),
 
-            "--sampler_s_churn", str(app.preferences["sampler_s_churn"]),
-            "--sampler_s_tmin", str(app.preferences["sampler_s_tmin"]),
-            "--sampler_s_tmax", str(app.preferences["sampler_s_tmax"]),
-            "--sampler_s_noise", str(app.preferences["sampler_s_noise"]),
-            "--sampler_eta", str(app.preferences["sampler_eta"]),
-            "--sampler_order", str(app.preferences["sampler_order"])
-        ]
+                "--sampler_s_churn", str(app.preferences["sampler_s_churn"]),
+                "--sampler_s_tmin", str(app.preferences["sampler_s_tmin"]),
+                "--sampler_s_tmax", str(app.preferences["sampler_s_tmax"]),
+                "--sampler_s_noise", str(app.preferences["sampler_s_noise"]),
+                "--sampler_eta", str(app.preferences["sampler_eta"]),
+                "--sampler_order", str(app.preferences["sampler_order"])
+            ]
 
         generate_func = sdxl_generate
 
@@ -372,12 +376,58 @@ def generate_handler(app, widget, event) -> None:
 
         status_queue = queue.Queue()
         # Start the image generation thread
-        thread = threading.Thread(
-            target=generate_func,
-            kwargs={'options': options,
-                    'generation_type': generation_type,
+        if app.generation_mode != MODE_INPAINTING:
+
+            thread = threading.Thread(
+                target=generate_func,
+                kwargs={'options': options,
+                        'generation_type': generation_type,
+                        'ui_thread_instance': app,
+                        'status_queue': status_queue})
+        else:  # inpainting
+            kwargs = {'positive_prompt': positive_prompt,
+                    'negative_prompt': negative_prompt,
+                    'checkpoint': "", # checkpoint,
+                    'out_dir': app.output_dir,
+                    "steps": app.preferences["sampling_steps"],
+                    'guidance_scale': app.preferences["cfg"],
+                    'height': int(image_height),
+                    'width': int(image_width),
+                    "number_of_batches": int(number_of_batches),
+                    "batch_size": int(batch_size),
+                    "seed": int(seed),
+                    "safety_check": app.preferences["safety_check"],
+                    "watermark": app.preferences["watermark"],
+                    "auto_face_fix": auto_face_fix,
+                    "auto_face_fix_strength": float(app.preferences["auto_face_fix_strength"]),
+                    "auto_face_fix_face_detection_method": app.preferences["auto_face_fix_face_detection_method"],
+                    "auto_face_fix_prompt": app.preferences["auto_face_fix_prompt"]
+            }
+
+            kwargs.update({
+                "input_image": app.input_image_original_size,
+                "mask_image": Image.open(app.mask_image_path),
+            })
+
+            # Override args_list if override checkbox is checked
+            if app.override_checkbox.get_active():
+                info = text_view_get_text(app.generation_information)
+                logger.info(f"Using the generation settings from the image instead of UI")
+                kwargs = override_kwargs(
+                    kwargs,
+                    info,
+                    preferences=app.preferences,
+                    generator_model_type=generator_model_type)
+
+            kwargs.update({
                     'ui_thread_instance': app,
                     'status_queue': status_queue})
+
+            thread = threading.Thread(
+                target=generate_func,
+                kwargs=kwargs
+            )
+        # end if inpainting
     # end if sdxl
 
     elif generator_model_type in \
