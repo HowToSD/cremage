@@ -12,17 +12,53 @@ thanks!
 import math
 from typing import Optional
 
+import numpy as np
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat
 
 
 def make_beta_schedule(
-    schedule,
-    n_timestep,
-    linear_start=1e-4,
-    linear_end=2e-2,
-):
+    schedule:str,
+    n_timestep:int,
+    linear_start:float =1e-4,
+    linear_end:float=2e-2,
+) -> np.ndarray:
+    """
+    Docstrings added by Cremage.
+
+    Computes the linear beta schedule.
+
+    Example for n_timestep set to 20:
+    [0] 0.0001
+    [1] 0.00028618196189870196
+    [2] 0.0005680513081478406
+    [3] 0.0009456080387474158
+    [4] 0.0014188521536974274
+    [5] 0.001987783652997876
+    [6] 0.002652402536648761
+    [7] 0.003412708804650082
+    [8] 0.004268702457001841
+    [9] 0.0052203834937040354
+    [10] 0.006267751914756668
+    [11] 0.007410807720159736
+    [12] 0.008649550909913243
+    [13] 0.009983981484017183
+    [14] 0.011414099442471562
+    [15] 0.012939904785276376
+    [16] 0.014561397512431625
+    [17] 0.016278577623937317
+    [18] 0.01809144511979344
+    [19] 0.02
+
+    Args:
+        schedule (str): Only linear is supported
+        n_timestep (int): Number of time steps
+        linear_start (float): Start value
+        linear_end (float): End value
+    Returns:
+        numpy.ndarray of beta schedule
+    """
     if schedule == "linear":
         betas = (
             torch.linspace(
@@ -30,6 +66,8 @@ def make_beta_schedule(
             )
             ** 2
         )
+    else:
+        raise ValueError("Only linear schedule is supported.")
     return betas.numpy()
 
 

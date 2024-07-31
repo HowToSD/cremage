@@ -1,3 +1,6 @@
+![Sample output](docs/images/sample_output_1.jpg "Sample output")
+![Sample output](docs/images/sample_output_2.jpg "Sample output")
+
 ## Updates
 July 26, 2024
 Auto Face Fix enhancement was added. This contains breaking changes and needs your action if you upgrade your existing installation. See  [Release note](docs/release_note.md "View Release note") first.

@@ -185,7 +185,23 @@ def get_obj_from_str(string, reload=False, invalidate_cache=True):
     return getattr(importlib.import_module(module, package=None), cls)
 
 
-def append_zero(x):
+def append_zero(x: torch.tensor) -> torch.tensor:
+    """
+    Appends a zero to the end of a PyTorch tensor.
+
+    Args:
+        x (torch.tensor): The input tensor.
+
+    Returns:
+        torch.tensor: A new tensor with a zero appended at the end.
+
+    Example:
+        >>> x = torch.tensor([1.0, 2.0])
+        >>> append_zero(x)
+        tensor([1., 2., 0.])
+
+    Note: This docstring was added by Cremage.
+    """
     return torch.cat([x, x.new_zeros([1])])
 
 
