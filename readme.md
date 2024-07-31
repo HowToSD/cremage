@@ -2,8 +2,10 @@
 ![Sample output](docs/images/sample_output_2.jpg "Sample output")
 
 ## Updates
-July 26, 2024
-Auto Face Fix enhancement was added. This contains breaking changes and needs your action if you upgrade your existing installation. See  [Release note](docs/release_note.md "View Release note") first.
+See  [Release note](docs/release_note.md "View Release note").
+
+July 31, 2024
+PixArt-Sigma txt2img is now working on a silicon Mac. It was tested on MacBook Air (M1, 2020) with 16GB RAM. To use, select Pixart Sigma in Generator model type on Basic tab. Models are automatically downloaded, so no manual model download is needed. If you have previously installed Cremage, please make sure that you install sentencepiece as specified in requirements_mac.txt.
 
 # Welcome to Cremage.
 

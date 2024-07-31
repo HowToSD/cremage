@@ -1,4 +1,7 @@
 # Release Note
+July 31, 2024 (v3.2.6)
+PixArt-Sigma txt2img is now working on a silicon Mac. It was tested on MacBook Air (M1, 2020) with 16GB RAM. To use, select Pixart Sigma in Generator model type on Basic tab. Models are automatically downloaded, so no further set up is needed. If you have previously installed Cremage, please make sure that you install sentencepiece as specified in requirements_mac.txt.
+
 July 30, 2024 (v3.2.4):
 SDXL Inpainting is now supported. Weights are automatically downloaded from Hugging Face so no user action is required. If you have disabled model downloading network connection in Preferences screen, make sure that you renable this when you use this feature for the first time. To use this, select Inpainting radio button at the bottom of the screen. For more information, refer to [Inpainting](users_guide/ug_inpainting.md "Inpainting")
 
