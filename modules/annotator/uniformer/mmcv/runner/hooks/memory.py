@@ -14,12 +14,15 @@ class EmptyCacheHook(Hook):
 
     def after_iter(self, runner):
         if self._after_iter:
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     def before_epoch(self, runner):
         if self._before_epoch:
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     def after_epoch(self, runner):
         if self._after_epoch:
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()

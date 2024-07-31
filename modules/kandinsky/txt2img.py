@@ -90,7 +90,7 @@ def generate(
         new_seed_group_index = batch_size * batch_index
         # Note that generator list is created by doubling the size of batch size
         # This is specific to Kandinsky and to work around the exception specific to an issue found.
-        random_number_generator = [torch.Generator(device="cuda").manual_seed(seed + new_seed_group_index + i) for i in range(batch_size*2)]
+        random_number_generator = [torch.Generator(device=os.environ.get("GPU_DEVICE", "cpu")).manual_seed(seed + new_seed_group_index + i) for i in range(batch_size*2)]
 
         if status_queue:
             status_queue.put("Generating images ...")

@@ -73,7 +73,7 @@ def generate(
     if seed == -1:
         seed = safe_random_int()
 
-    if quantize_t5:
+    if quantize_t5 and os.environ.get("GPU_DEVICE", "cpu") == "cuda":
         from transformers import T5EncoderModel, BitsAndBytesConfig
         quantization_config = BitsAndBytesConfig(load_in_8bit=True)
         model_id = checkpoint
@@ -94,7 +94,7 @@ def generate(
             checkpoint, torch_dtype=torch.float16,
             local_files_only=local_files_only_value)
         pipe.enable_model_cpu_offload()
-        # pipe = pipe.to("cuda")
+        # pipe = pipe.to(os.environ.get("GPU_DEVICE", "cpu"))
 
     if status_queue:
         status_queue.put("Diffusers pipeline created")
@@ -120,7 +120,7 @@ def generate(
 
     for batch_index in range(number_of_batches):
         new_seed_group_index = batch_size * batch_index
-        random_number_generator = [torch.Generator(device="cuda").manual_seed(seed + new_seed_group_index + i) for i in range(batch_size)]
+        random_number_generator = [torch.Generator(device=os.environ.get("GPU_DEVICE", "cpu")).manual_seed(seed + new_seed_group_index + i) for i in range(batch_size)]
 
         if status_queue:
             status_queue.put("Generating images ...")

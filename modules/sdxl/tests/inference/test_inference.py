@@ -22,7 +22,8 @@ class TestInference:
         pipeline = SamplingPipeline(request.param)
         yield pipeline
         del pipeline
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     @fixture(
         scope="class",
@@ -38,7 +39,8 @@ class TestInference:
         yield base_pipeline, refiner_pipeline
         del base_pipeline
         del refiner_pipeline
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def create_init_image(self, h, w):
         image_array = numpy.random.rand(h, w, 3) * 255

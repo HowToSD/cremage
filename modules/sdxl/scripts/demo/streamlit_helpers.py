@@ -86,7 +86,8 @@ def unload_model(model):
     global lowvram_mode
     if lowvram_mode:
         model.cpu()
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 def load_model_from_config(config, ckpt=None, verbose=True):

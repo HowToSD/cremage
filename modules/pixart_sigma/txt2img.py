@@ -48,7 +48,8 @@ logger = logging.getLogger(__name__)
 
 def flush():
     gc.collect()
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def generate(
@@ -107,15 +108,16 @@ def generate(
         new_seed_group_index = batch_size * batch_index
         # TODO: Fix the issue where if you specify random number generator when bs > 1, the same image is generated for all images within
         # the batch.
-        random_number_generator = [torch.Generator(device="cuda").manual_seed(seed + new_seed_group_index + i) for i in range(batch_size**2)]
+        random_number_generator = [torch.Generator(device=os.environ.get("GPU_DEVICE", "cpu")).manual_seed(seed + new_seed_group_index + i) for i in range(batch_size**2)]
 
         if status_queue:
             status_queue.put("Generating images ...")
 
+        load_in_8bit = os.environ.get("GPU_DEVICE", "cpu") == "cuda"
         text_encoder = T5EncoderModel.from_pretrained(
             model_id,
             subfolder="text_encoder",
-            load_in_8bit=True,
+            load_in_8bit=load_in_8bit,
             device_map="auto",
             local_files_only=local_files_only_value
         )
@@ -154,7 +156,7 @@ def generate(
         # Disabling torch.compile for now as compiling takes significant amount of time
         # pipe.transformer = torch.compile(pipe.transformer, mode="max-autotune", fullgraph=True)
         # pipe.vae.decode = torch.compile(pipe.vae.decode, mode="max-autotune", fullgraph=True)
-        pipe.to("cuda")
+        pipe.to(os.environ.get("GPU_DEVICE", "cpu"))
 
         latents = pipe(
             negative_prompt=None,

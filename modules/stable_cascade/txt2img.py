@@ -45,7 +45,8 @@ logger = logging.getLogger(__name__)
 
 def flush():
     gc.collect()
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def generate(
@@ -108,7 +109,7 @@ def generate(
 
     for batch_index in range(number_of_batches):
         new_seed_group_index = batch_size * batch_index
-        random_number_generator = [torch.Generator(device="cuda").manual_seed(seed + new_seed_group_index + i) for i in range(batch_size)]
+        random_number_generator = [torch.Generator(device=os.environ.get("GPU_DEVICE", "cpu")).manual_seed(seed + new_seed_group_index + i) for i in range(batch_size)]
 
         if status_queue:
             status_queue.put("Generating images ...")
