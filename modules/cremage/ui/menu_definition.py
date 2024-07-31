@@ -65,6 +65,11 @@ def main_menu_definition(app) -> None:
                                    lambda widget, app=app: open_output_dir_handler(app, widget))
     file_menu.append(output_dir_viewer_item)
 
+    # Exit
+    exit_item = Gtk.MenuItem(label="Exit")
+    exit_item.connect("activate", lambda widget, app=app: sys.exit(0))
+    file_menu.append(exit_item)
+
     app.menu_bar.append(file_item)  # Add file menu to menu bar
 
     # Tools menu
