@@ -95,7 +95,8 @@ from cremage.utils.gtk_utils import text_view_get_text, create_combo_box_typeahe
 from cremage.utils.misc_utils import generate_lora_params
 from cremage.utils.misc_utils import get_tmp_dir
 from cremage.ui.model_path_update_handler import update_ldm_model_name_value_from_ldm_model_dir
-
+from cremage.ui.model_path_update_handler import update_sdxl_ldm_model_name_value_from_sdxl_ldm_model_dir
+from cremage.const.const import GMT_SD_1_5, GMT_SDXL
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ if os.environ.get("ENABLE_HF_INTERNET_CONNECTION") == "1":
 else:
     local_files_only_value=True
 
-TARGET_EDGE_LEN = 512  # FIXME
+TARGET_EDGE_LEN = 512  # This is overridden during runtime
 SELECTED_COLOR =  (0, 0x7B/255.0, 0xFF/255.0, 0.5)  # "#007BFF"
 UNSELECTED_COLOR = (0xD3/255.0, 0xD3/255.0, 0xD3/255.0, 0.5)
 FACE_FIX_TMP_DIR = os.path.join(get_tmp_dir(), "face_fix.tmp")
@@ -151,6 +152,7 @@ class FaceFixer(Gtk.Window):
                  preferences=None,
                  pil_face_image=None,
                  face_model_full_path=None,
+                 generator_model_type=GMT_SD_1_5,
                  procedural=False,
                  status_queue=None):
         """
@@ -174,9 +176,11 @@ class FaceFixer(Gtk.Window):
         self.output_dir = None  # This is used for refreshing the image list, but not used for Face Fixer
         self.pil_face_image = pil_face_image
         self.face_model_full_path = face_model_full_path
+        self.generator_model_type = generator_model_type  # This is overridden
         self.ldm_model_names = None # This is populated in update_ldm_model_name_value_from_ldm_model_dir
-        self.enable_lora = False
+        self.sdxl_ldm_model_names = None # This is populated in update_sdxl_ldm_model_name_value_from_sdxl_ldm_model_dir
         update_ldm_model_name_value_from_ldm_model_dir(self)
+        update_sdxl_ldm_model_name_value_from_sdxl_ldm_model_dir(self)
 
         # Prompt used if invoked from img2img
         self.procedural = procedural  # True if img2img. False if UI
@@ -383,8 +387,19 @@ class FaceFixer(Gtk.Window):
         # End of vertical control box area
 
         # Start of the prompt area
-        # LDM model
+        # Generation selector
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+
+        generator_model_type_list = [GMT_SD_1_5, GMT_SDXL]
+        generator_model_type_cb = create_combo_box_typeahead(
+            generator_model_type_list,
+            generator_model_type_list.index(self.generator_model_type))
+        generator_model_type_cb.set_size_request(25, 25)
+        generator_model_type_cb.connect("changed", self.generator_model_type_changed)
+
+        box.pack_start(generator_model_type_cb, False, False, 0)
+        
+        # LDM model
         model_name = self.preferences["ldm_model"]
         # Check to see if we have generation info to override
         if "ldm_model" in self.generation_information:
@@ -396,7 +411,6 @@ class FaceFixer(Gtk.Window):
         
         if model_name in self.ldm_model_names:
             ind = self.ldm_model_names.index(model_name)
-            self.enable_lora = True
         else:
             model_name = self.preferences["ldm_model"]
             ind = self.ldm_model_names.index(model_name)
@@ -405,7 +419,30 @@ class FaceFixer(Gtk.Window):
         self.ldm_model_cb = create_combo_box_typeahead(
             self.ldm_model_names,
             ind)
+        # self.ldm_model_cb.set_size_request(200, 25)
         box.pack_start(self.ldm_model_cb, False, False, 0)
+        
+        # SDXL model fields
+        model_name = self.preferences["sdxl_ldm_model"]
+        # Check to see if we have generation info to override
+        if "ldm_model" in self.generation_information:  # Generation contains model name
+            model_name = self.generation_information["ldm_model"]
+
+        if model_name in self.sdxl_ldm_model_names:  # model name is found on the list
+            ind = self.sdxl_ldm_model_names.index(model_name)
+        else:  # Unsupported model name
+            model_name = self.preferences["sdxl_ldm_model"]
+            ind = 0  # Set to the first entry
+
+        self.sdxl_ldm_model_cb = create_combo_box_typeahead(
+            self.sdxl_ldm_model_names,
+            ind)
+        # self.ldm_model_cb.set_size_request(200, 25)
+        box.pack_start(self.sdxl_ldm_model_cb, False, False, 0)
+
+        # SDXL model end
+        # Set visibility
+        self.set_generator_model_combobox_visibility(self.generator_model_type)
         root_box.pack_start(box, False, False, 0)
 
         # Denoising strength
@@ -589,7 +626,7 @@ class FaceFixer(Gtk.Window):
 
     def mark_face_with_opencv(self, pil_image):
         parser = argparse.ArgumentParser()
-        parser.add_argument('--scale', '-sc', type=float, default=1.0, help='Scale factor used to resize input video frames.')
+        # parser.add_argument('--scale', '-sc', type=float, default=1.0, help='Scale factor used to resize input video frames.')
         parser.add_argument('--face_recognition_model', '-fr', type=str, default='face_recognition_sface_2021dec.onnx', help='Path to the face recognition model. Download the model at https://github.com/opencv/opencv_zoo/tree/master/models/face_recognition_sface')
         parser.add_argument('--score_threshold', type=float, default=0.9, help='Filtering out faces of score < score_threshold.')
         parser.add_argument('--nms_threshold', type=float, default=0.3, help='Suppress bounding boxes of iou >= nms_threshold.')
@@ -608,12 +645,33 @@ class FaceFixer(Gtk.Window):
         # Prepare image for detection
         img1 = pil_image.convert("RGB")  # Convert to RGB from RGBA
         img1 = np.asarray(img1, dtype=np.uint8)[:,:,::-1]  # to np and RGB to BGR
-        img1Width = int(img1.shape[1]*args.scale)
-        img1Height = int(img1.shape[0]*args.scale)
+
+        original_width = img1.shape[1]
+        original_height = img1.shape[0]
+        
+        max_edge = max(original_height, original_width)
+        if max_edge > 768:
+            scale = 768 / max_edge
+            scale2 = 1 / scale
+            scaled = True
+        else:
+            scale = 1.0
+            scaled = False
+        img1Width = int(img1.shape[1] * scale)
+        img1Height = int(img1.shape[0] * scale)
 
         img1 = cv.resize(img1, (img1Width, img1Height))
         detector.setInputSize((img1Width, img1Height))
         face_data = detector.detect(img1)
+
+        # rescale coordinates
+        if scaled:
+            faces = face_data[1]
+            for i, face in enumerate(faces):
+                faces[i][0] = face[0] * scale2
+                faces[i][1] = face[1] * scale2
+                faces[i][2] = face[2] * scale2
+                faces[i][3] = face[3] * scale2
 
         return face_data
 
@@ -847,6 +905,13 @@ class FaceFixer(Gtk.Window):
         h
         score
         """
+        global TARGET_EDGE_LEN
+
+        if self.generator_model_type == GMT_SDXL:
+            TARGET_EDGE_LEN = 1024
+        else:
+            TARGET_EDGE_LEN = 512
+
         # Gender classification
         logger.info(f"ViTImageProcessor and ViTForImageClassification connection to internet disabled : {local_files_only_value}")
         processor = ViTImageProcessor.from_pretrained('rizvandwiki/gender-classification',
@@ -960,6 +1025,7 @@ class FaceFixer(Gtk.Window):
             meta_prompt (str): Gender string of the face detected by the gender ML model
         """
         logger.info("face_image_to_image")
+        is_sdxl = True if self.generator_model_type == GMT_SDXL else False
 
         generation_info = self.generation_information
 
@@ -970,15 +1036,19 @@ class FaceFixer(Gtk.Window):
             self.positive_prompt = self.positive_prompt_procedural
         else:
             self.positive_prompt = text_view_get_text(self.positive_prompt_field)
+            if self.preferences["enable_positive_prompt_pre_expansion"]:
+                self.positive_prompt = self.preferences["positive_prompt_pre_expansion"] + self.positive_prompt
+            if self.preferences["enable_positive_prompt_expansion"]:
+                self.positive_prompt += self.preferences["positive_prompt_expansion"]
 
         if self.positive_prompt:
             positive_prompt = self.positive_prompt
-            if self.preferences["enable_positive_prompt_expansion"]:
-                positive_prompt += self.preferences["positive_prompt_expansion"]
         elif generation_info is not None and "positive_prompt" in generation_info: # Priority 2. Generation
            positive_prompt = generation_info["positive_prompt"]
         else:  # use blank
             positive_prompt = ""
+            if self.preferences["enable_positive_prompt_pre_expansion"]:
+                positive_prompt = self.preferences["positive_prompt_pre_expansion"] + positive_prompt
             if self.preferences["enable_positive_prompt_expansion"]:
                 positive_prompt += self.preferences["positive_prompt_expansion"]
 
@@ -994,12 +1064,13 @@ class FaceFixer(Gtk.Window):
 
         if self.negative_prompt:
             negative_prompt = self.negative_prompt
-            if self.preferences["enable_negative_prompt_expansion"]:
-                negative_prompt += self.preferences["negative_prompt_expansion"]
         elif generation_info is not None and "negative_prompt" in generation_info: # Priority 2. Generation
             negative_prompt = generation_info["negative_prompt"]
         else:  # use blank
             negative_prompt = ""
+            if self.preferences["enable_negative_prompt_pre_expansion"]:
+                negative_prompt = self.preferences["negative_prompt_pre_expansion"] + negative_prompt
+
             if self.preferences["enable_negative_prompt_expansion"]:
                 negative_prompt += self.preferences["negative_prompt_expansion"]
 
@@ -1007,44 +1078,79 @@ class FaceFixer(Gtk.Window):
             shutil.rmtree(output_dir)
         os.makedirs(output_dir, exist_ok=True)
 
-        vae_path = "None" if self.preferences["vae_model"] == "None" \
-            else os.path.join(
-                    self.preferences["vae_model_path"],
-                    self.preferences["vae_model"])
+        if is_sdxl:
+            model_dir = self.preferences["sdxl_ldm_model_path"]
+            lora_model_dir = self.preferences["sdxl_lora_model_path"]
+            lora_weights_key = "lora_weights"
+            model_name = self.sdxl_ldm_model_cb.get_child().get_text() # Use the model on UI
 
-        model_name = self.ldm_model_cb.get_child().get_text() # Use the model on UI
+            vae_path = "None" if self.preferences["sdxl_vae_model"] == "None" \
+                else os.path.join(
+                        self.preferences["sdxl_vae_model_path"],
+                        self.preferences["sdxl_vae_model"])
+            sampler = self.preferences["sdxl_sampler"]+"Sampler"
+        else:
+            model_dir = self.preferences["ldm_model_path"]
+            lora_model_dir = self.preferences["lora_model_path"]
+            lora_weights_key = "lora_weights"
+            model_name = self.ldm_model_cb.get_child().get_text() # Use the model on UI
+
+            vae_path = "None" if self.preferences["vae_model"] == "None" \
+                else os.path.join(
+                        self.preferences["vae_model_path"],
+                        self.preferences["vae_model"])
+            sampler = self.preferences["sampler"]
+        model_path = os.path.join(model_dir, model_name)
         clip_skip = str(self.preferences["clip_skip"])
-        lora_models, lora_weights = generate_lora_params(self.preferences)
+
+        lora_models, lora_weights = generate_lora_params(self.preferences, sdxl=is_sdxl)
 
         # Check to see if we have generation info to override
 
         if "clip_skip" in generation_info:
             clip_skip = str(generation_info["clip_skip"])
 
-        model_path = os.path.join(self.preferences["ldm_model_path"],
-                                  model_name)
-
         if "lora_models" in generation_info:
-            if generation_info["lora_models"] and len(generation_info["lora_models"]) > 0:
-                l = generation_info["lora_models"].split(",")
 
-                # if image was generated in SD1.5, enable LoRA
-                if self.enable_lora:
-                    model_name = self.generation_information["ldm_model"]
-                    l = [os.path.join(
-                        self.preferences["lora_model_path"], e.strip()) for e in l if len(e.strip()) > 0]
-                    l = ",".join(l)
-                else:  # if SDXL, disable LoRA for now
-                    l = ""
+            def drop_indices(lst, indices):
+                return [element for i, element in enumerate(lst) if i not in indices]
+
+            if generation_info["lora_models"] and len(generation_info["lora_models"]) > 0:
+                model_name = self.generation_information["ldm_model"]
+                l = generation_info["lora_models"].split(",")
+                # Drop non-existing LoRAs.
+                # You need to drop the lora path and weights in a way
+                # the order is preserved.
+                non_existing_indices = list()
+                l2 = list()
+                for i, e in enumerate(l):
+                    e = e.strip()
+                    if e:
+                        path = os.path.join(lora_model_dir, e)
+                        if os.path.exists(path):
+                            l2.append(path)
+                        else:
+                            non_existing_indices.append(i)
+                    else:
+                        non_existing_indices.append(i)
+                l = ",".join(l2)
+                weights = generation_info[lora_weights_key]
+                weights = weights.split(",")
+                weights = drop_indices(weights, non_existing_indices)
+                weights = ",".join(weights)
+                generation_info[lora_weights_key] = weights
             else:
                 l = ""
             lora_models = l
-            lora_weights = generation_info["lora_weights"]
+            lora_weights = generation_info[lora_weights_key]
 
+        sampling_steps = str(self.preferences["sampling_steps"])
         args_list = ["--prompt", positive_prompt,
                      "--negative_prompt", negative_prompt,
                      "--H", str(TARGET_EDGE_LEN),
                      "--W", str(TARGET_EDGE_LEN),
+                     "--sampler", sampler,
+                     "--sampling_steps", sampling_steps,
                      "--clip_skip", clip_skip,
                      "--seed", str(self.preferences["seed"]),
                      "--n_samples", str(1),
@@ -1069,7 +1175,7 @@ class FaceFixer(Gtk.Window):
         ]
 
         # FaceID
-        if self.pil_face_image and self.disable_face_input_checkbox.get_active() is False:  # app.face_input_image_original_size:
+        if is_sdxl is False and self.pil_face_image and self.disable_face_input_checkbox.get_active() is False:  # app.face_input_image_original_size:
             face_input_image_path = os.path.join(get_tmp_dir(), "face_input_image.png")
             self.pil_face_image.save(face_input_image_path)
 
@@ -1078,14 +1184,52 @@ class FaceFixer(Gtk.Window):
                 "--face_model", self.face_model_full_path
             ]
 
-        options = sd15_parse_options(args_list)
-        generate_func=sd15_img2img_generate
+        if is_sdxl:
+            from sdxl.sdxl_pipeline.options import parse_options as sdxl_parse_options
+            from sdxl.sdxl_pipeline.sdxl_image_generator import generate as sdxl_generate
+            options = sdxl_parse_options(args_list)
+            generate_func=sdxl_generate
 
-        # Start the image generation thread
-        thread = threading.Thread(
-            target=generate_func,
-            kwargs={'options': options,
-                    'ui_thread_instance': None})  # FIXME
+            args_list += [
+                "--refiner_strength", "0", # str(refiner_strength),
+                # "--refiner_sdxl_ckpt", refiner_ldm_path,
+                # "--refiner_sdxl_vae_ckpt", refiner_vae_path,
+                # "--refiner_sdxl_lora_models", refiner_sdxl_lora_models,
+                # "--refiner_sdxl_lora_weights", refiner_sdxl_lora_weights,
+
+                "--discretization", self.preferences["discretization"],
+                "--discretization_sigma_min", str(self.preferences["discretization_sigma_min"]),
+                "--discretization_sigma_max", str(self.preferences["discretization_sigma_max"]),
+                "--discretization_rho", str(self.preferences["discretization_rho"]),
+                "--guider", self.preferences["guider"],
+                "--linear_prediction_guider_min_scale", str(self.preferences["linear_prediction_guider_min_scale"]),
+                "--linear_prediction_guider_max_scale", str(self.preferences["linear_prediction_guider_max_scale"]),
+                "--triangle_prediction_guider_min_scale", str(self.preferences["triangle_prediction_guider_min_scale"]),
+                "--triangle_prediction_guider_max_scale", str(self.preferences["triangle_prediction_guider_max_scale"]),
+
+                "--sampler_s_churn", str(self.preferences["sampler_s_churn"]),
+                "--sampler_s_tmin", str(self.preferences["sampler_s_tmin"]),
+                "--sampler_s_tmax", str(self.preferences["sampler_s_tmax"]),
+                "--sampler_s_noise", str(self.preferences["sampler_s_noise"]),
+                "--sampler_eta", str(self.preferences["sampler_eta"]),
+                "--sampler_order", str(self.preferences["sampler_order"])
+            ]
+
+            # Start the image generation thread
+            thread = threading.Thread(
+                target=generate_func,
+                kwargs={'options': options,
+                        'generation_type': "img2img",
+                        'ui_thread_instance': None})  # FIXME
+        else:  # SD15
+            options = sd15_parse_options(args_list)
+            generate_func=sd15_img2img_generate
+
+            # Start the image generation thread
+            thread = threading.Thread(
+                target=generate_func,
+                kwargs={'options': options,
+                        'ui_thread_instance': None})  # FIXME
         thread.start()
 
         thread.join()  # Wait until img2img is done.
@@ -1206,6 +1350,21 @@ class FaceFixer(Gtk.Window):
         # self.update_transform_matrix()
         self.drawing_area.queue_draw()
 
+    def generator_model_type_changed(self, combo):
+        generator_model_type = combo.get_child().get_text()
+        self.set_generator_model_combobox_visibility(generator_model_type)
+
+    # Set visibility of model combobox
+    def set_generator_model_combobox_visibility(self, generator_type):
+        if generator_type == GMT_SD_1_5:
+            self.ldm_model_cb.show()
+            self.sdxl_ldm_model_cb.hide()
+            self.generator_model_type = GMT_SD_1_5
+        else:
+            self.ldm_model_cb.hide()
+            self.sdxl_ldm_model_cb.show()
+            self.generator_model_type = GMT_SDXL
+
 
 def main():
     preferences = {
@@ -1222,6 +1381,8 @@ def main():
         "ldm_inpaint_model": "majicmixRealistic_v7-inpainting.safetensors",
         "vae_model_path": "/media/pup/ssd2/recoverable_data/sd_models/VAE",
         "vae_model": "vae-ft-mse-840000-ema-pruned.ckpt",
+        "sdxl_ldm_model_path": "/media/pup/ssd2/recoverable_data/sd_models/Stable-diffusion",
+        "sdxl_ldm_model": "juggernautXL_v8Rundiffusion.safetensors",
         "lora_model_1": "None",
         "lora_model_2": "None",
         "lora_model_3": "None",
@@ -1233,12 +1394,24 @@ def main():
         "lora_weight_4": 1.0,
         "lora_weight_5": 1.0,
         "lora_model_path": "/media/pup/ssd2/recoverable_data/sd_models/Lora",
+        "sdxl_lora_model_1": "None",
+        "sdxl_lora_model_2": "None",
+        "sdxl_lora_model_3": "None",
+        "sdxl_lora_model_4": "None",
+        "sdxl_lora_model_5": "None",
+        "sdxl_lora_weight_1": 1.0,
+        "sdxl_lora_weight_2": 1.0,
+        "sdxl_lora_weight_3": 1.0,
+        "sdxl_lora_weight_4": 1.0,
+        "sdxl_lora_weight_5": 1.0,
+        "sdxl_lora_model_path": "/media/pup/ssd2/recoverable_data/sd_models/Lora_sdxl",
         "embedding_path": "/media/pup/ssd2/recoverable_data/sd_models/embeddings",
         "positive_prompt_expansion": ", highly detailed, photorealistic, 4k, 8k, uhd, raw photo, best quality, masterpiece",
         "negative_prompt_expansion": ", drawing, 3d, worst quality, low quality, disfigured, mutated arms, mutated legs, extra legs, extra fingers, badhands",
         "enable_positive_prompt_expansion": True, # False,
         "enable_negative_prompt_expansion": True, # False,
-        "seed": "0"
+        "seed": "0",
+        "generator_model_type": "SDXL"
     }
 
     pil_image = Image.open("../cremage_resources/check.png")   # FIXME
@@ -1250,6 +1423,7 @@ def main():
         preferences=preferences)
     app.connect('destroy', Gtk.main_quit)
     app.show_all()
+    app.set_generator_model_combobox_visibility(app.generator_model_type)
     Gtk.main()
 
 

@@ -276,7 +276,18 @@ Code to compute sigma is shown below:
         sigmas = (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** self.rho
         return sigmas
 ```
-In addition to start (max) and end (min) values, a parameter called rho is used to compute the sigma schedule. If rho is 1, the line becomes straight. The higher the rho, the more curvature will be added to the schedule.
+In addition to start (max) and end (min) values, a parameter called rho is used to compute the sigma schedule. If rho is 1, the line becomes straight. The higher the rho, the more curvature will be added to the curve.
+
+In Cremage, sigma_max, sigma_min, rho are defined as user-definable values that can be confired in the UI.
+
+Default values are defined as following (modules/cremage/configs/preferences.py):
+```
+            "discretization_sigma_min": 0.0292,
+            "discretization_sigma_max": 14.6146,
+            "discretization_rho": 3.0,
+```
+
+During sampler initialization, get_discretization method (modules/sdxl/sdxl_pipeline/sdxl_image_generator_utils.py) grabs these values and constructs a dictionary that hold these values along with the class name EDMDirecretization. This dictionary is passed to a sampler initializer where the Discretization object is instantiated as a member of the sampler object.
 
 ## Legacy DDPM Discretization
 
@@ -346,3 +357,38 @@ Unlike EDM where sigma values are determined by the simple calculation using the
 1. Compute sigmas from the cumulative product of alpha
 
 Refer to [DDPM cumprod alpha example values](ddpm_cumprod_alpha_example_values.md) to see example values computed for default parameters of beta.
+
+# Guider
+Code: modules/sdxl/sgm/modules/diffusionmodules/guiders.py
+* IdentityGuider
+* VanillaCFG
+
+## Identify Guider
+Copies input, or returns input as output. Consider this as a no-op.
+
+## Identify Guider
+Vanilla CFG. Implements classifier-free guidance.
+First prepares the input by concatenating uc (negative prompt) and c (positive prompt) embeddings and doubling the elements of x (noisy image). Batch size becomes 2x due to 
+this processing.
+Then model output is split into uc-based output and c-based output. Then it applies
+CFG formula:
+output = uc + cfg_scale * (c - uc)
+
+When cfg_scale = 0, output = uc.
+When cfg_scale = 1, output = c.
+You can consider output as a multiple of vectors that moves away from uc towards c.
+Interestingly, you can also specify a negative value for cfg scaling parameter.
+Then, the negative semantic meaning of positive prompt is added to the output.
+
+# Samplers
+Code: modules/sdxl/sgm/modules/diffusionmodules/sampling.py
+
+Attributes
+* Discretization
+* Guider
+
+Input
+* Number of steps
+* Discretization config
+* Guider config
+

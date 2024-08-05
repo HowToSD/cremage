@@ -26,11 +26,34 @@ class VanillaCFG(Guider):
         self.scale = scale
 
     def __call__(self, x: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
+        """
+        Compute new x by applying classifier-free guidance.
+        Batch-size of x will be reduced to the half of the input.
+        Docstring was added by Cremage.
+        """
         x_u, x_c = x.chunk(2)
         x_pred = x_u + self.scale * (x_c - x_u)
         return x_pred
 
     def prepare_inputs(self, x, s, c, uc):
+        """
+        Combines sunconditional conditioning and conditional conditioning into
+        a single dictionary.
+
+        Both c and uc are dictionaries. If keys are crossattn, concat, vector,
+        then values from two dicts for each key is concatenated along batch axis.
+
+        Args:
+            x (torch.tensor): Noisy image
+            s (torch.tensor): Sigmas
+            c (Dict): A dict containing conditional conditioning or positive prompt
+            uc (Dict): A dict containing unconditional conditioning or negative prompt
+
+        Returns:
+            Tuple: x, s, combined conditionings in dict format.
+        
+        Docstring added by Cremage.
+        """
         c_out = dict()
 
         for k in c:
@@ -38,7 +61,7 @@ class VanillaCFG(Guider):
                 c_out[k] = torch.cat((uc[k], c[k]), 0)
             else:
                 assert c[k] == uc[k]
-                c_out[k] = c[k]
+                c_out[k] = c[k]  # Cremage note. Check this case.
         return torch.cat([x] * 2), torch.cat([s] * 2), c_out
 
 

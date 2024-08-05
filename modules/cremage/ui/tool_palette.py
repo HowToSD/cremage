@@ -199,7 +199,8 @@ class ToolPaletteArea():
                     pil_face_image=self.get_current_face_image_call_back(),
                     face_model_full_path=self.face_model_full_path)
         self.face_fixer.connect("delete-event", self.on_face_fixer_delete)
-        self.face_fixer.show_all()   
+        self.face_fixer.show_all()
+        self.face_fixer.set_generator_model_combobox_visibility(self.face_fixer.generator_model_type)
 
     def on_graffiti_editor_clicked(self, widget, event):
         """

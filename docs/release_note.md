@@ -1,4 +1,13 @@
 # Release Note
+August 4, 2024 (v3.2.7)
+Face Fix now supports using an SDXL model. This will make it possible to use a higher quality face for improving faces in an image. To use this feature, go to the Tools tab, select "Face fix" to display the Face fix tool. On the tool window, select "SDXL" and the model that you want to use.
+Please note:
+1. IPAdapter FaceID is not supported for SDXL in Face fix tool yet, so the face image you specified on the Face tab is not reflected.
+1. Auto face fix does not support SDXL models yet, so it uses an SD 1.5 model as before.
+1. It takes longer to repair a face using SDXL than SD 1.5, so monitor console to check progress.
+
+Improved face detection rate with OpenCV when the input image is large by feeding a scaled-down image into the detector when image size exceeds the certain threshold.
+
 July 31, 2024 (v3.2.6)
 PixArt-Sigma txt2img is now working on a silicon Mac. It was tested on MacBook Air (M1, 2020) with 16GB RAM. To use, select Pixart Sigma in Generator model type on Basic tab. Models are automatically downloaded, so no further set up is needed. If you have previously installed Cremage, please make sure that you install sentencepiece as specified in requirements_mac.txt.
 

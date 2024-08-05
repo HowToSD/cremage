@@ -47,19 +47,76 @@ class BaseDiffusionSampler:
         self.device = device
 
     def prepare_sampling_loop(self, x, cond, uc=None, num_steps=None):
+        """
+        Prepare data before sampling iteration.
+
+        Compute sigmas for sampling steps
+        Multiply x with a number that is slightly larger tha sigma[0].
+        Set uc to c if uc is not defined
+        Compute s_in, which is a list of 1's.
+
+        Docstring was added by Cremage.
+
+        Args:
+            x: Noisy image in latent space
+            cond: Conditional dict (e.g. including text embedding for positive prompt)
+                  Dictionary contains two keys:
+                    "crossattn": shape (bs, 77, 2048)
+                    "vector": shape (bs, 2816)
+            uc: Conditional dict (e.g. including text embedding for negative prompt)
+            num_steps: User-specified sampling steps (e.g. 20)
+        """
+        # Cremage note
+        # Compute sigmas based on the number of steps and discretization type
         sigmas = self.discretization(
             self.num_steps if num_steps is None else num_steps, device=self.device
         )
+
+        # Cremage note
+        # If uc is not defined, use c as uc
         uc = default(uc, cond)
 
+        # Cremage note
+        # Adjust x using the initial sigma value
+        # The multiplier is sqrt(1 + sigma_0^2)
+        # This results in x being scaled by a value slightly larger than sigma_0
         x *= torch.sqrt(1.0 + sigmas[0] ** 2.0)
         num_sigmas = len(sigmas)
 
+        # Cremage note
+        # Create rank 1 (1d array) on the same device
+        # For bs=2, [1, 1]
+        #     bs=1, [1]
+        # s_in is used to populate an array for the batch with a single sigma value.
+        # e.g. if sigma is 14, then multiplying with s_in will yield:
+        # [14, 14, ..., 14]
         s_in = x.new_ones([x.shape[0]])
 
         return x, s_in, sigmas, num_sigmas, cond, uc
 
     def denoise(self, x, denoiser, sigma, cond, uc):
+        """
+        Combines guider adjustment and model inference for denoising.
+        Specifically, it does the following:
+        1. Guider adjustment of model input prior to the model inference
+           Specifically, this concatenates uc and c along batch-axis
+           so that model outputs two sets of images: one based on uc another based on c.
+           x is extended by 2x to match the new bs.
+        2. Model inference
+        3. Guider adjustment of model output (applies x = x_uc + cfg * (x_c - x_uc))
+
+        Docstring was added by Cremage.
+
+        Args:
+            x: Noisy image in latent space
+            denoiser: Model
+            sigma: Sigma
+            cond: Conditional dict (e.g. including text embedding for positive prompt)
+                  Dictionary contains two keys:
+                    "crossattn": shape (bs, 77, 2048)
+                    "vector": shape (bs, 2816)
+            uc: Conditional dict (e.g. including text embedding for negative prompt)
+        """        
         denoised = denoiser(*self.guider.prepare_inputs(x, sigma, cond, uc))
         denoised = self.guider(denoised, sigma)
         return denoised
@@ -296,7 +353,10 @@ class DPMPP2SAncestralSampler(AncestralSampler):
 
 class DPMPP2MSampler(BaseDiffusionSampler):
     def get_variables(self, sigma, next_sigma, previous_sigma=None):
+        # Cremage note: Convert sigma to t
         t, t_next = [to_neg_log_sigma(s) for s in (sigma, next_sigma)]
+
+        # Cremage note: Compte t delta
         h = t_next - t
 
         if previous_sigma is not None:
@@ -308,7 +368,7 @@ class DPMPP2MSampler(BaseDiffusionSampler):
 
     def get_mult(self, h, r, t, t_next, previous_sigma):
         mult1 = to_sigma(t_next) / to_sigma(t)
-        mult2 = (-h).expm1()
+        mult2 = (-h).expm1()  # Cremage note: e**x - 1
 
         if previous_sigma is not None:
             mult3 = 1 + 1 / (2 * r)
@@ -328,14 +388,43 @@ class DPMPP2MSampler(BaseDiffusionSampler):
         cond,
         uc=None,
     ):
+        # Cremage note
+        # 1. Combine cond + uc using guider. bs becomes x2
+        #    cond is a dict containing crossattn and vector keys
+        #    crossattn value shape: (bs, 77, 2048)
+        #    vector value shape:    (bs, 2816)
+        # 2. Calls the model with x, sigma, combined cond
+        # 3. Using guider, applies x = x_uc + cfg * (x_c - x_uc).
+        #    bs becomes original length
         denoised = self.denoise(x, denoiser, sigma, cond, uc)
 
+        # Cremage note
+        # Now compute x from denoised (raw model output + cfg adjustment)
+        # denoised value should be untouched in below code.
+
+        # Cremage note
+        # Convert sigma to t
+        #   t = -log(sigma)
+        #   You can also get sigma from t:
+        #   sigma = exp(-t)
+        # h: t_next - t
+        # r = h_last / h
         h, r, t, t_next = self.get_variables(sigma, next_sigma, previous_sigma)
+
+        # Cremage note
+        # get_mult returns either:
+        # m0, m1
+        #   or
+        # m0, m1, m2, m3  (if prev sigma is not None)
+        # m0 = sigma_next / sigma_current
         mult = [
             append_dims(mult, x.ndim)
             for mult in self.get_mult(h, r, t, t_next, previous_sigma)
         ]
 
+        # Cremage note:
+        # Consider this as the key of the denoising step
+        #   less noisy image = noisy image - noise
         x_standard = mult[0] * x - mult[1] * denoised
         if old_denoised is None or torch.sum(next_sigma) < 1e-14:
             # Save a network evaluation if all noise levels are 0 or on the first step
@@ -357,13 +446,20 @@ class DPMPP2MSampler(BaseDiffusionSampler):
         )
 
         old_denoised = None
-        for i in self.get_sigma_gen(num_sigmas):
+        # Cremage note: self.get_sigma_gen is range(). Do not get confused
+        # This is just written this way to display tqdm.
+        for i in self.get_sigma_gen(num_sigmas):  # Cremage: For 20 steps, num_sigmas is 21
             x, old_denoised = self.sampler_step(
                 old_denoised,
+
+                # Cremage: Pass three sigmas
+                #   prev, current, next
+                # s_in * means replicate a single sigma value to fill the array for the batch
                 None if i == 0 else s_in * sigmas[i - 1],
                 s_in * sigmas[i],
                 s_in * sigmas[i + 1],
-                denoiser,
+                
+                denoiser,  # Cremage: Model
                 x,
                 cond,
                 uc=uc,
