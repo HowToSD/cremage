@@ -48,12 +48,12 @@ class BaseDiffusionSampler:
 
     def prepare_sampling_loop(self, x, cond, uc=None, num_steps=None):
         """
-        Prepare data before sampling iteration.
+        Prepare data before sampling iterations.
 
-        Compute sigmas for sampling steps
-        Multiply x with a number that is slightly larger tha sigma[0].
-        Set uc to c if uc is not defined
-        Compute s_in, which is a list of 1's.
+        * Compute sigmas for sampling steps
+        * Multiply x with a number that is slightly larger tha sigma[0].
+        * Set uc to c if uc is not defined
+        * Compute s_in, which is a list of 1's.
 
         Docstring was added by Cremage.
 
@@ -145,6 +145,13 @@ class SingleStepDiffusionSampler(BaseDiffusionSampler):
 
 
 class EDMSampler(SingleStepDiffusionSampler):
+    """
+    Cremage note:
+    Parent class for Euler and Heun.
+    Note that randomness is not added unless s_churn > 0.
+    s_churn is user-configuable and default is 0.
+    """
+
     def __init__(
         self, s_churn=0.0, s_tmin=0.0, s_tmax=float("inf"), s_noise=1.0, *args, **kwargs
     ):
@@ -156,15 +163,29 @@ class EDMSampler(SingleStepDiffusionSampler):
         self.s_noise = s_noise
 
     def sampler_step(self, sigma, next_sigma, denoiser, x, cond, uc=None, gamma=0.0):
-        sigma_hat = sigma * (gamma + 1.0)
-        if gamma > 0:
+        sigma_hat = sigma * (gamma + 1.0)  # Cremage: sigma_hat = sigma if gamma = 0
+        if gamma > 0:  # Cremage: Add some noise to x. If s_noise is 0, then no noise is added
             eps = torch.randn_like(x) * self.s_noise
             x = x + eps * append_dims(sigma_hat**2 - sigma**2, x.ndim) ** 0.5
 
+        # Cremage: Model prediction wrapped in guider
         denoised = self.denoise(x, denoiser, sigma_hat, cond, uc)
-        d = to_d(x, sigma_hat, denoised)
+
+        # Cremage: Post processing for Euler step
+        d = to_d(x, sigma_hat, denoised)  # Cremage note. Compute: (x - denoised) / append_dims(sigma, x.ndim)
+        
+        # Cremage: Compute step size
+        #  We want to know the amount of noise to be removed corresponding
+        #  to this step size
         dt = append_dims(next_sigma - sigma_hat, x.ndim)
 
+        # Cremage note:
+        # Pay attention to the variable and method name here:
+        #   euler_step here is an output.
+        #   self.euler_step is a method.
+        #   We are passing the Euler step result into the correction step method.
+        #   For Euler, correction step is a no-op, and returning the input.
+        #   For Heun, it does one more model prediction.
         euler_step = self.euler_step(x, d, dt)
         x = self.possible_correction_step(
             euler_step, x, d, dt, next_sigma, denoiser, cond, uc
@@ -177,6 +198,7 @@ class EDMSampler(SingleStepDiffusionSampler):
         )
 
         for i in self.get_sigma_gen(num_sigmas):
+            # Cremage note: gamma becomes 0 by default
             gamma = (
                 min(self.s_churn / (num_sigmas - 1), 2**0.5 - 1)
                 if self.s_tmin <= sigmas[i] <= self.s_tmax
@@ -206,12 +228,21 @@ class AncestralSampler(SingleStepDiffusionSampler):
         self.noise_sampler = lambda x: torch.randn_like(x)
 
     def ancestral_euler_step(self, x, denoised, sigma, sigma_down):
+        # Cremage: Derivative y' computation is the same as Euler.
         d = to_d(x, sigma, denoised)
-        dt = append_dims(sigma_down - sigma, x.ndim)
 
+        # Cremage: Note step size h is computed using sigma_down
+        #   instead of sigma_next here.
+        dt = append_dims(sigma_down - sigma, x.ndim)
+        
         return self.euler_step(x, d, dt)
 
     def ancestral_step(self, x, sigma, next_sigma, sigma_up):
+        """
+        Cremage note:
+        If next noise level is not 0, then add some random noise to x.
+        Consider this step as random-noise-adding step.
+        """
         x = torch.where(
             append_dims(next_sigma, x.ndim) > 0.0,
             x + self.noise_sampler(x) * self.s_noise * append_dims(sigma_up, x.ndim),
@@ -279,10 +310,25 @@ class EulerEDMSampler(EDMSampler):
     def possible_correction_step(
         self, euler_step, x, d, dt, next_sigma, denoiser, cond, uc
     ):
+        """
+        Cremage note:
+          Simply returns the input that is already computed using an Euler step.
+          This input is given in the euler_step parameter.
+        """
         return euler_step
 
 
 class HeunEDMSampler(EDMSampler):
+    """
+    Cremage note: Compute 1 more derivative to estimate the value of y_(n+1)
+      using the corrector step. The corrector step requires doing one more
+      inference to predict y_(n+2). This is used to derive y_prime_(n+1).
+      This slope value is added to the original slope value y_prime_n
+      to compute the adjusted slope value by taking the mean.
+      Therefore Heun should take twice as much time as Euler.
+      Refer to Richard Bronson, et al. Differential Equations. p.177
+      to find out more about Heun.
+    """
     def possible_correction_step(
         self, euler_step, x, d, dt, next_sigma, denoiser, cond, uc
     ):
@@ -290,11 +336,22 @@ class HeunEDMSampler(EDMSampler):
             # Save a network evaluation if all noise levels are 0
             return euler_step
         else:
+            # Cremage: Compute y_(n+2)
+            #  This is needed to compute the derivative y_prime_(n+1)
             denoised = self.denoise(euler_step, denoiser, next_sigma, cond, uc)
+            
+            # Cremage: Compute derivative y_prime_(n+1)
             d_new = to_d(euler_step, next_sigma, denoised)
+
+            # Cremage: Compute the mean of two derivatives
+            #  y_prime_n + y_prime_(n+1) and devide by two.
+            #  This is supposed to provide better derivative
+            #  than using just the original derivative.
+            #  See: https://en.wikipedia.org/wiki/Heun%27s_method
             d_prime = (d + d_new) / 2.0
 
             # apply correction if noise level is not 0
+            # Cremage note: dt corresponds to h in regular ODE
             x = torch.where(
                 append_dims(next_sigma, x.ndim) > 0.0, x + d_prime * dt, euler_step
             )
@@ -305,7 +362,11 @@ class EulerAncestralSampler(AncestralSampler):
     def sampler_step(self, sigma, next_sigma, denoiser, x, cond, uc):
         sigma_down, sigma_up = get_ancestral_step(sigma, next_sigma, eta=self.eta)
         denoised = self.denoise(x, denoiser, sigma, cond, uc)
+        
+        # Cremage: Standard Euler step
         x = self.ancestral_euler_step(x, denoised, sigma, sigma_down)
+
+        # Cremage: Add some noise
         x = self.ancestral_step(x, sigma, next_sigma, sigma_up)
 
         return x

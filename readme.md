@@ -7,7 +7,7 @@ See  [Release note](docs/release_note.md "View Release note").
 August 4, 2024
 Face Fix now supports using an SDXL model. This will make it possible to use a higher quality face for improving faces in an image. To use this feature, go to the Tools tab, select "Face fix" to display the Face fix tool. On the tool window, select "SDXL" and the model that you want to use.
 Please note:
-1. IPAdapter FaceID is not supported for SDXL yet, so the face image you specified on the Face tab is not reflected.
+1. IPAdapter FaceID is not supported for SDXL in Cremage yet, so the face image you specified on the Face tab is not reflected.
 1. Auto face fix does not support SDXL models yet, so it uses an SD 1.5 model as before.
 1. It takes longer to repair a face using SDXL than SD 1.5, so monitor console to check progress.
 
