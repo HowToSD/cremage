@@ -10,14 +10,7 @@ Windows has not been tested but it should run. If you run into an issue, please 
 Mac is not supported for FLUX.
 
 requirements.txt has been updated.
-If you are using Linux, please run:
-```
-pip install -r requirements.txt
-```
-For Windows, please run:
-```
-pip install -r requirements_win.txt
-```
+If you are using Linux, you need to update your Python package dependencies.
 
 For more information, refer to [FLUX.1-schnell](docs/users_guide/ug_flux.md "FLUX.1-schnell")
 

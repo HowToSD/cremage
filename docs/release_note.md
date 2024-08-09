@@ -4,17 +4,16 @@ FLUX.1-schnell support has been added. This has been only tested on Linux.
 Windows has not been tested but it should run. If you run into an issue, please file a ticket.
 Mac is not supported for FLUX.
 
-requirements.txt has been updated.
-If you are using Linux, please run:
+Note that requirements.txt has been updated.
+The failproof way to update your Python package dependencies for this specific upgrade is to recreate the cremage conda environment using the instructions specified in the installation guide.
+If you just do:
 ```
 pip install -r requirements.txt
 ```
-For Windows, please run:
-```
-pip install -r requirements_win.txt
-```
+You may run into an issue with Pytorch ("torch vision::nms does not exist").
+If that happens, you can remove the conda environment and recreate.
 
-For more information, refer to [FLUX.1-schnell](users_guide/ug_flux.md "FLUX.1-schnell")
+For more information regarding how to use FLUX.1-schnell, refer to [FLUX.1-schnell](users_guide/ug_flux.md "FLUX.1-schnell")
 
 August 4, 2024 (v3.2.7)
 Face Fix now supports using an SDXL model. This will make it possible to use a higher quality face for improving faces in an image. To use this feature, go to the Tools tab, select "Face fix" to display the Face fix tool. On the tool window, select "SDXL" and the model that you want to use.
