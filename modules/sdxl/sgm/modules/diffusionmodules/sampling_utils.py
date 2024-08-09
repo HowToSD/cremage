@@ -20,6 +20,14 @@ def linear_multistep_coeff(order, t, i, j, epsrel=1e-4):
 
 
 def get_ancestral_step(sigma_from, sigma_to, eta=1.0):
+    """
+    Docstring added by Cremage
+
+    If sigma_from is 14, sigma_to is 10,
+    sigma_up ≈ 7.0
+    sigma_down ≈ 7.141428
+    So do not think that sigma_up is an intermediate value between sigma_from and sigma_to.
+    """
     if not eta:
         return sigma_to, 0.0
     sigma_up = torch.minimum(

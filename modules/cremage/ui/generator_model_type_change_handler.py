@@ -39,7 +39,8 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
            GMT_STABLE_CASCADE,
            GMT_PIXART_SIGMA,
            GMT_KANDINSKY_2_2,
-           GMT_HUNYUAN_DIT]:
+           GMT_HUNYUAN_DIT,
+           GMT_FLUX_1_SCHNELL]:
 
         # Common between SD 1.5 and non-SDXL
         app.fields["sdxl_sampler"].hide()
@@ -99,7 +100,8 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
                 GMT_STABLE_CASCADE,
                 GMT_PIXART_SIGMA,
                 GMT_KANDINSKY_2_2,
-                GMT_HUNYUAN_DIT
+                GMT_HUNYUAN_DIT,
+                GMT_FLUX_1_SCHNELL
             ]:
             app.fields["sampler"].hide()
             app.fields1_labels["Sampler"].hide()
@@ -111,7 +113,10 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
             app.fields["hires_fix_scale_factor"].hide()
             app.fields1_labels["Hires fix scale factor"].hide()
 
-            if generator_model_type in [GMT_SD_3, GMT_STABLE_CASCADE, GMT_HUNYUAN_DIT]:
+            if generator_model_type in [GMT_SD_3,
+                                        GMT_STABLE_CASCADE,
+                                        GMT_HUNYUAN_DIT,
+                                        GMT_FLUX_1_SCHNELL]:
                 pixart_sigma_page_num = app.notebook.page_num(app.tab_contents["PixArt-Sigma"])
                 if pixart_sigma_page_num >= 0:
                     app.notebook.remove_page(pixart_sigma_page_num)

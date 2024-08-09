@@ -1,4 +1,21 @@
 # Release Note
+August 9, 2024 (v3.3.0)
+FLUX.1-schnell support has been added. This has been only tested on Linux.
+Windows has not been tested but it should run. If you run into an issue, please file a ticket.
+Mac is not supported for FLUX.
+
+requirements.txt has been updated.
+If you are using Linux, please run:
+```
+pip install -r requirements.txt
+```
+For Windows, please run:
+```
+pip install -r requirements_win.txt
+```
+
+For more information, refer to [FLUX.1-schnell](users_guide/ug_flux.md "FLUX.1-schnell")
+
 August 4, 2024 (v3.2.7)
 Face Fix now supports using an SDXL model. This will make it possible to use a higher quality face for improving faces in an image. To use this feature, go to the Tools tab, select "Face fix" to display the Face fix tool. On the tool window, select "SDXL" and the model that you want to use.
 Please note:

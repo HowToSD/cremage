@@ -359,6 +359,15 @@ class HeunEDMSampler(EDMSampler):
 
 
 class EulerAncestralSampler(AncestralSampler):
+    """
+    Cremage note:
+    Difference between Euler and EulerAncestral is that
+    EulerAncestral uses additional step to add randomness to predict next X.
+    This is done by generating two sigma-related values from current sigma
+    and next sigma. They are called sigma_down and sigma_up in this code.
+    sigma_down is used just like Euler to predict next X.
+    But sigma_up is used in the additional step to add randomness.
+    """
     def sampler_step(self, sigma, next_sigma, denoiser, x, cond, uc):
         sigma_down, sigma_up = get_ancestral_step(sigma, next_sigma, eta=self.eta)
         denoised = self.denoise(x, denoiser, sigma, cond, uc)
@@ -388,26 +397,61 @@ class DPMPP2SAncestralSampler(AncestralSampler):
         return mult1, mult2, mult3, mult4
 
     def sampler_step(self, sigma, next_sigma, denoiser, x, cond, uc=None, **kwargs):
+        """
+        Cremage note:
+
+        DPMPP2SAncestral is similar to EulerAncestral.
+        As in EulerAncestral, it contains:
+         * euler step
+         * ancestral step
+        
+        However, between these two steps, there is additional step to adjust X.
+        This step also includes calling the model again.
+        """
+        # Cremage note: This step is the same as EulerAncestral
         sigma_down, sigma_up = get_ancestral_step(sigma, next_sigma, eta=self.eta)
+
+        # Cremage note: This step is also the same as EulerAncestral
         denoised = self.denoise(x, denoiser, sigma, cond, uc)
+
+        # Cremage note: This step is also the same as EulerAncestral
         x_euler = self.ancestral_euler_step(x, denoised, sigma, sigma_down)
 
+        # Cremage note: Steps below are different from EulerAncestral
+        #   One of the key changes is that the model is called again
         if torch.sum(sigma_down) < 1e-14:
             # Save a network evaluation if all noise levels are 0
             x = x_euler
         else:
+            # Cremage note:
+            #   You want to derive new x2 based on mixing:
+            #   * x
+            #   * denoised (first model prediction)
+            #   Compute the coefficients for x and denoise
             h, s, t, t_next = self.get_variables(sigma, sigma_down)
             mult = [
                 append_dims(mult, x.ndim) for mult in self.get_mult(h, s, t, t_next)
             ]
 
+            # Cremage note:
+            #   Apply two coeficients to x and denoised
             x2 = mult[0] * x - mult[1] * denoised
+
+            # Cremage note:
+            #   Then you pass this new x2 as X for the second model prediction
             denoised2 = self.denoise(x2, denoiser, to_sigma(s), cond, uc)
+
+            # Cremage note:
+            #   Compute x3 the similar way x2 was computed
+            #   Note x is used instead of x2 here
+            #   but denoised2 is used insted of denoised
             x_dpmpp2s = mult[2] * x - mult[3] * denoised2
 
             # apply correction if noise level is not 0
             x = torch.where(append_dims(sigma_down, x.ndim) > 0.0, x_dpmpp2s, x_euler)
 
+        # Cremage note
+        #   Add some random noise. This step is the same as EulerAncestral
         x = self.ancestral_step(x, sigma, next_sigma, sigma_up)
         return x
 

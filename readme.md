@@ -4,12 +4,22 @@
 ## Updates
 See  [Release note](docs/release_note.md "View Release note").
 
-August 4, 2024
-Face Fix now supports using an SDXL model. This will make it possible to use a higher quality face for improving faces in an image. To use this feature, go to the Tools tab, select "Face fix" to display the Face fix tool. On the tool window, select "SDXL" and the model that you want to use.
-Please note:
-1. IPAdapter FaceID is not supported for SDXL in Cremage yet, so the face image you specified on the Face tab is not reflected.
-1. Auto face fix does not support SDXL models yet, so it uses an SD 1.5 model as before.
-1. It takes longer to repair a face using SDXL than SD 1.5, so monitor console to check progress.
+August 9, 2024 (v3.3.0)
+FLUX.1-schnell support has been added. This has been only tested on Linux.
+Windows has not been tested but it should run. If you run into an issue, please file a ticket.
+Mac is not supported for FLUX.
+
+requirements.txt has been updated.
+If you are using Linux, please run:
+```
+pip install -r requirements.txt
+```
+For Windows, please run:
+```
+pip install -r requirements_win.txt
+```
+
+For more information, refer to [FLUX.1-schnell](docs/users_guide/ug_flux.md "FLUX.1-schnell")
 
 # Welcome to Cremage.
 
@@ -23,6 +33,7 @@ For example, if you are starting out with AI image generation, you can just ente
 You can also go back to any of the previously generated image and tweak as Cremage provides the same image editing capability irrespective of whether it's newly generated or images generated months ago.
 
 # Supported model types
+* FLUX.1-schnell
 * Stable Diffusion 1.5 (SD1.5)
 * SDXL
 * Stable Diffusion 3 (SD3)
@@ -99,7 +110,6 @@ Since different models require different sets of prompts, Cremage also maintains
 Generating images using information from previously generated images helps create similar images. By selecting the "Use generation info" checkbox, the same prompts as the previous image will be used. You can also edit the Generation Information field to tweak the settings.
 
 
-
 ## Building a Prompt Using Tagged Images
 
 For some models, tags are essential in generating the image that you want, and you have to use the ones that the model was trained with. However, since it is difficult to memorize tags, Cremage offers a fully customizable visual prompt builder.
@@ -119,7 +129,8 @@ Refer to [Installation & Upgrade Guide](docs/installation_guide.md "View the Ins
 * Microsoft Windows with NVIDIA GPU with at least 8GB of GPU memory
 * Silicon Mac
 
-Please note that some of the features require more GPU memory and are only available and or have been tested on Linux with CUDA.
+Please note that some features require more GPU memory & system memory, and are only available and/or have been tested on Linux with CUDA.
+Mininum recommended system RAM size is 24GB. However, you can still use MacBook Air (16GB RAM model) for a subset of the features. For FLUX.1-schenell, minimum 40GB system RAM is recommended.
 
 # Getting Started
 If you have not used any Stable Diffusion software, check out [Getting Started](docs/getting_started.md "View Getting Started") first.

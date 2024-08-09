@@ -170,7 +170,8 @@ def generate_handler(app, widget, event) -> None:
             GMT_STABLE_CASCADE,
             GMT_PIXART_SIGMA,
             GMT_KANDINSKY_2_2,
-            GMT_HUNYUAN_DIT
+            GMT_HUNYUAN_DIT,
+            GMT_FLUX_1_SCHNELL
         ]:
         if generator_model_type == GMT_SD_3:
             from sd3.txt2img import generate as sd3_txt2image_generate
@@ -183,6 +184,9 @@ def generate_handler(app, widget, event) -> None:
             ldm_path = None
         elif generator_model_type == GMT_HUNYUAN_DIT:
             from hunyuan_dit.txt2img import generate as hunyuan_dit_txt2image_generate
+            ldm_path = None
+        elif generator_model_type == GMT_FLUX_1_SCHNELL:
+            from flux.txt2img import generate as flux_txt2image_generate
             ldm_path = None
         else:  # Kandinsky
             # Do NOT move below import statements to the top of the file
@@ -436,7 +440,8 @@ def generate_handler(app, widget, event) -> None:
             GMT_STABLE_CASCADE,
             GMT_PIXART_SIGMA,
             GMT_KANDINSKY_2_2,
-            GMT_HUNYUAN_DIT]:
+            GMT_HUNYUAN_DIT,
+            GMT_FLUX_1_SCHNELL]:
 
         if generator_model_type == GMT_SD_3:
             checkpoint = app.preferences["sd3_ldm_model_path"]
@@ -450,6 +455,9 @@ def generate_handler(app, widget, event) -> None:
         elif generator_model_type == GMT_HUNYUAN_DIT:
             checkpoint = ""  # Not used for now
             target_func = hunyuan_dit_txt2image_generate
+        elif generator_model_type == GMT_FLUX_1_SCHNELL:
+            checkpoint = ""  # Not used for now
+            target_func = flux_txt2image_generate
         elif generator_model_type == GMT_KANDINSKY_2_2:
             checkpoint = ""  # Not used for now
             if app.generation_mode == MODE_TEXT_TO_IMAGE:
