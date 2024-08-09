@@ -113,7 +113,8 @@ class Config:
     auto_face_fix_strength: float
     auto_face_fix_prompt: str
     auto_face_fix_face_detection_method: str
-
+    low_mem: bool
+    keep_instance: bool
 
 def load_user_config():
 
@@ -223,7 +224,9 @@ def load_user_config():
             "pixart_sigma_model_id": "None",
             "auto_face_fix_strength": 0.3,
             "auto_face_fix_prompt": "",
-            "auto_face_fix_face_detection_method": "InsightFace"
+            "auto_face_fix_face_detection_method": "InsightFace",
+            "low_mem": True,
+            "keep_instance": False
         }
         OmegaConf.save(config, CONFIG_FILE_PATH)
 

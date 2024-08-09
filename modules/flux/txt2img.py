@@ -69,6 +69,102 @@ def quantize_and_freeze(model:torch.nn.Module,
     freeze(model)
     return model
 
+class FluxPipeWrapper():
+
+    def __init__(self, low_mem=True, status_queue=None):
+
+        self.low_mem = low_mem
+
+        # Initialize required models
+        # Text encoders
+        # 1
+        msg = "Instantiating CLIP text tokenizer and model"
+        logger.info(msg)
+        if status_queue: status_queue.put(msg)
+
+        self.tokenizer = CLIPTokenizer.from_pretrained(
+            TEXT_MODEL_ID , torch_dtype=MODEL_DATA_TYPE)
+        self.text_encoder = CLIPTextModel.from_pretrained(
+            TEXT_MODEL_ID , torch_dtype=MODEL_DATA_TYPE)
+
+        # 2
+        msg = "Instantiating T5 text tokenizer and model"
+        logger.info(msg)
+        if status_queue: status_queue.put(msg)
+        self.tokenizer_2 = T5TokenizerFast.from_pretrained(
+            MODEL_ID, subfolder="tokenizer_2", torch_dtype=MODEL_DATA_TYPE,
+            revision=MODEL_REVISION)
+        self.text_encoder_2 = T5EncoderModel.from_pretrained(
+            MODEL_ID, subfolder="text_encoder_2", torch_dtype=MODEL_DATA_TYPE,
+            revision=MODEL_REVISION)
+
+        # Transformers
+        msg = "Instantiating scheduler"
+        logger.info(msg)
+        if status_queue: status_queue.put(msg)
+
+        self.scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
+            MODEL_ID, subfolder="scheduler", revision=MODEL_REVISION)
+        msg = "Instantiating transformer"
+        logger.info(msg)
+        if status_queue: status_queue.put(msg)
+
+        self.transformer = FluxTransformer2DModel.from_pretrained(
+            MODEL_ID, subfolder="transformer", torch_dtype=MODEL_DATA_TYPE,
+            revision=MODEL_REVISION)
+
+        # VAE
+        msg = "Instantiating VAE"
+        logger.info(msg)
+        if status_queue: status_queue.put(msg)
+
+        self.vae = AutoencoderKL.from_pretrained(
+            MODEL_ID, subfolder="vae", torch_dtype=MODEL_DATA_TYPE,
+            revision=MODEL_REVISION)
+
+        if self.low_mem is False:
+            msg = "Quantizing T5 to 8 bits"
+            logger.info(msg)
+            if status_queue: status_queue.put(msg)
+
+            quantize_and_freeze(self.text_encoder_2)
+
+            msg = "Quantizing transformer to 8 bits"
+            logger.info(msg)
+            if status_queue: status_queue.put(msg)
+
+            quantize_and_freeze(self.transformer)
+
+        # Create a pipeline without T5 and transformer
+        self.pipe = FluxPipeline(
+            scheduler=self.scheduler,
+            text_encoder=self.text_encoder,
+            tokenizer=self.tokenizer,
+            text_encoder_2=None,
+            tokenizer_2=self.tokenizer_2,
+            vae=self.vae,
+            transformer=None
+        )
+
+        # Set to the quantized version
+        self.pipe.text_encoder_2 = self.text_encoder_2
+        self.pipe.transformer = self.transformer
+
+        if self.low_mem:
+            msg = "Using low memory mode"
+            logger.info(msg)
+            if status_queue: status_queue.put(msg)
+
+            self.pipe.vae.enable_tiling()
+            self.pipe.vae.enable_slicing()
+            self.pipe.enable_sequential_cpu_offload()
+        else:
+            msg = "Using standard memory mode"
+            logger.info(msg)
+            if status_queue: status_queue.put(msg)
+            self.pipe.enable_model_cpu_offload()
+
+flux_pipe_wrapper = None
 
 def generate(
         checkpoint:str=None,  # Not used for now
@@ -80,6 +176,7 @@ def generate(
         height: int = 1024,
         width: int = 1024,
         low_mem=True,
+        keep_instance=False,
         number_of_batches = 1,
         batch_size = 1,
         ui_thread_instance=None,
@@ -94,75 +191,19 @@ def generate(
     """
     Generates an image based on the provided prompts, steps, and guidance scale.
     """
+    global flux_pipe_wrapper
+    start_time = time.perf_counter()
+    logger.info("Preparing to generate an image using FLUX.1-schnell")
+    logger.info(f"low_mem: {low_mem}")
+    logger.info(f"keep_instance: {keep_instance}")
 
     if seed == -1:
         seed = safe_random_int()
 
-    pipe = None
+    if flux_pipe_wrapper is None:
+        flux_pipe_wrapper = FluxPipeWrapper(low_mem, status_queue=status_queue)
 
-    # Initialize required models
-    # Text encoders
-    # 1
-    logger.info("Instantiating CLIP text tokenizer and model")
-    tokenizer = CLIPTokenizer.from_pretrained(
-        TEXT_MODEL_ID , torch_dtype=MODEL_DATA_TYPE)
-    text_encoder = CLIPTextModel.from_pretrained(
-        TEXT_MODEL_ID , torch_dtype=MODEL_DATA_TYPE)
-
-    # 2
-    logger.info("Instantiating T5 text tokenizer and model")
-    tokenizer_2 = T5TokenizerFast.from_pretrained(
-        MODEL_ID, subfolder="tokenizer_2", torch_dtype=MODEL_DATA_TYPE,
-        revision=MODEL_REVISION)
-    text_encoder_2 = T5EncoderModel.from_pretrained(
-        MODEL_ID, subfolder="text_encoder_2", torch_dtype=MODEL_DATA_TYPE,
-        revision=MODEL_REVISION)
-
-    # Transformers
-    logger.info("Instantiating scheduler")
-    scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
-        MODEL_ID, subfolder="scheduler", revision=MODEL_REVISION)
-    logger.info("Instantiating transformer")
-    transformer = FluxTransformer2DModel.from_pretrained(
-        MODEL_ID, subfolder="transformer", torch_dtype=MODEL_DATA_TYPE,
-        revision=MODEL_REVISION)
-
-    # VAE
-    logger.info("Instantiating VAE")
-    vae = AutoencoderKL.from_pretrained(
-        MODEL_ID, subfolder="vae", torch_dtype=MODEL_DATA_TYPE,
-        revision=MODEL_REVISION)
-
-    if low_mem is False:
-        logger.info("Quantizing T5 to 8 bits")
-        quantize_and_freeze(text_encoder_2)
-
-        logger.info("Quantizing transformer to 8 bits")
-        quantize_and_freeze(transformer)
-
-    # Create a pipeline without T5 and transformer
-    pipe = FluxPipeline(
-        scheduler=scheduler,
-        text_encoder=text_encoder,
-        tokenizer=tokenizer,
-        text_encoder_2=None,
-        tokenizer_2=tokenizer_2,
-        vae=vae,
-        transformer=None
-    )
-
-    # Set to the quantized version
-    pipe.text_encoder_2 = text_encoder_2
-    pipe.transformer = transformer
-
-    if low_mem:
-        logging.info("Using low memory mode")
-        pipe.vae.enable_tiling()
-        pipe.vae.enable_slicing()
-        pipe.enable_sequential_cpu_offload()
-    else:
-        logging.info("Using standard memory mode")
-        pipe.enable_model_cpu_offload()
+    pipe = flux_pipe_wrapper.pipe
 
     if status_queue:
         status_queue.put("Diffusers pipeline created")
@@ -269,10 +310,20 @@ def generate(
                                 generation_parameters=str_generation_params)
 
             # end single batch
+
+    if keep_instance is False:
+        flux_pipe_wrapper = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     gc.collect()
     # end batch
+
+    end_time = time.perf_counter()
+    logger.info(f"Completed. Time elapsed: {end_time - start_time}")
+
     if status_queue:
-        status_queue.put("Completed")
+        status_queue.put(f"Completed. Time elapsed: {end_time - start_time:0.1f} seconds")
 
 
 if __name__ == "__main__":

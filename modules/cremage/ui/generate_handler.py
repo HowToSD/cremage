@@ -515,6 +515,12 @@ def generate_handler(app, widget, event) -> None:
                 "mask_image": Image.open(app.mask_image_path),
             })
 
+        if generator_model_type in [GMT_FLUX_1_SCHNELL]:
+            kwargs.update({
+                "low_mem": app.preferences["low_mem"],
+                "keep_instance": app.preferences["keep_instance"]
+            })
+
         # Override args_list if override checkbox is checked
         if app.override_checkbox.get_active():
             info = text_view_get_text(app.generation_information)

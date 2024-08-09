@@ -592,7 +592,9 @@ def main_ui_definition(app) -> None:
         "auto_face_fix": create_combo_box(TRUE_FALSE_LIST, int(not app.preferences["auto_face_fix"])),
         "auto_face_fix_face_detection_method": create_combo_box(FACE_DETECTION_METHOD_LIST, int(not app.preferences["auto_face_fix_face_detection_method"])),
         "auto_face_fix_strength": Gtk.Entry(text=app.preferences["auto_face_fix_strength"]),
-        "auto_face_fix_prompt": Gtk.TextView()
+        "auto_face_fix_prompt": Gtk.TextView(),
+        "low_mem": create_combo_box(TRUE_FALSE_LIST, int(not app.preferences["low_mem"])),
+        "keep_instance": create_combo_box(TRUE_FALSE_LIST, int(not app.preferences["keep_instance"])),
     }
 
     fields1["generator_model_type"].connect("changed", lambda widget, app=app:generator_model_type_changed(app, widget))
@@ -694,6 +696,10 @@ def main_ui_definition(app) -> None:
     row += 1
 
     fields1_pos["auto_face_fix_prompt"] = ((0, row, 1, 1), (1, row, 3, 2))
+    row += 1
+
+    fields1_pos["low_mem"] = ((0, row, 1, 1), (1, row, 1, 1))
+    fields1_pos["keep_instance"] = ((2, row, 1, 1), (3, row, 1, 1))
     row += 1
 
     assert sorted(fields1.keys()) == sorted(fields1_pos.keys())

@@ -21,6 +21,8 @@ logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
 COMBO_BOX_FIELDS = [
+    "low_mem",
+    "keep_instance",
     "auto_face_fix",
     "auto_face_fix_face_detection_method",
     "vae_model",

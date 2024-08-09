@@ -1,4 +1,15 @@
 # Release Note
+August 10, 2024 (v3.4.0)
+New config parameters have been added. These are breaking changes.
+Please add the following to the bottom of config.yaml:
+```
+low_mem: true
+keep_instance: false
+```
+These two options were added to speed up image generation of FLUX.1-schnell.
+If your system has 64GB system RAM and 16GB GPU memory, you can set low_mem to false and keep_instance to true. Doing so can drastically reduce the image generation time.
+On a host with 64GB RAM & NVIDIA 4090, 1024x1024 image generation time shrinks from 18 sec to 8 sec. Note when this combination is used, initial generation can take more than a minute due to initialization, but subsequent image generation goes much faster.
+
 August 9, 2024 (v3.3.0)
 FLUX.1-schnell support has been added. This has been only tested on Linux.
 Windows has not been tested but it should run. If you run into an issue, please file a ticket.

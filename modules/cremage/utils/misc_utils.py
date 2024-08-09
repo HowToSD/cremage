@@ -270,11 +270,25 @@ def override_options(opt: argparse.Namespace,
         if arg == "hires_fix_scale_factor" and "hires_fix_scale_factor" in override_dict:
             setattr(parsed_args, arg, float(override_dict["hires_fix_scale_factor"]))
 
+        # Not used for now
+        # if arg == "low_mem":
+        #     if "low_mem" in override_dict:
+        #         setattr(parsed_args, arg, True)
+        #     else:
+        #         setattr(parsed_args, arg, False)
+
+        # if arg == "keep_instance":
+        #     if "keep_instance" in override_dict:
+        #         setattr(parsed_args, arg, True)
+        #     else:
+        #         setattr(parsed_args, arg, False)
+
         if arg == "auto_face_fix":
             if "auto_face_fix" in override_dict:
                 setattr(parsed_args, arg, True)
             else:
                 setattr(parsed_args, arg, False)
+
 
         if arg == "auto_face_fix_strength" and "auto_face_fix_strength" in override_dict:
             setattr(parsed_args, arg, float(override_dict["auto_face_fix_strength"]))
