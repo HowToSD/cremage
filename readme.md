@@ -9,8 +9,7 @@ FLUX.1-schnell support has been added. This has been only tested on Linux.
 Windows has not been tested but it should run. If you run into an issue, please file a ticket.
 Mac is not supported for FLUX.
 
-requirements.txt has been updated.
-If you are using Linux, you need to update your Python package dependencies.
+requirements.txt has been updated. If you are using Linux, you need to update your Python package dependencies. Please refer to the Release Note above.
 
 For more information, refer to [FLUX.1-schnell](docs/users_guide/ug_flux.md "FLUX.1-schnell")
 
