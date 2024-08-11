@@ -61,6 +61,17 @@ Currently, only systems with NVIDIA GPU and CUDA are supported.
     pip3 install pycairo
     ```
 
+    Depending on your system, you may see an error below when you start Cremage:
+    ```
+    ImportError: <your home directory>/anaconda3/envs/cremage/lib/python3.10/site-packages/cairo/_cairo.cpython-310-x86_64-linux-gnu.so: undefined symbol: cairo_tee_surface_index
+    ```
+
+    If this happens, you can do the following to resolve the issue:
+    ```
+    pip uninstall pycairo
+    conda install -c conda-forge cairo pycairo
+    ```
+
 6. Install other python packages
     ```
     pip install -r requirements.txt
