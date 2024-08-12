@@ -434,6 +434,48 @@ def parse_options(arguments=None):
         help="Path to store images to showcase each TI embedding",
         default=None
     )
+    parser.add_argument(
+        "--face_fix_sampler",
+        type=str,
+        help="Sampler for face fix",
+        default="DDIM"
+    )
+    parser.add_argument(
+        "--face_fix_sampling_steps",
+        type=int,
+        help="Sampling steps for face fix",
+        default=50
+    )
+    parser.add_argument(
+        "--face_fix_ckpt",
+        type=str,
+        help="Checkpoint for face fix",
+        default=os.path.join("models", "ldm", "v1-5-pruned.ckpt")
+    )
+    parser.add_argument(
+        "--face_fix_vae_ckpt",
+        type=str,
+        help="VAE for face fix",
+        default=os.path.join("models", "vae", "vae-ft-mse-840000-ema-pruned.ckpt")
+    )
+    parser.add_argument(
+        "--face_fix_lora_models",
+        type=str,
+        help="LoRAs for face fix",
+        default=""
+    )
+    parser.add_argument(
+        "--face_fix_lora_weights",
+        type=str,
+        help="LoRA weights for face fix",
+        default=""
+    )
+    parser.add_argument(
+        "--face_fix_generator_model_type",
+        type=str,
+        help="LoRA weights for face fix",
+        default="SD 1.5"
+    )
 
     opt = parser.parse_args(arguments)
     return opt

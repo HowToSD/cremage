@@ -636,28 +636,37 @@ def generate(options=None,
 
             # Extra processing start
             if opt.auto_face_fix:
-                from face_fixer import FaceFixer
                 logger.debug("Applying face fix")
                 status_queue.put("Applying face fix")
-                app = load_user_config()
 
                 if opt.auto_face_fix_prompt:
                     auto_face_fix_prompt = opt.auto_face_fix_prompt
                 else:
                     auto_face_fix_prompt = positive_prompt
-                face_fixer = FaceFixer(
-                    preferences=app,
-                    positive_prompt=auto_face_fix_prompt,
-                    negative_prompt=negative_prompt,
-                    denoising_strength=opt.auto_face_fix_strength,
-                    procedural=True,
-                    status_queue=status_queue)
-                
                 pil_img, tensor_device = tensor_to_pil_image(sample)
+                face_fix_options = {
+                        "positive_prompt" : auto_face_fix_prompt,
+                        "negative_prompt" : opt.negative_prompt,
+                        "clip_skip": opt.clip_skip,
+                        "denoising_strength": opt.auto_face_fix_strength,
+                        "sampler": opt.face_fix_sampler,
+                        "sampling_steps": opt.face_fix_sampling_steps,
+                        "model_path": opt.face_fix_ckpt,
+                        "vae_path": opt.face_fix_vae_ckpt,
+                        "lora_models": opt.face_fix_lora_models,
+                        "lora_weights": opt.face_fix_lora_weights,
+                        "sampler": opt.face_fix_sampler,
+                        "seed": "0",
+                        "generator_model_type": opt.face_fix_generator_model_type
+                        # "status_queue": status_queue
+                }
+
                 if opt.auto_face_fix_face_detection_method == "InsightFace":
-                    pil_img = face_fixer.fix_with_insight_face(pil_img)
+                    from face_detection.face_detector_engine import fix_with_insight_face
+                    pil_img = fix_with_insight_face(pil_img, **face_fix_options)
                 elif opt.auto_face_fix_face_detection_method == "OpenCV":
-                    pil_img = face_fixer.fix_with_opencv(pil_img)
+                    from face_detection.face_detector_engine import fix_with_opencv
+                    pil_img = fix_with_opencv(pil_img, **face_fix_options)
                 else:
                     logger.info(f"Ignoring unsupported face detection method: {opt.auto_face_fix_face_detection_method}")
 

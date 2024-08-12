@@ -56,9 +56,7 @@ def generate(
         mask_image=None,
         denoising_strength=0.2,
         auto_face_fix=False,
-        auto_face_fix_strength=0.3,
-        auto_face_fix_face_detection_method="OpenCV",
-        auto_face_fix_prompt="",
+        face_fix_options = None,
         safety_check=True,
         watermark=False,
         status_queue=None):
@@ -117,28 +115,10 @@ def generate(
             
             # Extra processing start
             if auto_face_fix:
-                from face_fixer import FaceFixer
                 logger.debug("Applying face fix")
                 status_queue.put("Applying face fix")
-                app = load_user_config()
-                if auto_face_fix_prompt:
-                    auto_face_fix_prompt = auto_face_fix_prompt
-                else:
-                    auto_face_fix_prompt = positive_prompt
-                face_fixer = FaceFixer(
-                    preferences=app,
-                    positive_prompt=auto_face_fix_prompt,
-                    negative_prompt=negative_prompt,
-                    denoising_strength=auto_face_fix_strength,
-                    procedural=True,
-                    status_queue=status_queue)
-
-                if auto_face_fix_face_detection_method == "InsightFace":
-                    image = face_fixer.fix_with_insight_face(image)
-                elif auto_face_fix_face_detection_method == "OpenCV":
-                    image = face_fixer.fix_with_opencv(image)
-                else:
-                    logger.info(f"Ignoring unsupported face detection method: {auto_face_fix_face_detection_method}")
+                from face_detection.face_detector_engine import face_fix
+                image = face_fix(image, **face_fix_options)
 
             file_name = str(time.time())
 
@@ -158,9 +138,9 @@ def generate(
             }
 
             if auto_face_fix:
-                generation_parameters["auto_face_fix_strength"] = auto_face_fix_strength
-                generation_parameters["auto_face_fix_prompt"] = auto_face_fix_prompt
-                generation_parameters["auto_face_fix_face_detection_method"] = auto_face_fix_face_detection_method
+                generation_parameters["auto_face_fix_strength"] = face_fix_options["denoising_strength"]
+                generation_parameters["auto_face_fix_prompt"] = face_fix_options["positive_prompt"]
+                generation_parameters["auto_face_fix_face_detection_method"] = face_fix_options["detection_method"]
 
             file_number = file_number_base + new_seed_group_index + i
             time_str = time.time()

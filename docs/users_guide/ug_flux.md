@@ -19,5 +19,4 @@ On a host with 64GB RAM & NVIDIA 4090, 1024x1024 image generation time shrinks f
   However, it requires a large amount of system memory (> 35GB), so if you have less than 40GB (with some buffer), it may not run.
 - Negative prompt is not supported.
 - Batch size greater than 1 is not supported.
-- Auto face fix is not supported.
 - Mac is not supported.

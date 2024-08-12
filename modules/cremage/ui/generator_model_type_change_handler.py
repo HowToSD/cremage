@@ -37,9 +37,14 @@ def toggle_genenator_model_type_ui(app:Gtk.Window, generator_model_type):
     if generator_model_type in [GMT_FLUX_1_SCHNELL]:
         app.fields["low_mem"].show()
         app.fields["keep_instance"].show()
+        app.fields1_labels["Low mem"].show()
+        app.fields1_labels["Keep instance"].show()
+
     else:
         app.fields["low_mem"].hide()
         app.fields["keep_instance"].hide()
+        app.fields1_labels["Low mem"].hide()
+        app.fields1_labels["Keep instance"].hide()
 
     if generator_model_type == GMT_SD_1_5 or \
        generator_model_type in [

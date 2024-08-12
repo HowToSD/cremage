@@ -302,6 +302,11 @@ def generate_handler(app, widget, event) -> None:
 
     elif generator_model_type == GMT_SDXL:
 
+        args_list += [
+            "--face_fix_ckpt",  join_directory_and_file_name(app.preferences["ldm_model_path"], app.preferences["ldm_model"]),
+            "--face_fix_vae_ckpt", join_directory_and_file_name(app.preferences["vae_model_path"], app.preferences["vae_model"])
+        ]
+
         if app.generation_mode == MODE_INPAINTING:
             from sdxl.sdxl_pipeline.sdxl_inpaint import generate as sdxl_generate
         else:
@@ -477,6 +482,47 @@ def generate_handler(app, widget, event) -> None:
             positive_prompt_pre_expansion,
             negative_prompt_pre_expansion)
 
+        if  app.preferences["auto_face_fix_prompt"]:
+            auto_face_fix_positive_prompt = app.preferences["auto_face_fix_prompt"]
+        else:
+            auto_face_fix_positive_prompt = positive_prompt
+
+        face_fix_options = {
+            "detection_method": app.preferences["auto_face_fix_face_detection_method"],
+            "positive_prompt": auto_face_fix_positive_prompt,
+            "negative_prompt" : negative_prompt,
+            "generator_model_type" : GMT_SD_1_5,  # FIXME
+            "model_path":  join_directory_and_file_name(app.preferences["ldm_model_path"], app.preferences["ldm_model"]),  # FIXME
+            "lora_models" : None,
+            "lora_weights" : None,
+            "embedding_path" : app.preferences["embedding_path"],  # FIXME
+            "sampling_steps" : 50,  # FIXME
+            "seed" : 0,
+            "vae_path" : join_directory_and_file_name(app.preferences["vae_model_path"], app.preferences["vae_model"]),  # FIXME
+            "sampler" : "DDIM",  # FIXME
+            "target_edge_len" : 512,  # FIXME
+            "denoising_strength": float(app.preferences["auto_face_fix_strength"]),
+            "enable_face_id" : False,
+            "face_input_image_path" : None,
+            "face_model_full_path" : None,
+            "discretization": app.preferences["discretization"],
+            "discretization_sigma_min": app.preferences["discretization_sigma_min"],
+            "discretization_sigma_max": app.preferences["discretization_sigma_max"],
+            "discretization_rho": app.preferences["discretization_rho"],
+            "guider": app.preferences["guider"],
+            "linear_prediction_guider_min_scale": app.preferences["linear_prediction_guider_min_scale"],
+            "linear_prediction_guider_max_scale": app.preferences["linear_prediction_guider_max_scale"],
+            "triangle_prediction_guider_min_scale": app.preferences["triangle_prediction_guider_min_scale"],
+            "triangle_prediction_guider_max_scale": app.preferences["triangle_prediction_guider_max_scale"],
+            "sampler_s_churn": app.preferences["sampler_s_churn"],
+            "sampler_s_tmin": app.preferences["sampler_s_tmin"],
+            "sampler_s_tmax": app.preferences["sampler_s_tmax"],
+            "sampler_s_noise": app.preferences["sampler_s_noise"],
+            "sampler_eta": app.preferences["sampler_eta"],
+            "sampler_order": app.preferences["sampler_order"],
+            "clip_skip" : app.preferences["clip_skip"]
+        }  # TODO: Support SDXL auto face fix.
+
         kwargs = {'positive_prompt': positive_prompt,
                 'negative_prompt': negative_prompt,
                 'checkpoint': checkpoint,
@@ -491,10 +537,8 @@ def generate_handler(app, widget, event) -> None:
                 "safety_check": app.preferences["safety_check"],
                 "watermark": app.preferences["watermark"],
                 "auto_face_fix": auto_face_fix,
-                "auto_face_fix_strength": float(app.preferences["auto_face_fix_strength"]),
-                "auto_face_fix_face_detection_method": app.preferences["auto_face_fix_face_detection_method"],
-                "auto_face_fix_prompt": app.preferences["auto_face_fix_prompt"]
-        }
+                "face_fix_options":  face_fix_options
+        }  # TODO: Support SDXL auto face fix.
 
         if generator_model_type == GMT_PIXART_SIGMA:
             kwargs.update({

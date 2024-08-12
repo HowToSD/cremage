@@ -1,4 +1,8 @@
 # Release Note
+August 12, 2024 (v3.4.1)
+Refactored Face Fix related code. This was quite extensive changes underneath related to face fix. If you run into any issues, please file a ticket.
+Auto face fix for FLUX.1-schnell should work now.
+
 August 10, 2024 (v3.4.0)
 New config parameters have been added. These are breaking changes.
 Please add the following to the bottom of config.yaml:

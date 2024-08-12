@@ -59,20 +59,12 @@ I haven't tested this behavior in GTK4, so it's unclear if this is specific to G
 """
 import os
 import sys
+import platform
 import logging
-import argparse
 import json
-from io import BytesIO
-import tempfile
-import threading
-import shutil
-from typing import Dict, Any, Tuple
+from typing import Tuple
 from dataclasses import dataclass
 
-from transformers import ViTImageProcessor, ViTForImageClassification  # For face classification
-import numpy as np
-import cv2 as cv
-import PIL
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 import gi
@@ -80,23 +72,33 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk
 import cairo
 
-PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
+# Do not move below section from here
+os_name = platform.system()
+if os_name == 'Darwin':  # macOS
+    gpu_device = "mps"
+else:
+    gpu_device = "cuda"
+os.environ["GPU_DEVICE"] = gpu_device
+
+PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 MODULE_ROOT = os.path.join(PROJECT_ROOT, "modules")
 TOOLS_ROOT = os.path.join(PROJECT_ROOT, "tools")
 MODELS_ROOT = os.path.join(PROJECT_ROOT, "models")
-sys.path = [MODULE_ROOT, TOOLS_ROOT] + sys.path
+sys.path = [MODULE_ROOT] + sys.path
 OPENCV_FACE_DETECTION_MODEL_PATH = os.path.join(MODELS_ROOT, "opencv", "face_detection_yunet_2023mar.onnx")
 
-from sd.options import parse_options as sd15_parse_options
-from sd.img2img import generate as sd15_img2img_generate
-from sd.inpaint import generate as sd15_inpaint_generate
 from cremage.utils.image_utils import pil_image_to_pixbuf
 from cremage.utils.gtk_utils import text_view_get_text, create_combo_box_typeahead
-from cremage.utils.misc_utils import generate_lora_params
 from cremage.utils.misc_utils import get_tmp_dir
 from cremage.ui.model_path_update_handler import update_ldm_model_name_value_from_ldm_model_dir
 from cremage.ui.model_path_update_handler import update_sdxl_ldm_model_name_value_from_sdxl_ldm_model_dir
 from cremage.const.const import GMT_SD_1_5, GMT_SDXL
+from face_detection.face_detector_engine import mark_face_with_insight_face
+from face_detection.face_detector_engine import mark_face_with_opencv
+from face_detection.face_detector_engine import parse_face_data
+from face_detection.face_detector_engine import process_face, fix_with_insight_face, fix_with_opencv
+from cremage.face.face_fixer_util import build_face_process_params_from_preferences
+
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
@@ -105,11 +107,9 @@ if os.environ.get("ENABLE_HF_INTERNET_CONNECTION") == "1":
 else:
     local_files_only_value=True
 
-TARGET_EDGE_LEN = 512  # This is overridden during runtime
+target_edge_len = 512  # This is overridden during runtime
 SELECTED_COLOR =  (0, 0x7B/255.0, 0xFF/255.0, 0.5)  # "#007BFF"
 UNSELECTED_COLOR = (0xD3/255.0, 0xD3/255.0, 0xD3/255.0, 0.5)
-FACE_FIX_TMP_DIR = os.path.join(get_tmp_dir(), "face_fix.tmp")
-FACE_FIX_OUTPUT_DIR = os.path.join(FACE_FIX_TMP_DIR, "outputs")
 
 @dataclass
 class FaceRect:
@@ -611,138 +611,82 @@ class FaceFixer(Gtk.Window):
         if self.save_call_back:
             self.save_call_back(self.pil_image, str_generation_params)
 
+    def build_prompts(self) -> Tuple[str, str]:
+        """
+        Builds a positive and negative prompt tuple.
+        """
+        # If the user enters a prompt, it has the precedence
+        self.positive_prompt = text_view_get_text(self.positive_prompt_field)
+        if self.preferences["enable_positive_prompt_pre_expansion"]:
+            self.positive_prompt = self.preferences["positive_prompt_pre_expansion"] + self.positive_prompt
+        if self.preferences["enable_positive_prompt_expansion"]:
+            self.positive_prompt += self.preferences["positive_prompt_expansion"]
+
+        if self.positive_prompt:
+            positive_prompt = self.positive_prompt
+        elif self.generation_information is not None and "positive_prompt" in self.generation_information: # Priority 2. Generation
+            positive_prompt = self.generation_information["positive_prompt"]
+        else:  # use blank
+            positive_prompt = ""
+            if self.preferences["enable_positive_prompt_pre_expansion"]:
+                positive_prompt = self.preferences["positive_prompt_pre_expansion"] + positive_prompt
+            if self.preferences["enable_positive_prompt_expansion"]:
+                positive_prompt += self.preferences["positive_prompt_expansion"]
+
+        if self.negative_prompt:
+            negative_prompt = self.negative_prompt
+        elif self.generation_information is not None and "negative_prompt" in self.generation_information: # Priority 2. Generation
+            negative_prompt = self.generation_information["negative_prompt"]
+        else:  # use blank
+            negative_prompt = ""
+            if self.preferences["enable_negative_prompt_pre_expansion"]:
+                negative_prompt = self.preferences["negative_prompt_pre_expansion"] + negative_prompt
+
+            if self.preferences["enable_negative_prompt_expansion"]:
+                negative_prompt += self.preferences["negative_prompt_expansion"]
+
+        return (positive_prompt, negative_prompt)
+
 
     def on_auto_fix_clicked(self, widget):
         detection_method = self.detection_method_combo.get_active_text()
         logger.info(detection_method)
 
+        sd15_model_name = self.ldm_model_cb.get_child().get_text()
+        sdxl_model_name = self.sdxl_ldm_model_cb.get_child().get_text()
+        
+        if self.disable_face_input_checkbox.get_active() is False and self.pil_face_image:
+            enable_face_id = True
+            face_input_image_path = os.path.join(get_tmp_dir(), "face_input_image.png")
+            self.pil_face_image.save(face_input_image_path)
+            face_model_full_path = self.face_model_full_path
+        else:
+            enable_face_id = False
+            face_input_image_path = None
+            face_model_full_path = None
+
+        process_face_params = build_face_process_params_from_preferences(
+              self.preferences,
+              generator_model_type=self.generator_model_type,
+              sd15_model_name=sd15_model_name,
+              sdxl_model_name=sdxl_model_name,
+              enable_face_id=enable_face_id,
+              face_input_image_path=face_input_image_path,
+              face_model_full_path=face_model_full_path)
+
+        # Override with values in UI
+        positive_prompt, negative_prompt = self.build_prompts()
+        process_face_params["positive_prompt"] = positive_prompt
+        process_face_params["negative_prompt"] = negative_prompt
+        process_face_params["denoising_strength"] = float(self.denoising_entry.get_text())
+
         if detection_method == "InsightFace":
-            annotated_image = self.fix_with_insight_face(self.pil_image)
+            annotated_image = fix_with_insight_face(self.pil_image, **process_face_params)
         elif detection_method == "OpenCV":
-            annotated_image = self.fix_with_opencv(self.pil_image)
+            annotated_image = fix_with_opencv(self.pil_image, **process_face_params)
         self.pil_image = annotated_image
         self._post_process_after_image_generation()
         return
-
-    def mark_face_with_opencv(self, pil_image):
-        parser = argparse.ArgumentParser()
-        # parser.add_argument('--scale', '-sc', type=float, default=1.0, help='Scale factor used to resize input video frames.')
-        parser.add_argument('--face_recognition_model', '-fr', type=str, default='face_recognition_sface_2021dec.onnx', help='Path to the face recognition model. Download the model at https://github.com/opencv/opencv_zoo/tree/master/models/face_recognition_sface')
-        parser.add_argument('--score_threshold', type=float, default=0.9, help='Filtering out faces of score < score_threshold.')
-        parser.add_argument('--nms_threshold', type=float, default=0.3, help='Suppress bounding boxes of iou >= nms_threshold.')
-        parser.add_argument('--top_k', type=int, default=5000, help='Keep top_k bounding boxes before NMS.')
-        args = parser.parse_args()
-
-        detector = cv.FaceDetectorYN.create(
-            OPENCV_FACE_DETECTION_MODEL_PATH,  # model
-            "",  # config
-            (320, 320), # input size
-            args.score_threshold,  # score threshold
-            args.nms_threshold,  # nms threshold
-            args.top_k # top_k
-        )
-
-        # Prepare image for detection
-        img1 = pil_image.convert("RGB")  # Convert to RGB from RGBA
-        img1 = np.asarray(img1, dtype=np.uint8)[:,:,::-1]  # to np and RGB to BGR
-
-        original_width = img1.shape[1]
-        original_height = img1.shape[0]
-        
-        max_edge = max(original_height, original_width)
-        if max_edge > 768:
-            scale = 768 / max_edge
-            scale2 = 1 / scale
-            scaled = True
-        else:
-            scale = 1.0
-            scaled = False
-        img1Width = int(img1.shape[1] * scale)
-        img1Height = int(img1.shape[0] * scale)
-
-        img1 = cv.resize(img1, (img1Width, img1Height))
-        detector.setInputSize((img1Width, img1Height))
-        face_data = detector.detect(img1)
-
-        # rescale coordinates
-        if scaled:
-            faces = face_data[1]
-            for i, face in enumerate(faces):
-                faces[i][0] = face[0] * scale2
-                faces[i][1] = face[1] * scale2
-                faces[i][2] = face[2] * scale2
-                faces[i][3] = face[3] * scale2
-
-        return face_data
-
-    def mark_face_with_insight_face(self, pil_image):
-        from face_detector_insight_face import get_face_bounding_boxes
-
-        # Prepare image for detection
-        img1 = np.asarray(pil_image.convert("RGB"))
-        bboxes = get_face_bounding_boxes(img1)
-        return bboxes
-
-    def fix_with_insight_face(self, pil_image: Image) -> Image:
-        """
-        Detects faces in the source image and annotates the image with detected faces.
-
-        Args:
-            pil_image (Image): Input image with faces
-        Returns:
-            Annotated image
-        """
-        from face_detector_insight_face import get_face_bounding_boxes
-        logger.info("Using InsightFace for face detection")
-        img1 = np.asarray(pil_image.convert("RGB"))
-        bboxes = get_face_bounding_boxes(img1)
-        return self.fix_engine(pil_image, bboxes, detection_method="InsightFace")
-
-    def fix_with_opencv(self, pil_image: Image) -> Image:
-        """
-        Detects faces in the source image and annotates the image with detected faces.
-
-        Args:
-            pil_image (Image): Input image with faces
-        Returns:
-            Annotated image
-        """
-        face_data = self.mark_face_with_opencv(pil_image)
-
-        return self.fix_engine(pil_image, face_data)
-
-    def fix_engine(self, pil_image: Image, face_data,
-                   detection_method="OpenCV") -> Image:
-        """
-        Detects faces in the source image and annotates the image with detected faces.
-
-        Args:
-            pil_image (Image): Input image with faces
-        Returns:
-            Annotated image in PIL format.
-        """
-        if face_data is not None:
-
-            # Draw results on the input image
-            self.parse_face_data(face_data, detection_method=detection_method)
-            self.drawing_area.queue_draw()
-
-            if detection_method == "OpenCV":
-                faces = face_data[1]
-                if faces is not None:
-                    for face in faces:
-                        pil_image = self.process_face(pil_image, face)
-            elif detection_method == "InsightFace":
-                faces = face_data
-                if len(faces) > 0:
-                    for i, face in enumerate(faces):
-                        if self.status_queue:
-                            self.status_queue.put(f"Fixing face {i+1}/{len(faces)}")
-                        # left, top, right, bottom to left, top, w, h
-                        face = [face[0], face[1], face[2]-face[0], face[3]-face[1]]
-                        pil_image = self.process_face(pil_image, face)
-
-        return pil_image
 
     def on_detect_clicked(self, widget):
 
@@ -750,19 +694,47 @@ class FaceFixer(Gtk.Window):
         logger.info(detection_method)
 
         if detection_method == "InsightFace":
-            face_data = self.mark_face_with_insight_face(self.pil_image)
+            face_data = mark_face_with_insight_face(self.pil_image)
         elif detection_method == "OpenCV":
-            face_data = self.mark_face_with_opencv(self.pil_image)
+            face_data = mark_face_with_opencv(self.pil_image)
 
         if face_data is not None:
-            # Draw results on the input image
-            self.parse_face_data(face_data, detection_method=detection_method)
+            # Update face_rects
+            # Draw uses this data to mark faces
+            self.face_rects = parse_face_data(face_data, detection_method=detection_method)
             self.drawing_area.queue_draw()
 
     def on_fix_marked_face_clicked(self, widget):
-        pil_image = self.pil_image
 
+        pil_image = self.pil_image
         faces = self.face_rects
+
+        sd15_model_name = self.ldm_model_cb.get_child().get_text()
+        sdxl_model_name = self.sdxl_ldm_model_cb.get_child().get_text()
+        
+        if self.disable_face_input_checkbox.get_active() is False and self.pil_face_image:
+            enable_face_id = True
+            face_input_image_path = os.path.join(get_tmp_dir(), "face_input_image.png")
+            self.pil_face_image.save(face_input_image_path)
+            face_model_full_path = self.face_model_full_path
+        else:
+            enable_face_id = False
+            face_input_image_path = None
+            face_model_full_path = None
+
+        process_face_params = build_face_process_params_from_preferences(
+              self.preferences,
+              generator_model_type=self.generator_model_type,
+              sd15_model_name=sd15_model_name,
+              sdxl_model_name=sdxl_model_name,
+              enable_face_id=enable_face_id,
+              face_input_image_path=face_input_image_path,
+              face_model_full_path=face_model_full_path)
+
+        positive_prompt, negative_prompt = self.build_prompts()
+        process_face_params["positive_prompt"] = positive_prompt
+        process_face_params["negative_prompt"] = negative_prompt
+        process_face_params["denoising_strength"] = float(self.denoising_entry.get_text())
 
         if faces is not None:
             for face_rect in faces:
@@ -770,7 +742,12 @@ class FaceFixer(Gtk.Window):
                         face_rect.top,
                         face_rect.right - face_rect.left,
                         face_rect.bottom - face_rect.top)
-                pil_image = self.process_face(pil_image, face)
+
+                pil_image = process_face(
+                    pil_image,
+                    face,
+                    **process_face_params
+                    )
 
         self.pil_image = pil_image
         self._post_process_after_image_generation()
@@ -827,7 +804,6 @@ class FaceFixer(Gtk.Window):
           image width & height
           canvas width & height (drawing area)
           adjust the canvas size based on above
-        
         """
         # Creates pixbuf from the original input image to be used in on_draw
         self.pixbuf_with_base_image = pil_image_to_pixbuf(self.pil_image)
@@ -896,384 +872,6 @@ class FaceFixer(Gtk.Window):
         self.pil_image = Image.open(file_path)
         self._process_new_image()
 
-    def process_face(self, pil_image, face) -> Image:
-        """
-
-        x
-        y
-        w
-        h
-        score
-        """
-        global TARGET_EDGE_LEN
-
-        if self.generator_model_type == GMT_SDXL:
-            TARGET_EDGE_LEN = 1024
-        else:
-            TARGET_EDGE_LEN = 512
-
-        # Gender classification
-        logger.info(f"ViTImageProcessor and ViTForImageClassification connection to internet disabled : {local_files_only_value}")
-        processor = ViTImageProcessor.from_pretrained('rizvandwiki/gender-classification',
-                                                      local_files_only=local_files_only_value)
-        model = ViTForImageClassification.from_pretrained('rizvandwiki/gender-classification',
-                                                          local_files_only=local_files_only_value)
-
-        # Create a temporary directory using the tempfile module
-        with tempfile.TemporaryDirectory() as temp_dir:
-            logger.debug(f"Temporary directory created at {temp_dir}")
-            x = int(face[0])
-            y = int(face[1])
-            w = int(face[2])
-            h = int(face[3])
-            logger.debug(f"{x}, {y}, {w}, {h}")
-
-            # Expand by buffer
-            buffer = 20
-            x = max(0, x-buffer)
-            y = max(0, y-buffer)
-            w = min(w+buffer*2, pil_image.size[0] - x)
-            h = min(h+buffer*2, pil_image.size[1] - y)
-
-            right = x + w
-            bottom = y + h
-            crop_rectangle = (x, y, right, bottom)
-            cropped_image = pil_image.crop(crop_rectangle)
-            cropped_image = cropped_image.convert("RGB")  # RGBA causes a problem with processor
-            # TODO: Detect race and age
-            inputs = processor(images=cropped_image, return_tensors="pt")
-            outputs = model(**inputs)
-            logits = outputs.logits
-            predicted_class_idx = logits.argmax(-1).item()
-            predicted_gender = model.config.id2label[predicted_class_idx]  # "male" or "female"
-            logging.info(f"Predicted gender: {predicted_gender}")
-
-            if w > h:  # landscape
-                new_h = int(h * TARGET_EDGE_LEN / w)
-                new_w = TARGET_EDGE_LEN
-                padding_h = TARGET_EDGE_LEN - new_h
-                padding_w = 0
-                padding_x = int(padding_w/2)
-                padding_y = int(padding_h/2)
-
-            else:
-                new_w = int(w * TARGET_EDGE_LEN / h)
-                new_h = TARGET_EDGE_LEN
-                padding_w = TARGET_EDGE_LEN - new_w
-                padding_h = 0
-                padding_x = int(padding_w/2)
-                padding_y = int(padding_h/2)
-
-            resized_image = cropped_image.resize((new_w, new_h), resample=PIL.Image.LANCZOS)
-
-            # Pad image
-            base_image = Image.new('RGBA', (TARGET_EDGE_LEN, TARGET_EDGE_LEN), "white")
-            base_image.paste(resized_image, (padding_x, padding_y))
-
-            # 2.3 Send to image to image
-            updated_face_pil_image = self.face_image_to_image(
-                input_image=base_image,
-                meta_prompt=predicted_gender)
-            updated_face_pil_image.save(os.path.join(get_tmp_dir(), "tmpface.jpg"))
-
-            # Crop to remove padding
-            updated_face_pil_image = updated_face_pil_image.crop(
-                (padding_x,  # x
-                padding_y,  # y
-                padding_x + new_w,  # width
-                padding_y + new_h))  # height
-
-            # Resize to the original dimension
-            updated_face_pil_image = \
-                updated_face_pil_image.resize((w, h), resample=PIL.Image.LANCZOS)
-
-            # 2.6 Paste the updated image in the original image.
-            # pil_image.paste(updated_face_pil_image, (x, y))
-
-            # Convert both base and face to CV2 BGR
-            cv_image = cv.cvtColor(np.array(pil_image), cv.COLOR_RGB2BGR)
-            updated_face_cv_image = cv.cvtColor(
-                np.array(updated_face_pil_image),
-                cv.COLOR_RGB2BGR)
-
-            # Compute the center of the face in the base image coordinate
-            # shape[0] is face height
-            # shape[1] is face width
-            center_position = (x + updated_face_cv_image.shape[1] // 2,
-                               y + updated_face_cv_image.shape[0] // 2)
-
-            # Create a mask of the same size as the updated face, filled with 255 (white)
-            mask = 255 * np.ones(updated_face_cv_image.shape, updated_face_cv_image.dtype)
-
-            # Use seamlessClone to blend the updated face onto the original image
-            result_image = cv.seamlessClone(
-                updated_face_cv_image,
-                cv_image, mask,
-                # center_position, cv.MIXED_CLONE)
-                center_position, cv.NORMAL_CLONE)
-
-            # Convert the result back to a PIL image
-            pil_image = Image.fromarray(cv.cvtColor(result_image, cv.COLOR_BGR2RGB))
-            return pil_image
-
-    def face_image_to_image(self, input_image=None, meta_prompt=None,
-                            output_dir=FACE_FIX_TMP_DIR):  # FIXME
-        """
-        Event handler for the Generation button click
-
-        Args:
-            meta_prompt (str): Gender string of the face detected by the gender ML model
-        """
-        logger.info("face_image_to_image")
-        is_sdxl = True if self.generator_model_type == GMT_SDXL else False
-
-        generation_info = self.generation_information
-
-        # Prompt handling
-        # Priority 1. User-provided for face fix
-
-        if self.procedural:
-            self.positive_prompt = self.positive_prompt_procedural
-        else:
-            self.positive_prompt = text_view_get_text(self.positive_prompt_field)
-            if self.preferences["enable_positive_prompt_pre_expansion"]:
-                self.positive_prompt = self.preferences["positive_prompt_pre_expansion"] + self.positive_prompt
-            if self.preferences["enable_positive_prompt_expansion"]:
-                self.positive_prompt += self.preferences["positive_prompt_expansion"]
-
-        if self.positive_prompt:
-            positive_prompt = self.positive_prompt
-        elif generation_info is not None and "positive_prompt" in generation_info: # Priority 2. Generation
-           positive_prompt = generation_info["positive_prompt"]
-        else:  # use blank
-            positive_prompt = ""
-            if self.preferences["enable_positive_prompt_pre_expansion"]:
-                positive_prompt = self.preferences["positive_prompt_pre_expansion"] + positive_prompt
-            if self.preferences["enable_positive_prompt_expansion"]:
-                positive_prompt += self.preferences["positive_prompt_expansion"]
-
-        # Prepend meta_prompt
-        if meta_prompt:
-            positive_prompt = "face of " + meta_prompt + ", " + positive_prompt
-
-        # Negative prompt
-        if self.procedural:  # img2img
-            self.negative_prompt = self.negative_prompt_procedural
-        else:  # UI
-            pass
-
-        if self.negative_prompt:
-            negative_prompt = self.negative_prompt
-        elif generation_info is not None and "negative_prompt" in generation_info: # Priority 2. Generation
-            negative_prompt = generation_info["negative_prompt"]
-        else:  # use blank
-            negative_prompt = ""
-            if self.preferences["enable_negative_prompt_pre_expansion"]:
-                negative_prompt = self.preferences["negative_prompt_pre_expansion"] + negative_prompt
-
-            if self.preferences["enable_negative_prompt_expansion"]:
-                negative_prompt += self.preferences["negative_prompt_expansion"]
-
-        if os.path.exists(output_dir) and output_dir.find("face_fix") >= 0:
-            shutil.rmtree(output_dir)
-        os.makedirs(output_dir, exist_ok=True)
-
-        if is_sdxl:
-            model_dir = self.preferences["sdxl_ldm_model_path"]
-            lora_model_dir = self.preferences["sdxl_lora_model_path"]
-            lora_weights_key = "lora_weights"
-            model_name = self.sdxl_ldm_model_cb.get_child().get_text() # Use the model on UI
-
-            vae_path = "None" if self.preferences["sdxl_vae_model"] == "None" \
-                else os.path.join(
-                        self.preferences["sdxl_vae_model_path"],
-                        self.preferences["sdxl_vae_model"])
-            sampler = self.preferences["sdxl_sampler"]+"Sampler"
-        else:
-            model_dir = self.preferences["ldm_model_path"]
-            lora_model_dir = self.preferences["lora_model_path"]
-            lora_weights_key = "lora_weights"
-            model_name = self.ldm_model_cb.get_child().get_text() # Use the model on UI
-
-            vae_path = "None" if self.preferences["vae_model"] == "None" \
-                else os.path.join(
-                        self.preferences["vae_model_path"],
-                        self.preferences["vae_model"])
-            sampler = self.preferences["sampler"]
-        model_path = os.path.join(model_dir, model_name)
-        clip_skip = str(self.preferences["clip_skip"])
-
-        lora_models, lora_weights = generate_lora_params(self.preferences, sdxl=is_sdxl)
-
-        # Check to see if we have generation info to override
-
-        if "clip_skip" in generation_info:
-            clip_skip = str(generation_info["clip_skip"])
-
-        if "lora_models" in generation_info:
-
-            def drop_indices(lst, indices):
-                return [element for i, element in enumerate(lst) if i not in indices]
-
-            if generation_info["lora_models"] and len(generation_info["lora_models"]) > 0:
-                model_name = self.generation_information["ldm_model"]
-                l = generation_info["lora_models"].split(",")
-                # Drop non-existing LoRAs.
-                # You need to drop the lora path and weights in a way
-                # the order is preserved.
-                non_existing_indices = list()
-                l2 = list()
-                for i, e in enumerate(l):
-                    e = e.strip()
-                    if e:
-                        path = os.path.join(lora_model_dir, e)
-                        if os.path.exists(path):
-                            l2.append(path)
-                        else:
-                            non_existing_indices.append(i)
-                    else:
-                        non_existing_indices.append(i)
-                l = ",".join(l2)
-                weights = generation_info[lora_weights_key]
-                weights = weights.split(",")
-                weights = drop_indices(weights, non_existing_indices)
-                weights = ",".join(weights)
-                generation_info[lora_weights_key] = weights
-            else:
-                l = ""
-            lora_models = l
-            lora_weights = generation_info[lora_weights_key]
-
-        sampling_steps = str(self.preferences["sampling_steps"])
-        args_list = ["--prompt", positive_prompt,
-                     "--negative_prompt", negative_prompt,
-                     "--H", str(TARGET_EDGE_LEN),
-                     "--W", str(TARGET_EDGE_LEN),
-                     "--sampler", sampler,
-                     "--sampling_steps", sampling_steps,
-                     "--clip_skip", clip_skip,
-                     "--seed", str(self.preferences["seed"]),
-                     "--n_samples", str(1),
-                     "--n_iter",str(1),
-                     "--ckpt", model_path,
-                     "--embedding_path", self.preferences["embedding_path"],
-                     "--vae_ckpt", vae_path,
-                     "--lora_models", lora_models,
-                     "--lora_weights", lora_weights,
-                     "--outdir", output_dir]
-
-        input_image_path = os.path.join(get_tmp_dir(), "input_image.png")
-        input_image.save(input_image_path)
-
-        if self.procedural:  # img2img
-            denoising_strength = str(self.denoising_strength_procedural)
-        else:
-            denoising_strength = self.denoising_entry.get_text()
-        args_list += [
-            "--init-img", input_image_path,
-            "--strength", denoising_strength
-        ]
-
-        # FaceID
-        if is_sdxl is False and self.pil_face_image and self.disable_face_input_checkbox.get_active() is False:  # app.face_input_image_original_size:
-            face_input_image_path = os.path.join(get_tmp_dir(), "face_input_image.png")
-            self.pil_face_image.save(face_input_image_path)
-
-            args_list += [
-                "--face_input_img", face_input_image_path,
-                "--face_model", self.face_model_full_path
-            ]
-
-        if is_sdxl:
-            from sdxl.sdxl_pipeline.options import parse_options as sdxl_parse_options
-            from sdxl.sdxl_pipeline.sdxl_image_generator import generate as sdxl_generate
-            options = sdxl_parse_options(args_list)
-            generate_func=sdxl_generate
-
-            args_list += [
-                "--refiner_strength", "0", # str(refiner_strength),
-                # "--refiner_sdxl_ckpt", refiner_ldm_path,
-                # "--refiner_sdxl_vae_ckpt", refiner_vae_path,
-                # "--refiner_sdxl_lora_models", refiner_sdxl_lora_models,
-                # "--refiner_sdxl_lora_weights", refiner_sdxl_lora_weights,
-
-                "--discretization", self.preferences["discretization"],
-                "--discretization_sigma_min", str(self.preferences["discretization_sigma_min"]),
-                "--discretization_sigma_max", str(self.preferences["discretization_sigma_max"]),
-                "--discretization_rho", str(self.preferences["discretization_rho"]),
-                "--guider", self.preferences["guider"],
-                "--linear_prediction_guider_min_scale", str(self.preferences["linear_prediction_guider_min_scale"]),
-                "--linear_prediction_guider_max_scale", str(self.preferences["linear_prediction_guider_max_scale"]),
-                "--triangle_prediction_guider_min_scale", str(self.preferences["triangle_prediction_guider_min_scale"]),
-                "--triangle_prediction_guider_max_scale", str(self.preferences["triangle_prediction_guider_max_scale"]),
-
-                "--sampler_s_churn", str(self.preferences["sampler_s_churn"]),
-                "--sampler_s_tmin", str(self.preferences["sampler_s_tmin"]),
-                "--sampler_s_tmax", str(self.preferences["sampler_s_tmax"]),
-                "--sampler_s_noise", str(self.preferences["sampler_s_noise"]),
-                "--sampler_eta", str(self.preferences["sampler_eta"]),
-                "--sampler_order", str(self.preferences["sampler_order"])
-            ]
-
-            # Start the image generation thread
-            thread = threading.Thread(
-                target=generate_func,
-                kwargs={'options': options,
-                        'generation_type': "img2img",
-                        'ui_thread_instance': None})  # FIXME
-        else:  # SD15
-            options = sd15_parse_options(args_list)
-            generate_func=sd15_img2img_generate
-
-            # Start the image generation thread
-            thread = threading.Thread(
-                target=generate_func,
-                kwargs={'options': options,
-                        'ui_thread_instance': None})  # FIXME
-        thread.start()
-
-        thread.join()  # Wait until img2img is done.
-
-        # Get the name of the output image
-        files = os.listdir(output_dir)
-        assert len(files) == 1
-        file_name = os.path.join(output_dir, files[0])
-        if os.path.exists(file_name):
-            image = Image.open(file_name)
-            image2 = image.copy()
-            image.close()
-            os.remove(file_name)  # Remove the temporary image
-            image = image2
-            return image
-        else:
-            raise ValueError(f"Invalid output file from img2img {file_name}")
-
-    def update_image(self, img_data: Image, generation_parameters:str=None) -> None:
-        pass
-
-    def parse_face_data(self, faces, detection_method="OpenCV") -> None:
-        self.face_rects.clear()
-
-        if detection_method=="OpenCV":
-            if faces is not None and faces[1] is not None:
-                for i, face in enumerate(faces[1]):
-                    face_rect = FaceRect(
-                        face[0],
-                        face[1],
-                        face[0]+face[2],
-                        face[1]+face[3]
-                    )
-                    self.face_rects.append(face_rect)
-        elif detection_method == "InsightFace":
-            if len(faces) > 0:
-                for i, face in enumerate(faces):
-                    face_rect = FaceRect(
-                        face[0],
-                        face[1],
-                        face[2],
-                        face[3]
-                    )
-                    self.face_rects.append(face_rect)
 
     def on_image_button_release(self, widget, event):
         x, y = self.screen_to_cairo_coord(event.x, event.y)
@@ -1373,9 +971,11 @@ def main():
         "image_width": "512",
         "image_height": "768",
         "clip_skip": "2",
-        "denoising_strength": "0.5",
+        "denoising_strength": "0.2",
         "batch_size": "3",
         "number_of_batches": "1",
+        "sampler": "DDIM",
+        "sampling_steps": 50,
         "ldm_model_path": "/media/pup/ssd2/recoverable_data/sd_models/Stable-diffusion",
         "ldm_model": "analogMadness_v70.safetensors",
         "ldm_inpaint_model": "majicmixRealistic_v7-inpainting.safetensors",
@@ -1405,16 +1005,38 @@ def main():
         "sdxl_lora_weight_4": 1.0,
         "sdxl_lora_weight_5": 1.0,
         "sdxl_lora_model_path": "/media/pup/ssd2/recoverable_data/sd_models/Lora_sdxl",
+        "sdxl_vae_model_path": "/media/pup/ssd2/recoverable_data/sd_models/VAE_sdxl",
+        "sdxl_vae_model": "sdxl_vae_fp16_fix.safetensors",
+        "sdxl_sampler": "EulerAncestral",
+        "discretization": "LegacyDDPMDiscretization",
+        "discretization_sigma_min": 0.0292,
+        "discretization_sigma_max": 14.6146,
+        "discretization_rho": 3.0,
+        "guider": "VanillaCFG",
+        "linear_prediction_guider_min_scale": 1.0,  # [1.0, 10.0]
+        "linear_prediction_guider_max_scale": 1.5,
+        "triangle_prediction_guider_min_scale": 1.0,  # [1.0, 10.0]
+        "triangle_prediction_guider_max_scale": 2.5,  # [1.0, 10.0]
+        "sampler_s_churn": 0.0,
+        "sampler_s_tmin": 0.0,
+        "sampler_s_tmax": 999.0,
+        "sampler_s_noise": 1.0,
+        "sampler_eta": 1.0,
+        "sampler_order": 4,
         "embedding_path": "/media/pup/ssd2/recoverable_data/sd_models/embeddings",
         "positive_prompt_expansion": ", highly detailed, photorealistic, 4k, 8k, uhd, raw photo, best quality, masterpiece",
         "negative_prompt_expansion": ", drawing, 3d, worst quality, low quality, disfigured, mutated arms, mutated legs, extra legs, extra fingers, badhands",
+        "positive_prompt_pre_expansion": "",
+        "negative_prompt_pre_expansion": "",
         "enable_positive_prompt_expansion": True, # False,
         "enable_negative_prompt_expansion": True, # False,
+        "enable_positive_prompt_pre_expansion": True, # False,
+        "enable_negative_prompt_pre_expansion": True, # False,
         "seed": "0",
         "generator_model_type": "SDXL"
     }
 
-    pil_image = Image.open("../cremage_resources/check.png")   # FIXME
+    pil_image = Image.open(os.path.join(PROJECT_ROOT, "docs", "images", "bad_faces.png"))
     app = FaceFixer(
         pil_image=pil_image,
         output_file_path=os.path.join(get_tmp_dir(), "tmp_face_fix.png"),

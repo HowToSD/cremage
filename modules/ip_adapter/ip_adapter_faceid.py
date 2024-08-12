@@ -1,6 +1,6 @@
 import os
+import logging
 from typing import List
-
 if os.environ.get("ENABLE_HF_INTERNET_CONNECTION") == "1":
     local_files_only_value=False
 else:
@@ -18,6 +18,9 @@ from transformers import CLIPImageProcessor, CLIPVisionModelWithProjection
 
 from .attention_processor_faceid import LoRAAttnProcessor, LoRAIPAttnProcessor
 from .utils import is_torch2_available, get_generator
+
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+logger = logging.getLogger(__name__)
 
 USE_DAFAULT_ATTN = False # should be True for visualization_attnmap
 if is_torch2_available() and (not USE_DAFAULT_ATTN):
@@ -706,6 +709,18 @@ def generate_face_embedding_from_image(face_input_img_path: str,
 
     image = cv2.imread(face_input_img_path)
     faces = app.get(image)
+    
+    # Cremage note if there is not enough margin aruond
+    #   the face, detection can fail, so retry after adding some margin
+    if len(faces) == 0:
+        logger.info("Retrying detection with additional margin around the face")
+        # Add a 200px border (margin) to all sides
+        top, bottom, left, right = 200, 200, 200, 200
+        image = cv2.copyMakeBorder(image, top, bottom, left, right, borderType=cv2.BORDER_CONSTANT, value=[255, 255, 255])
+        faces = app.get(image)
+        if len(faces) == 0:
+            logger.warn("No face was detected")
+            return None, None
 
     face_id_embeddings = torch.from_numpy(faces[0].normed_embedding).unsqueeze(0)
     pil_face_image = face_align.norm_crop(image, landmark=faces[0].kps, image_size=224) # you can also segment the face

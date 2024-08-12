@@ -60,6 +60,7 @@ from cremage.utils.ml_utils import scale_pytorch_images
 from cremage.utils.misc_utils import extract_embedding_filenames
 from cremage.utils.wildcards import resolve_wildcards
 from cremage.utils.random_utils import safe_random_int
+from cremage.const.const import GMT_SD_1_5, GMT_SDXL
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -282,7 +283,7 @@ def load_model_from_config(config, opt, verbose=False, inpainting=False):
         load_face_id = False
     
     # Patch the parameters for LoRA
-    if opt.lora_models is None or opt.lora_models == "":
+    if opt.lora_models is None or opt.lora_models.upper() == "NONE" or opt.lora_models == "":
         tmp_lora_model_list = []
         tmp_lora_weight_list = []
     else:
@@ -623,8 +624,9 @@ def generate(opt,
             opt.face_input_img,
             opt.face_model,
             batch_size=opt.n_samples)
-        logger.debug(f"Generated face_embedding. Shape: {face_embedding.shape}")
-        load_face_id = True
+        if face_embedding is not None and uc_face_embedding is not None:
+            logger.debug(f"Generated face_embedding. Shape: {face_embedding.shape}")
+            load_face_id = True
 
         # # FIXME
         # face_embedding = torch.tensor(np.load("pos.npy"), dtype=torch.float16).to("cuda")
@@ -1120,7 +1122,6 @@ def generate(opt,
 
                                 # Extra processing start
                                 if opt.auto_face_fix:
-                                    from face_fixer import FaceFixer
                                     logger.debug("Applying face fix")
                                     status_queue.put("Applying face fix")
                                     app = load_user_config()
@@ -1129,17 +1130,30 @@ def generate(opt,
                                         auto_face_fix_prompt = opt.auto_face_fix_prompt
                                     else:
                                         auto_face_fix_prompt = opt.prompt
-                                    face_fixer = FaceFixer(
-                                        preferences=app,
-                                        positive_prompt=auto_face_fix_prompt,
-                                        negative_prompt=opt.negative_prompt,
-                                        denoising_strength=opt.auto_face_fix_strength,
-                                        procedural=True,
-                                        status_queue=status_queue)
+                                    
+                                    face_fix_options = {
+                                            "positive_prompt" : auto_face_fix_prompt,
+                                            "negative_prompt" : opt.negative_prompt,
+                                            "clip_skip": opt.clip_skip,
+                                            "denoising_strength": opt.auto_face_fix_strength,
+                                            "sampler": "DDIM",
+                                            "sampling_steps": 50,
+                                            "model_path": opt.ckpt,
+                                            "vae_path": opt.vae_ckpt,
+                                            "lora_models": opt.lora_models,
+                                            "lora_weights": opt.lora_weights,
+                                            "sampler": opt.sampler,
+                                            "seed": "0",
+                                            "generator_model_type": GMT_SD_1_5
+                                            # "status_queue": status_queue
+                                    }
+
                                     if opt.auto_face_fix_face_detection_method == "InsightFace":
-                                        img = face_fixer.fix_with_insight_face(img)
+                                        from face_detection.face_detector_engine import fix_with_insight_face
+                                        img = fix_with_insight_face(img, **face_fix_options)
                                     elif opt.auto_face_fix_face_detection_method == "OpenCV":
-                                        img = face_fixer.fix_with_opencv(img)
+                                        from face_detection.face_detector_engine import fix_with_opencv
+                                        img = fix_with_opencv(img, **face_fix_options)
                                     else:
                                         logger.info(f"Ignoring unsupported face detection method: {opt.auto_face_fix_face_detection_method}")
                                     # Save in generation information

@@ -19,7 +19,7 @@ sys.path = [TOOLS_ROOT, MODULE_ROOT] + sys.path
 from image_cropper import ImageCropper
 from image_scaler import ImageScaler
 from spot_inpainter import SpotInpainter
-from face_fixer import FaceFixer
+from cremage.face.face_fixer import FaceFixer
 from graffiti_editor import GraffitiEditor
 from image_segmenter import ImageSegmenter
 from prompt_builder import PromptBuilder
