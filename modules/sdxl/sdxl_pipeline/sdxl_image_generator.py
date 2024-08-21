@@ -661,6 +661,10 @@ def generate(options=None,
                         # "status_queue": status_queue
                 }
 
+                # import tracemalloc
+                # tracemalloc.start()
+                # snapshot1 = tracemalloc.take_snapshot()
+
                 if opt.auto_face_fix_face_detection_method == "InsightFace":
                     from face_detection.face_detector_engine import fix_with_insight_face
                     pil_img = fix_with_insight_face(pil_img, **face_fix_options)
@@ -669,6 +673,12 @@ def generate(options=None,
                     pil_img = fix_with_opencv(pil_img, **face_fix_options)
                 else:
                     logger.info(f"Ignoring unsupported face detection method: {opt.auto_face_fix_face_detection_method}")
+
+                # snapshot2 = tracemalloc.take_snapshot()
+                # print("Display memory allocation for face_fix")
+                # top_stats = snapshot2.compare_to(snapshot1, 'lineno')
+                # for stat in top_stats[:10]:
+                #     print(stat)
 
                 sample = pil_image_to_tensor(pil_img,
                                              half=sample.dtype==torch.float16,

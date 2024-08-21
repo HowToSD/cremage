@@ -679,6 +679,7 @@ class FaceFixer(Gtk.Window):
         process_face_params["positive_prompt"] = positive_prompt
         process_face_params["negative_prompt"] = negative_prompt
         process_face_params["denoising_strength"] = float(self.denoising_entry.get_text())
+        process_face_params["sampling_steps"] = int(self.preferences["sampling_steps"])
 
         if detection_method == "InsightFace":
             annotated_image = fix_with_insight_face(self.pil_image, **process_face_params)
@@ -735,7 +736,7 @@ class FaceFixer(Gtk.Window):
         process_face_params["positive_prompt"] = positive_prompt
         process_face_params["negative_prompt"] = negative_prompt
         process_face_params["denoising_strength"] = float(self.denoising_entry.get_text())
-
+        process_face_params["sampling_steps"] = int(self.preferences["sampling_steps"])
         if faces is not None:
             for face_rect in faces:
                 face = (face_rect.left,

@@ -1206,6 +1206,7 @@ def generate(opt,
 
     # Release memory
     del samples, x_samples, c, uc, start_code
+    del sampler, model
 
     # Clear PyTorch's cache
     device_type = os.environ.get("GPU_DEVICE", "cpu")

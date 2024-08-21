@@ -19,12 +19,13 @@ if os.environ.get("ENABLE_HF_INTERNET_CONNECTION") == "1":
     local_files_only_value=False
 else:
     local_files_only_value=True
-
+import gc
 import logging
 import argparse
 from io import BytesIO
 from typing import List
 
+import torch
 import numpy as np
 import cv2 as cv
 import PIL
@@ -175,6 +176,15 @@ def process_face(
         predicted_class_idx = logits.argmax(-1).item()
         predicted_gender = model.config.id2label[predicted_class_idx]  # "male" or "female"
         logging.info(f"Predicted gender: {predicted_gender}")
+
+        # Free up memory used by the gender predictor
+        del model, processor
+        device_type = os.environ.get("GPU_DEVICE", "cpu")
+        if device_type == "cuda" and torch.cuda.is_available():
+            torch.cuda.empty_cache()  # Only call this if CUDA is available and intended for use
+
+        # Manually collect garbage
+        gc.collect()
 
         if w > h:  # landscape
             new_h = int(h * target_edge_len / w)
@@ -399,11 +409,15 @@ def mark_face_with_opencv(pil_image):
     # rescale coordinates
     if scaled:
         faces = face_data[1]
-        for i, face in enumerate(faces):
-            faces[i][0] = face[0] * scale2
-            faces[i][1] = face[1] * scale2
-            faces[i][2] = face[2] * scale2
-            faces[i][3] = face[3] * scale2
+        if faces is not None:
+            for i, face in enumerate(faces):
+                faces[i][0] = face[0] * scale2
+                faces[i][1] = face[1] * scale2
+                faces[i][2] = face[2] * scale2
+                faces[i][3] = face[3] * scale2
+
+    del detector
+    gc.collect()
 
     return face_data
 

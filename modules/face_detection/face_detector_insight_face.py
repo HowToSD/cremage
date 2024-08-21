@@ -5,6 +5,7 @@
 # https://github.com/deepinsight/insightface/blob/master/python-package/insightface/utils/face_align.py
 import os
 import sys
+import gc
 import logging
 import re
 from typing import Optional
@@ -170,6 +171,11 @@ def get_face_bounding_boxes(
 
     source_faces = face_analyzer.get(rgb_cv_image)  
     bbox_list = [f.bbox for f in source_faces]    
+
+    # Free memory
+    del face_analyzer
+    gc.collect()
+
     return bbox_list
 
 def main():
