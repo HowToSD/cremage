@@ -164,18 +164,6 @@ def generate(
                 generation_parameters["auto_face_fix_prompt"] = face_fix_options["positive_prompt"]
                 generation_parameters["auto_face_fix_face_detection_method"] = face_fix_options["detection_method"]
 
-            # generation_parameters = {
-            #         # "ldm_model": os.path.basename(opt.ckpt),
-            #         # "vae_model": os.path.basename(opt.vae_ckpt),
-            #         # "lora_models": opt.lora_models,
-            #         # "lora_weights": opt.lora_weights,
-            #         # "sampler": opt.sampler.replace("Sampler", ""),
-            #         # "sampling_iterations": opt.sampling_steps,
-            #         # #  "clip_skip": opt.clip_skip,  # Cremage. Commenting out as CLIP skip for SDXL creates confusion
-            #         # "watermark": False,
-            #         # "safety_check": False
-            #     }
-
             file_number = file_number_base + new_seed_group_index + i
             time_str = time.time()
             file_name =  os.path.join(out_dir, f"{file_number:05}_{time_str}.png")
@@ -194,11 +182,11 @@ def generate(
                 image = put_watermark(image, wm_encoder)
 
             str_generation_params = json.dumps(generation_parameters)
-            # Pass img (PIL Image) to the main thread here!
-            if ui_thread_instance:
-                update_image(ui_thread_instance,
-                                image,
-                                generation_parameters=str_generation_params)
+            if ui_thread_instance:  # Pass image to the UI process
+                from cremage.utils.image_utils import serialize_pil_image
+                image_data = serialize_pil_image(image)
+                d = {"image": image_data, "generation_parameters": str_generation_params}
+                status_queue.put(d)
 
             # end single batch
     gc.collect()

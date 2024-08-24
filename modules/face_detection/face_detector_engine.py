@@ -102,7 +102,7 @@ def process_face(
                     lora_weights = None,
                     embedding_path = None,
                     sampling_steps = None,
-                    seed = 0,
+                    seed = -1,
                     vae_path = None,
                     sampler = None,
                     target_edge_len = None,

@@ -4,14 +4,8 @@
 ## Updates
 See  [Release note](docs/release_note.md "View Release note").
 
-August 9, 2024 (v3.3.0)
-FLUX.1-schnell support has been added. This has been only tested on Linux.
-Windows has not been tested but it should run. If you run into an issue, please file a ticket.
-Mac is not supported for FLUX.
-
-requirements.txt has been updated. If you are using Linux, you need to update your Python package dependencies. Please refer to the Release Note above.
-
-For more information, refer to [FLUX.1-schnell](docs/users_guide/ug_flux.md "FLUX.1-schnell")
+August 24, 2024 (v4.0.0)
+I have undertaken a major refactoring to address a memory leak that occurred when using the auto face fix feature. This bug manifested as an "out of memory" error in system RAM when generating images in SDXL with auto face fix enabled. Due to the extensive code changes, I have released a new version. This update has been tested only on Linux. If you encounter any issues on macOS or Windows, please file a ticket.
 
 # Welcome to Cremage.
 

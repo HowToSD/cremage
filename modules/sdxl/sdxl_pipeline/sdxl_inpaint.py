@@ -159,11 +159,19 @@ def generate(
 
             str_generation_params = json.dumps(generation_parameters)
             # Pass img (PIL Image) to the main thread here!
-            if ui_thread_instance:
-                update_image(ui_thread_instance,
-                                image,
-                                generation_parameters=str_generation_params)
+            # if ui_thread_instance:
+            #     update_image(ui_thread_instance,
+            #                     image,
+            #                     generation_parameters=str_generation_params)
 
+            if ui_thread_instance:  # Pass image to the UI process
+                import io
+                # Serialize the image
+                image_stream = io.BytesIO()
+                image.save(image_stream, format='PNG')
+                image_data = image_stream.getvalue()
+                d = {"image": image_data, "generation_parameters": str_generation_params}
+                status_queue.put(d)  # Put the dictionary in the queue
             # end single batch
     gc.collect()
     # end batch

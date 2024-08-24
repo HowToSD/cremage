@@ -65,7 +65,7 @@ def face_image_to_image(input_image=None,
                         lora_weights = None,
                         embedding_path = None,
                         sampling_steps = None,
-                        seed = 0,
+                        seed = -1,
                         vae_path = None,
                         sampler = None,
                         target_edge_len = None,
@@ -152,11 +152,13 @@ def face_image_to_image(input_image=None,
             "--face_model", face_model_full_path
         ]
 
+    # multithreading seems to cause memory leak when you move model between
+    # cpu and gpu.
+    use_thread = False
+    
     if is_sdxl:
         from sdxl.sdxl_pipeline.options import parse_options as sdxl_parse_options
         from sdxl.sdxl_pipeline.sdxl_image_generator import generate as sdxl_generate
-        options = sdxl_parse_options(args_list)
-        generate_func=sdxl_generate
 
         args_list += [
             "--refiner_strength", "0", # str(refiner_strength),
@@ -176,25 +178,47 @@ def face_image_to_image(input_image=None,
             "--sampler_eta", str(sampler_eta),
             "--sampler_order", str(sampler_order)
         ]
+        options = sdxl_parse_options(args_list)
+        setattr(options, "disable_seed", True)
+        generate_func=sdxl_generate
 
         # Start the image generation thread
-        thread = threading.Thread(
-            target=generate_func,
-            kwargs={'options': options,
-                    'generation_type': "img2img",
-                    'ui_thread_instance': None})  # FIXME
+        if use_thread:
+            thread = threading.Thread(
+                target=generate_func,
+                kwargs={'options': options,
+                        'generation_type': "img2img",
+                        'ui_thread_instance': None})  # FIXME
+        else:
+            generate_func(options=options,
+                         generation_type="img2img")
     else:  # SD15
         options = sd15_parse_options(args_list)
         generate_func=sd15_img2img_generate
+        setattr(options, "disable_seed", True)
 
-        # Start the image generation thread
-        thread = threading.Thread(
-            target=generate_func,
-            kwargs={'options': options,
-                    'ui_thread_instance': None})  # FIXME
-    thread.start()
+        if use_thread:
+            # Start the image generation thread
+            thread = threading.Thread(
+                target=generate_func,
+                kwargs={'options': options,
+                        'ui_thread_instance': None})  # FIXME
+        else:
+            generate_func(options=options)
+            print("*****")
+            print("DEBUG POINT 1")
 
-    thread.join()  # Wait until img2img is done.
+        # app.ui_to_ml_queue.put({
+        #     "type": MP_LDM,
+        #     "mode": app.generation_mode,
+        #     "command":{'options': options,
+        #             'ui_thread_instance': True}
+        # })
+
+    if use_thread:
+        thread.start()
+
+        thread.join()  # Wait until img2img is done.
 
     # Get the name of the output image
     files = os.listdir(output_dir)

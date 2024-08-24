@@ -403,14 +403,16 @@ def generate(options=None, ui_thread_instance=None, status_queue=None):
                             f"{base_count:05}_{time_str}.png"),
                             pnginfo=metadata)
 
-        if ui_thread_instance:
-            update_image(ui_thread_instance,
-                         output_image,
-                        generation_parameters=str_generation_params)
+        if ui_thread_instance:  # Pass image to the UI process
+            import io
+            # Serialize the image
+            image_stream = io.BytesIO()
+            output_image.save(image_stream, format='PNG')
+            image_data = image_stream.getvalue()
+            d = {"image": image_data, "generation_parameters": str_generation_params}
+            status_queue.put(d)  # Put the dictionary in the queue
 
         base_count += 1
-
-
 
     print(f"Images generated in {sample_path}")
     return result

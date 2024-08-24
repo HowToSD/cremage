@@ -1,4 +1,7 @@
 # Release Note
+August 24, 2024 (v4.0.0)
+I have undertaken a major refactoring to address a memory leak that occurred when using the auto face fix feature. This bug manifested as an "out of memory" error in system RAM when generating images in SDXL with auto face fix enabled. Due to the extensive code changes, I have released a new version. This update has been tested only on Linux. If you encounter any issues on macOS or Windows, please file a ticket.
+
 August 12, 2024 (v3.4.1)
 Refactored Face Fix related code. This was quite extensive changes underneath related to face fix. If you run into any issues, please file a ticket.
 Auto face fix for FLUX.1-schnell should work now.

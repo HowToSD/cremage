@@ -4,20 +4,17 @@ Generate button handler for the main UI.
 import os
 import logging
 import sys
-import threading
+# import threading
 import queue
 
 from PIL import Image
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib
+# from gi.repository import GLib
 
 PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path = [PROJECT_ROOT, MODULE_ROOT] + sys.path
-from sd.txt2img import generate as sd15_txt2img_generate
-from sd.img2img import generate as sd15_img2img_generate
-from sd.inpaint import generate as sd15_inpaint_generate
 from sd.options import parse_options as sd15_parse_options
 
 from cremage.const.const import *
@@ -28,6 +25,8 @@ from cremage.utils.misc_utils import join_directory_and_file_name
 from cremage.utils.prompt_history import update_prompt_history
 from cremage.ui.ui_to_preferences import copy_ui_field_values_to_preferences
 from text_prompt_safety_checker.infer_v2 import predict as text_prompt_safety_check
+from cremage.mp.mp import MP_MESSAGE_TYPE_INFERENCE
+from cremage.utils.image_utils import serialize_pil_image
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -261,17 +260,13 @@ def generate_handler(app, widget, event) -> None:
             args_list += [
                 "--init-img", input_image_path,
             ]
-            generate_func = sd15_img2img_generate
-
+            # generate_func = sd15_img2img_generate
             if app.generation_mode == MODE_INPAINTING:
                 # Save current image_input to a file
                 args_list += [
                     "--mask-img", app.mask_image_path,
                     "--inpaint_ckpt", ldm_inpaint_path
                 ]
-                generate_func = sd15_inpaint_generate
-        else:  # txt2img
-            generate_func = sd15_txt2img_generate
 
         options = sd15_parse_options(args_list)
 
@@ -291,13 +286,14 @@ def generate_handler(app, widget, event) -> None:
             positive_prompt_pre_expansion,
             negative_prompt_pre_expansion)
 
-        status_queue = queue.Queue()
-        # Start the image generation thread
-        thread = threading.Thread(
-            target=generate_func,
-            kwargs={'options': options,
-                    'ui_thread_instance': app,
-                    'status_queue': status_queue})
+        status_queue = queue.Queue()  # FIXME: Remove this once we finish migration to MP
+        app.ui_to_ml_queue.put({
+            "type": MP_MESSAGE_TYPE_INFERENCE,
+            "generator_model_type": generator_model_type,
+            "mode": app.generation_mode,
+            "parameters":{'options': options,
+                    'ui_thread_instance': True}
+        })
     # end if sd 1.5
 
     elif generator_model_type == GMT_SDXL:
@@ -306,11 +302,6 @@ def generate_handler(app, widget, event) -> None:
             "--face_fix_ckpt",  join_directory_and_file_name(app.preferences["ldm_model_path"], app.preferences["ldm_model"]),
             "--face_fix_vae_ckpt", join_directory_and_file_name(app.preferences["vae_model_path"], app.preferences["vae_model"])
         ]
-
-        if app.generation_mode == MODE_INPAINTING:
-            from sdxl.sdxl_pipeline.sdxl_inpaint import generate as sdxl_generate
-        else:
-            from sdxl.sdxl_pipeline.sdxl_image_generator import generate as sdxl_generate
 
         if app.generation_mode in (MODE_IMAGE_TO_IMAGE, MODE_INPAINTING):
             # Save current image_input to a file
@@ -361,8 +352,6 @@ def generate_handler(app, widget, event) -> None:
                 "--sampler_order", str(app.preferences["sampler_order"])
             ]
 
-        generate_func = sdxl_generate
-
         from sdxl.sdxl_pipeline.options import parse_options as sdxl_parse_options
         options = sdxl_parse_options(args_list)
 
@@ -383,16 +372,25 @@ def generate_handler(app, widget, event) -> None:
             positive_prompt_pre_expansion,
             negative_prompt_pre_expansion)
 
-        status_queue = queue.Queue()
+        # status_queue = queue.Queue()
         # Start the image generation thread
         if app.generation_mode != MODE_INPAINTING:
 
-            thread = threading.Thread(
-                target=generate_func,
-                kwargs={'options': options,
-                        'generation_type': generation_type,
-                        'ui_thread_instance': app,
-                        'status_queue': status_queue})
+            # thread = threading.Thread(
+            #     target=generate_func,
+            #     kwargs={'options': options,
+            #             'generation_type': generation_type,
+            #             'ui_thread_instance': app,
+            #             'status_queue': status_queue})
+            
+            app.ui_to_ml_queue.put({
+                "type": MP_MESSAGE_TYPE_INFERENCE,
+                "generator_model_type": generator_model_type,
+                "mode": app.generation_mode,
+                "parameters":{'options': options,
+                        'ui_thread_instance': True}
+            })
+
         else:  # sdxl inpainting
             if  app.preferences["auto_face_fix_prompt"]:
                 auto_face_fix_positive_prompt = app.preferences["auto_face_fix_prompt"]
@@ -467,13 +465,16 @@ def generate_handler(app, widget, event) -> None:
                     generator_model_type=generator_model_type)
 
             kwargs.update({
-                    'ui_thread_instance': app,
-                    'status_queue': status_queue})
+                    'ui_thread_instance': True})
 
-            thread = threading.Thread(
-                target=generate_func,
-                kwargs=kwargs
-            )
+            app.ui_to_ml_queue.put({
+                "type": MP_MESSAGE_TYPE_INFERENCE,
+                "generator_model_type": generator_model_type,
+                "mode": app.generation_mode,
+                "parameters":{'options': kwargs}
+            })
+
+
         # end if inpainting
     # end if sdxl
 
@@ -586,15 +587,15 @@ def generate_handler(app, widget, event) -> None:
         if app.generation_mode == MODE_IMAGE_TO_IMAGE and \
            generator_model_type in [GMT_KANDINSKY_2_2]:
             kwargs.update({
-                "input_image": app.input_image_original_size,
+                "input_image": serialize_pil_image(app.input_image_original_size),
                 "denoising_strength": app.preferences["denoising_strength"]
             })
 
         if app.generation_mode == MODE_INPAINTING and \
            generator_model_type in [GMT_KANDINSKY_2_2]:
             kwargs.update({
-                "input_image": app.input_image_original_size,
-                "mask_image": Image.open(app.mask_image_path),
+                "input_image": serialize_pil_image(app.input_image_original_size),
+                "mask_image": serialize_pil_image(Image.open(app.mask_image_path)),
             })
 
         if generator_model_type in [GMT_FLUX_1_SCHNELL]:
@@ -621,36 +622,43 @@ def generate_handler(app, widget, event) -> None:
         # In-place update. Note this returns None, so do not try to optimize by putting this
         # as the argument for kw= below.
         kwargs.update({
-                'ui_thread_instance': app,
-                'status_queue': status_queue})
+                'ui_thread_instance': True})
 
-        thread = threading.Thread(
-            target=target_func,
-            kwargs=kwargs
-        )
+        # thread = threading.Thread(
+        #     target=target_func,
+        #     kwargs=kwargs
+        # )
 
-    thread.start()
+        app.ui_to_ml_queue.put({
+            "type": MP_MESSAGE_TYPE_INFERENCE,
+            "generator_model_type": generator_model_type,
+            "mode": app.generation_mode,
+            "parameters":{'options': kwargs}
+        })
 
-    GLib.timeout_add(100, update_ui, app, status_queue)
+    # if generator_model_type not in [GMT_SD_1_5, GMT_SDXL]:
+    #     thread.start()
+
+    #     GLib.timeout_add(100, update_ui, app, status_queue)
 
 
-def update_ui(app, status_queue) -> bool:
-    """
-    Updates the main UI with image generation status.
-    This method is invoked during each iteration in sampling.
+# def update_ui(app, status_queue) -> bool:
+#     """
+#     Updates the main UI with image generation status.
+#     This method is invoked during each iteration in sampling.
 
-    Args:
-        app (Gtk.Window): The main application.
-        status_queue (queue): The queue to receive status update from the generation thread.
-    """
-    try:
-        message = status_queue.get_nowait()
-        # app_window.set_title(message)
-        # print(message)
-        GLib.idle_add(app.generation_status.set_text, message)
+#     Args:
+#         app (Gtk.Window): The main application.
+#         status_queue (queue): The queue to receive status update from the generation thread.
+#     """
+#     try:
+#         message = status_queue.get_nowait()
+#         # app_window.set_title(message)
+#         # print(message)
+#         GLib.idle_add(app.generation_status.set_text, message)
 
-        if message == "Done":
-            return False
-    except queue.Empty:
-        pass
-    return True
+#         if message == "Done":
+#             return False
+#     except queue.Empty:
+#         pass
+#     return True

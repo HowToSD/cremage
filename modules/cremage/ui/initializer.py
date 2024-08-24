@@ -4,13 +4,15 @@ Main UI definition
 import os
 import logging
 import sys
+import multiprocessing
+import threading
 from functools import partial
 import time
 
 from PIL import Image
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, GLib
 
 PROJECT_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 MODULE_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -23,6 +25,8 @@ from cremage.ui.auto_face_fix_change_handler import toggle_auto_face_fix_ui
 from cremage.ui.sdxl_use_refiner_check_box_handler import toggle_use_refiner_ui
 from cremage.utils.pixart_sigma_utils import toggle_pixart_sigma_ui
 from cremage.const.const import *
+from cremage.ui.update_image_handler import update_image
+from cremage.utils.image_utils import deserialize_pil_image
 
 BLANK_IMAGE_PATH = os.path.join(PROJECT_ROOT, "resources", "images", "blank_image_control_net.png")
 
@@ -30,7 +34,7 @@ logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
 
-def initializer(app:Gtk.Window) -> None:
+def initializer(app:Gtk.Window, ui_to_ml_queue, ml_to_ui_queue) -> None:
     """
     Defines application's initialization code.
 
@@ -38,9 +42,37 @@ def initializer(app:Gtk.Window) -> None:
         app (Gtk.Window): The application window instance
     """
     # clean_tmp_dir()  # FIXME
+    app.ui_to_ml_queue = ui_to_ml_queue
+    app.ml_to_ui_queue = ml_to_ui_queue
     first_init(app)  
     main_ui_definition(app)   
     final_init(app)
+
+    # Thread to monitor ML process queue
+    def monitor_ml_queue():
+        while True:
+            try:
+                message = ml_to_ui_queue.get_nowait()
+                if isinstance(message, str):
+                    GLib.idle_add(app.generation_status.set_text, message)
+                elif isinstance(message, dict):
+                    if "image" in message:
+                        import io
+                        # Deserialize the image data
+                        image_data = message["image"]
+                        str_generation_params = message["generation_parameters"]
+                        img = deserialize_pil_image(image_data)
+                        update_image(app,
+                                     img,
+                                     generation_parameters=str_generation_params)
+
+            except multiprocessing.queues.Empty:
+                time.sleep(0.001)
+
+    # Start the monitoring thread
+    monitor_thread = threading.Thread(target=monitor_ml_queue)
+    monitor_thread.daemon = True
+    monitor_thread.start()
 
 
 def first_init(app:Gtk.Window):

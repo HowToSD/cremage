@@ -424,12 +424,15 @@ def generate(options=None,
         add_pipeline = True
 
     # Seed
-    if opt.seed == -1:
-        seed = safe_random_int()
+    if hasattr(opt, "disable_seed") is False:
+        if opt.seed == -1:
+            seed = safe_random_int()
+        else:
+            seed = opt.seed
+        seed_everything(seed)
     else:
-        seed = opt.seed
-    seed_everything(seed)
-    
+        seed = -1
+
     # When LoRA model changes, a model has to be instantiated
     # as weights will be different.
     if persistent_state is None or prev_lora_models != opt.lora_models or \
@@ -732,12 +735,15 @@ def generate(options=None,
                 wm_encoder=wm_encoder)
 
             str_generation_params = json.dumps(generation_parameters)
-            # Pass img (PIL Image) to the main thread here!
-            if ui_thread_instance:
-                update_image(ui_thread_instance,
-                                img2,
-                                generation_parameters=str_generation_params)
-                
+            if ui_thread_instance:  # Pass image to the UI process
+                import io
+                # Serialize the image
+                image_stream = io.BytesIO()
+                img2.save(image_stream, format='PNG')
+                image_data = image_stream.getvalue()
+                d = {"image": image_data, "generation_parameters": str_generation_params}
+                status_queue.put(d)  # Put the dictionary in the queue
+
             base_count += 1
 
         # end single batch

@@ -61,6 +61,7 @@ from cremage.utils.misc_utils import extract_embedding_filenames
 from cremage.utils.wildcards import resolve_wildcards
 from cremage.utils.random_utils import safe_random_int
 from cremage.const.const import GMT_SD_1_5, GMT_SDXL
+from cremage.utils.misc_utils import get_memory_usage_in_mb
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -561,6 +562,9 @@ def scale_control_image(input_image, hires_fix_upscale_factor, num_samples):
     return scaled_control
 
 
+previous_opt = None
+previous_model = None
+
 def generate(opt,
              ui_thread_instance=None,
              generation_type="txt2img",
@@ -569,6 +573,10 @@ def generate(opt,
     Generate one or more images using the specified options.
     ui_thread_instance is used for callbacks to update UI.
     """
+
+    global previous_opt
+    global previous_model
+
     # Add padding to generate the image that has edge length being the multiples of 64
     # Note that bbox_to_crop may be overridden in img2img2 preprocessing
     # so that the original source image won't be clipped or padded.
@@ -597,11 +605,14 @@ def generate(opt,
         use_hires_fix = False
 
     # Seed
-    if opt.seed == -1:
-        seed = safe_random_int()
+    if hasattr(opt, "disable_seed") is False:
+        if opt.seed == -1:
+            seed = safe_random_int()
+        else:
+            seed = opt.seed
+        seed_everything(seed)
     else:
-        seed = opt.seed
-    seed_everything(seed)
+        seed = -1
 
     # Determine if ControlNet is to be used
     use_control_net = (
@@ -636,15 +647,29 @@ def generate(opt,
         logger.debug("Face input image is specified but the face model is not found. Ignoring face image")
 
     # Load the main LDM model
-    logger.debug("Instantiating the main model ...")
-    model = load_model_from_config(config, opt)
-    logger.debug("Instantiated the main model")
+    cache_model = True
+    if cache_model and previous_opt and previous_model and \
+        opt.ckpt == previous_opt.ckpt and \
+        opt.vae_ckpt == previous_opt.vae_ckpt and \
+        opt.lora_models == previous_opt.lora_models and \
+        opt.lora_weights == previous_opt.lora_weights:
+        model = previous_model
+        logger.info("Reusing the LDM model ...")
+    else:
+        logger.debug("Instantiating the main model ...")
+        model = load_model_from_config(config, opt)
+        logger.info("Instantiated the LDM model")
+        previous_opt = opt
+        previous_model = model
 
     device = torch.device(os.environ.get("GPU_DEVICE", "cpu"))
-    model = model.to(device)
 
     if opt.save_memory:
+        logging.info(f"sd1.5 image_generator.generate. System RAM usage initial: {get_memory_usage_in_mb():,.0f} MB")
         model.low_vram_shift(is_diffusing=False)
+        logging.info(f"sd1.5 image_generator.generate. System RAM usage after initial vram_shift: {get_memory_usage_in_mb():,.0f} MB")
+    else:
+        model = model.to(device)
 
     # Instantiate sampler
     if generation_type != "txt2img":
@@ -788,7 +813,9 @@ def generate(opt,
                         shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
 
                         if opt.save_memory:
+                            logging.info(f"sd1.5 image_generator.generate. System RAM usage before vram shift for unet: {get_memory_usage_in_mb():,.0f} MB")
                             model.low_vram_shift(is_diffusing=True)
+                            logging.info(f"sd1.5 image_generator.generate. System RAM usage after vram shift for unet: {get_memory_usage_in_mb():,.0f} MB")
 
                         if use_control_net:
                             logger.debug("Calling sampler with control image")
@@ -968,7 +995,9 @@ def generate(opt,
                                         )
 
                         if opt.save_memory:
+                            logging.info(f"sd1.5 image_generator.generate. System RAM usage before vram shift before vae: {get_memory_usage_in_mb():,.0f} MB")
                             model.low_vram_shift(is_diffusing=False)
+                            logging.info(f"sd1.5 image_generator.generate. System RAM usage after vram shift before vae: {get_memory_usage_in_mb():,.0f} MB")
 
                         # 3. Convert image from latent space to pixel space using VAE
                         if opt.save_memory:
@@ -1005,7 +1034,9 @@ def generate(opt,
                             print(f"target t_enc is {t_enc} steps")
 
                             if opt.save_memory:
+                                logging.info(f"sd1.5 image_generator.generate. System RAM usage before vram shift for hiresfix unet: {get_memory_usage_in_mb():,.0f} MB")
                                 model.low_vram_shift(is_diffusing=True)
+                                logging.info(f"sd1.5 image_generator.generate. System RAM usage after vram shift for hiresfix unet: {get_memory_usage_in_mb():,.0f} MB")
 
                             # Right parameters should be already populated
                             # for txt2img, so do not repeat setting them here except below:
@@ -1054,7 +1085,9 @@ def generate(opt,
                             )
 
                             if opt.save_memory:
+                                logging.info(f"sd1.5 image_generator.generate. System RAM usage before vram shift for hiresfix vae: {get_memory_usage_in_mb():,.0f} MB")
                                 model.low_vram_shift(is_diffusing=False)
+                                logging.info(f"sd1.5 image_generator.generate. System RAM usage after vram shift for hiresfix vae: {get_memory_usage_in_mb():,.0f} MB")
 
                             # 3. Convert image from latent space to pixel space using VAE
                             x_samples = model.decode_first_stage(samples)
@@ -1191,12 +1224,15 @@ def generate(opt,
                                                  f"{file_name}.png"),
                                             pnginfo=metadata)
 
-                                # Pass img (PIL Image) to the main thread here!
-                                if ui_thread_instance:
-                                    update_image(ui_thread_instance,
-                                                 img,
-                                                 generation_parameters=str_generation_params)
-                                    
+                                if ui_thread_instance:  # Pass image to the UI process
+                                    import io
+                                    # Serialize the image
+                                    image_stream = io.BytesIO()
+                                    img.save(image_stream, format='PNG')
+                                    image_data = image_stream.getvalue()
+                                    d = {"image": image_data, "generation_parameters": str_generation_params}
+                                    status_queue.put(d)  # Put the dictionary in the queue
+
                                 base_count += 1
                             
                             # single image processing end
@@ -1205,8 +1241,16 @@ def generate(opt,
                 toc = time.time()
 
     # Release memory
+    if opt.save_memory:
+        logging.info(f"sd1.5 image_generator.generate. System RAM usage before vramshift before gc: {get_memory_usage_in_mb():,.0f} MB")
+        model.low_vram_shift(is_diffusing=False, deinit=True)
+        logging.info(f"sd1.5 image_generator.generate. System RAM usage after vramshift before gc: {get_memory_usage_in_mb():,.0f} MB")
+
     del samples, x_samples, c, uc, start_code
-    del sampler, model
+    del sampler
+    
+    if cache_model is False:
+        del model
 
     # Clear PyTorch's cache
     device_type = os.environ.get("GPU_DEVICE", "cpu")
@@ -1216,6 +1260,7 @@ def generate(opt,
     # Manually collect garbage
     gc.collect()
 
+    logging.info(f"sd1.5 image_generator.generate. System RAM usage at the end: {get_memory_usage_in_mb():,.0f} MB")
     print(f"Image generation completed. Image were generated in: {outpath}")
 
 

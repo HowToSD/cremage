@@ -13,6 +13,7 @@ import logging
 import shutil
 from typing import List, Dict, Any, Tuple
 import json
+import psutil
 
 TMP_DIR = os.path.join(os.path.expanduser("~"), ".cremage", "tmp")
 
@@ -455,3 +456,21 @@ def strip_directory_from_path_list_str(path_str: str, delimiter: str = ",") -> s
     paths = path_str.split(delimiter)
     base_paths = [safe_base_name(path) for path in paths]
     return delimiter.join(base_paths)
+
+
+def get_memory_usage_in_mb():
+
+    # Get the current process ID
+    process = psutil.Process(os.getpid())
+
+    # Get the memory usage in bytes
+    memory_usage = process.memory_info().rss  # Resident Set Size (RSS)
+
+    # Convert bytes to MB
+    memory_usage_in_mb = memory_usage / (1024 * 1024)
+
+    return memory_usage_in_mb
+
+
+
+

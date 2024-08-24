@@ -4,6 +4,7 @@ import os
 import sys
 import logging
 import torch
+import gc
 
 lowvram_mode = False
 
@@ -12,6 +13,8 @@ def load_model(model):
     model.to(os.environ.get("GPU_DEVICE", "cpu"))
     if torch.cuda.is_available():
         torch.cuda.synchronize()  # Cremage added
+    gc.collect()
+
 
 def set_lowvram_mode(mode):
     global lowvram_mode

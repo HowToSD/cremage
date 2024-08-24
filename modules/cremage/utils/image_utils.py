@@ -631,3 +631,21 @@ def resize_pil_image(pil_image:Image, target_size:int=128) -> Image:
 
     return pil_image.resize((w, h), resample=PIL.Image.LANCZOS)  # Resize takes a tuple (new_width, new_height)
 
+
+def serialize_pil_image(image: PIL.Image.Image):
+    """
+    Serializes the image to put in a queue for multiprocess communication.
+    """
+    image_stream = io.BytesIO()
+    image.save(image_stream, format='PNG')
+    image_data = image_stream.getvalue()
+    return image_data
+
+
+def deserialize_pil_image(image_data):
+    """
+    Deserializes the image data to PIL image.
+    """
+    image_stream = io.BytesIO(image_data)
+    image = Image.open(image_stream)
+    return image
