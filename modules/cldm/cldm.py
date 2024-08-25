@@ -490,21 +490,28 @@ class ControlLDM(LatentDiffusion):
         opt = torch.optim.AdamW(params, lr=lr)
         return opt
 
-    def low_vram_shift(self, is_diffusing):
+    def low_vram_shift(self, is_diffusing, deinit=False):
         """
         Moves CLIP and VAE models to CPU during diffusing to save GPU memory.
 
         Args:
             is_diffusing (bool): The flag to indicate if diffusing is being done.
-                If so, move UNet models (main and ControlNet) to GPU and move both CLIP and VAE to CPU.
+                If so, move UNet model to GPU and move both CLIP and VAE to CPU.
+            deinit (bool): The flag to move all model to CPU at the end.
         """
-        if is_diffusing:
-            self.model = self.model.to(os.environ.get("GPU_DEVICE", "cpu"))
-            self.control_model = self.control_model.to(os.environ.get("GPU_DEVICE", "cpu"))
-            self.first_stage_model = self.first_stage_model.cpu()
-            self.cond_stage_model = self.cond_stage_model.cpu()
+        if deinit:
+            self.model.cpu()
+            self.control_model.cpu()
+            self.first_stage_model.cpu()
+            self.cond_stage_model.cpu()
         else:
-            self.model = self.model.cpu()
-            self.control_model = self.control_model.cpu()
-            self.first_stage_model = self.first_stage_model.to(os.environ.get("GPU_DEVICE", "cpu"))
-            self.cond_stage_model = self.cond_stage_model.to(os.environ.get("GPU_DEVICE", "cpu"))
+            if is_diffusing:
+                self.model.to(os.environ.get("GPU_DEVICE", "cpu"))
+                self.control_model.to(os.environ.get("GPU_DEVICE", "cpu"))
+                self.first_stage_model.cpu()
+                self.cond_stage_model.cpu()
+            else:
+                self.model.cpu()
+                self.control_model.cpu()
+                self.first_stage_model.to(os.environ.get("GPU_DEVICE", "cpu"))
+                self.cond_stage_model.to(os.environ.get("GPU_DEVICE", "cpu"))

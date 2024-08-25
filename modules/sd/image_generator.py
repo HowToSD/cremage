@@ -564,6 +564,7 @@ def scale_control_image(input_image, hires_fix_upscale_factor, num_samples):
 
 previous_opt = None
 previous_model = None
+previous_config = None
 
 def generate(opt,
              ui_thread_instance=None,
@@ -576,6 +577,7 @@ def generate(opt,
 
     global previous_opt
     global previous_model
+    global previous_config
 
     # Add padding to generate the image that has edge length being the multiples of 64
     # Note that bbox_to_crop may be overridden in img2img2 preprocessing
@@ -652,7 +654,8 @@ def generate(opt,
         opt.ckpt == previous_opt.ckpt and \
         opt.vae_ckpt == previous_opt.vae_ckpt and \
         opt.lora_models == previous_opt.lora_models and \
-        opt.lora_weights == previous_opt.lora_weights:
+        opt.lora_weights == previous_opt.lora_weights and \
+        config == previous_config:
         model = previous_model
         logger.info("Reusing the LDM model ...")
     else:
@@ -662,6 +665,7 @@ def generate(opt,
         previous_opt = opt
         previous_model = model
 
+    previous_config = config
     device = torch.device(os.environ.get("GPU_DEVICE", "cpu"))
 
     if opt.save_memory:
